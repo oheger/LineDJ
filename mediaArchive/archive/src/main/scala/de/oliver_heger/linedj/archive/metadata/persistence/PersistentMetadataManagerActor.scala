@@ -287,11 +287,12 @@ class PersistentMetadataManagerActor(config: MediaArchiveConfig,
         mediaInProgress = mediaInProgress.updated(d.mediumID, d updateResolvedFiles result)
       }
 
-    case PersistentMetadataWriterActor.MetadataWritten(process,
-    success) if sender() == writerActor =>
-      optMetadataFiles = optMetadataFiles map :
-        updateMetadataFiles(_, checksumMapping, process)(if success then addMetadataFile
-        else removeMetadataFile)
+    case MetadataExtractionCompleted(mediumID, success) =>
+      optMetadataFiles = optMetadataFiles map : metadataFiles =>
+        checksumMapping.get(mediumID) match
+          case Some(cs) if success => addMetadataFile(metadataFiles, cs)
+          case Some(cs) => removeMetadataFile(metadataFiles, cs)
+          case None => metadataFiles
 
     case FetchMetadataFileInfo(controller) =>
       sender() ! fetchCurrentMetaFileInfo(controller)
@@ -591,38 +592,16 @@ class PersistentMetadataManagerActor(config: MediaArchiveConfig,
     val assignedFilesStr = assignedFiles map (e => e._1 -> e._2.checksum)
     val unusedFilesStr = unusedFiles map (_.checksum)
     MetadataFileInfo(assignedFilesStr, unusedFilesStr, Some(controller))
-
-  /**
-    * Updates the map with metadata files. This function checks whether the
-    * specified ''ProcessMedium'' object refers to a valid medium. If so, it
-    * delegates to the passed in update function to do the actual update. The
-    * update function is passed the original map with metadata files, the
-    * checksum affected by the operation, and the ''ProcessMedium'' object.
-    *
-    * @param metadataFiles the current map with metadata files
-    * @param checkMap      the checksum mapping
-    * @param process       the current ''ProcessMedium'' object
-    * @param f             the update function
-    * @return the updated map
-    */
-  private def updateMetadataFiles(metadataFiles: Map[MediumChecksum, Path],
-                                  checkMap: Map[MediumID, MediumChecksum], process: ProcessMedium)
-                                 (f: (Map[MediumChecksum, Path], MediumChecksum,
-                                   ProcessMedium) => Map[MediumChecksum, Path]): Map[MediumChecksum, Path] =
-    checkMap get process.mediumID match
-      case Some(cs) => f(metadataFiles, cs, process)
-      case None => metadataFiles
-
+  
   /**
     * Adds a newly written metadata file to the mapping of metadata files.
     *
     * @param metadataFiles the metadata file mapping
     * @param checksum      the checksum of the affected file
-    * @param process       the ''ProcessMedium'' message from the writer actor
     * @return the updated metadata file mapping
     */
-  private def addMetadataFile(metadataFiles: Map[MediumChecksum, Path], checksum: MediumChecksum,
-                              process: ProcessMedium): Map[MediumChecksum, Path] =
+  private def addMetadataFile(metadataFiles: Map[MediumChecksum, Path],
+                              checksum: MediumChecksum): Map[MediumChecksum, Path] =
     metadataFiles + (checksum -> generateMetadataPath(checksum))
 
   /**
@@ -631,11 +610,10 @@ class PersistentMetadataManagerActor(config: MediaArchiveConfig,
     *
     * @param metadataFiles the metadata file mapping
     * @param checksum      the checksum of the affected file
-    * @param process       the ''ProcessMedium'' message from the writer actor
     * @return the updated metadata file mapping
     */
-  private def removeMetadataFile(metadataFiles: Map[MediumChecksum, Path], checksum: MediumChecksum,
-                                 process: ProcessMedium): Map[MediumChecksum, Path] =
+  private def removeMetadataFile(metadataFiles: Map[MediumChecksum, Path],
+                                 checksum: MediumChecksum): Map[MediumChecksum, Path] =
     metadataFiles - checksum
 
   /**
