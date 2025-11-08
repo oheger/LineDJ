@@ -18,7 +18,6 @@ package de.oliver_heger.linedj.archive.metadata.persistence
 
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.media.{EnhancedMediaScanResult, PathUriConverter}
-import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetadataWriterActor.ProcessMedium
 import de.oliver_heger.linedj.archive.metadata.{ScanForMetadataFiles, UnresolvedMetadataFiles}
 import de.oliver_heger.linedj.io.stream.{FilterInstanceOfStage, ListSeparatorStage}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
@@ -241,12 +240,6 @@ class PersistentMetadataManagerActor(config: MediaArchiveConfig,
     */
   private var checksumMapping = Map.empty[MediumID, MediumChecksum]
 
-  /**
-    * The child actor for writing metadata for media with incomplete
-    * information.
-    */
-  private var writerActor: ActorRef = _
-
   /** The child actor for remove metadata files operation. */
   private var removeActor: ActorRef = _
 
@@ -262,8 +255,6 @@ class PersistentMetadataManagerActor(config: MediaArchiveConfig,
   @throws[Exception](classOf[Exception])
   override def preStart(): Unit =
     super.preStart()
-    writerActor = createChildActor(Props(classOf[PersistentMetadataWriterActor],
-      config.metadataPersistenceWriteBlockSize))
     removeActor = createChildActor(MetadataFileRemoveActor())
     tocWriterActor = createChildActor(Props[ArchiveToCWriterActor]())
 
@@ -322,11 +313,10 @@ class PersistentMetadataManagerActor(config: MediaArchiveConfig,
         case None => startReaderActors()
 
       val optMediumData = mediaInProgress.values find (_.readerActor == reader)
-      optMediumData foreach { d =>
+      optMediumData foreach : d =>
         val unresolvedFiles = d.unresolvedFiles(converter, persistMetadataSink)
-        unresolvedFiles foreach (processUnresolvedFiles(_, d.listenerActor, d.resolvedFilesCount))
+        unresolvedFiles foreach (processUnresolvedFiles(_, d.listenerActor))
         mediaInProgress = mediaInProgress - d.mediumID
-      }
 
     case CloseRequest =>
       closeRequest = Some(sender())
@@ -405,7 +395,7 @@ class PersistentMetadataManagerActor(config: MediaArchiveConfig,
   private def processPendingScanResults(pendingResults: List[EnhancedMediaScanResult]): Unit =
     val (pending, unresolved, requests) = groupPendingScanResults(optMetadataFiles,
       pendingResults)
-    unresolved foreach (processUnresolvedFiles(_, sender(), 0))
+    unresolved foreach (processUnresolvedFiles(_, sender()))
     pendingReadRequests = requests ::: pendingReadRequests
     startReaderActors()
     pendingScanResults = pending
@@ -416,22 +406,9 @@ class PersistentMetadataManagerActor(config: MediaArchiveConfig,
     *
     * @param u                the message to be processed
     * @param metaManagerActor the metadata manager actor
-    * @param resolved         the number of unresolved files
     */
-  private def processUnresolvedFiles(u: UnresolvedMetadataFiles, metaManagerActor: ActorRef, resolved: Int): Unit =
+  private def processUnresolvedFiles(u: UnresolvedMetadataFiles, metaManagerActor: ActorRef): Unit =
     metaManagerActor ! u
-    writerActor ! createProcessMediumMessage(u, resolved)
-
-  /**
-    * Creates a ''ProcessMedium'' message based on the specified parameters.
-    *
-    * @param u        the ''UnresolvedMetaDataFiles'' message
-    * @param resolved the number of unresolved files
-    * @return the message
-    */
-  private def createProcessMediumMessage(u: UnresolvedMetadataFiles, resolved: Int): ProcessMedium =
-    PersistentMetadataWriterActor.ProcessMedium(mediumID = u.mediumID,
-      target = generateMetadataPath(u), metadataManager = metadataUnionActor, resolvedSize = resolved)
 
   /**
     * Generates the path for a metadata file based on the specified
@@ -592,7 +569,7 @@ class PersistentMetadataManagerActor(config: MediaArchiveConfig,
     val assignedFilesStr = assignedFiles map (e => e._1 -> e._2.checksum)
     val unusedFilesStr = unusedFiles map (_.checksum)
     MetadataFileInfo(assignedFilesStr, unusedFilesStr, Some(controller))
-  
+
   /**
     * Adds a newly written metadata file to the mapping of metadata files.
     *

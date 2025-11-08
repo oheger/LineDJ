@@ -20,7 +20,6 @@ import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.media.{EnhancedMediaScanResult, MediaScanResult, PathUriConverter}
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetadataReaderActor.ReadMetadataFile
-import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetadataWriterActor.ProcessMedium
 import de.oliver_heger.linedj.archive.metadata.{ScanForMetadataFiles, UnresolvedMetadataFiles}
 import de.oliver_heger.linedj.archivecommon.parser.MetadataParser
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
@@ -71,9 +70,6 @@ object PersistentMetadataManagerActorSpec:
 
   /** Constant for the reader child actor class. */
   private val ClassReaderChildActor = PersistentMetadataReaderActor(null, 0).actorClass()
-
-  /** Constant for the writer child actor class. */
-  private val ClassWriterChildActor = classOf[PersistentMetadataWriterActor]
 
   /** Constant for the metadata file remove child actor class. */
   private val ClassRemoveChildActor = MetadataFileRemoveActor().actorClass()
@@ -223,16 +219,7 @@ class PersistentMetadataManagerActorSpec(testSystem: ActorSystem) extends TestKi
     */
   private def persistentFileMappingStr(indices: Int*): Map[String, Path] =
     persistentFileMapping(indices: _*) map (e => e._1.checksum -> e._2)
-
-  /**
-    * Creates a test process medium for the specified medium.
-    *
-    * @param medIdx the medium index
-    * @return the ''ProcessMedium'' message
-    */
-  private def createProcessMedium(medIdx: Int): PersistentMetadataWriterActor.ProcessMedium =
-    PersistentMetadataWriterActor.ProcessMedium(mediumID(medIdx), metaDataFile(checksum(medIdx)), null, 0)
-
+  
   "A PersistenceMetadataManagerActor" should "create a default file scanner" in :
     val helper = new PersistenceMetaDataManagerActorTestHelper
     val testRef = TestActorRef[PersistentMetadataManagerActor](PersistentMetadataManagerActor
@@ -280,15 +267,6 @@ class PersistentMetadataManagerActorSpec(testSystem: ActorSystem) extends TestKi
     val probe = TestProbe()
     probe watch actor
     probe.expectTerminated(actor)
-
-  it should "pass unknown media to the writer actor" in :
-    val helper = new PersistenceMetaDataManagerActorTestHelper
-    val actor = helper.initMediaFiles(1, 2).createTestActor()
-    val result = enhancedScanResult(3)
-
-    actor ! result
-    expectMsgType[UnresolvedMetadataFiles]
-    helper.expectProcessMediumMsg(3, 0, result)
 
   it should "create reader actors for known media" in :
     val helper = new PersistenceMetaDataManagerActorTestHelper
@@ -668,9 +646,6 @@ class PersistentMetadataManagerActorSpec(testSystem: ActorSystem) extends TestKi
     /** A mock for the file scanner. */
     val fileScanner: PersistentMetadataFileScanner = mock[PersistentMetadataFileScanner]
 
-    /** Test probe for the child writer actor. */
-    val writerActor: TestProbe = TestProbe()
-
     /** Test probe for the child remove actor. */
     val removeActor: TestProbe = TestProbe()
 
@@ -785,21 +760,7 @@ class PersistentMetadataManagerActorSpec(testSystem: ActorSystem) extends TestKi
         testActor
       )
       this
-
-    /**
-      * Checks whether the writer actor received a ''ProcessMedium'' message
-      * with the given parameters.
-      *
-      * @param index    the index
-      * @param resolved the number of resolved songs
-      * @param result   the enhanced scan result
-      * @return this test helper
-      */
-    def expectProcessMediumMsg(index: Int, resolved: Int, result: EnhancedMediaScanResult):
-    PersistenceMetaDataManagerActorTestHelper =
-      writerActor.expectMsg(processMsg(index, resolved, result))
-      this
-
+    
     /**
       * Sends a ScanComplete message to the test actor and optionally a request
       * to write the ToC.
@@ -811,21 +772,7 @@ class PersistentMetadataManagerActorSpec(testSystem: ActorSystem) extends TestKi
       when(config.contentFile).thenReturn(tocPath)
       managerActor receive PersistentMetadataManagerActor.ScanCompleted
       this
-
-    /**
-      * Generates a ''ProcessMedium'' message based on the given parameters.
-      *
-      * @param index    the index
-      * @param resolved the number of resolved songs
-      * @param result   the enhanced scan result
-      * @return the ''ProcessMedium'' message
-      */
-    private def processMsg(index: Int, resolved: Int, result: EnhancedMediaScanResult):
-    ProcessMedium =
-      PersistentMetadataWriterActor.ProcessMedium(target = FilePath.resolve(checksum(index) + ".mdt"),
-        mediumID = mediumID(index), metadataManager = metadataUnionActor.ref,
-        resolvedSize = resolved)
-
+    
     /**
       * Creates a mock for the configuration.
       *
@@ -859,11 +806,6 @@ class PersistentMetadataManagerActorSpec(testSystem: ActorSystem) extends TestKi
               val probe = testProbes.poll()
               childActorQueue put probe
               probe.ref
-
-            case ClassWriterChildActor =>
-              p.args should have length 1
-              p.args.head should be(WriteBlockSize)
-              writerActor.ref
 
             case ClassRemoveChildActor =>
               p.args should have length 0
