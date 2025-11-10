@@ -216,7 +216,38 @@ class PersistentMetadataManagerActorSpec(testSystem: ActorSystem) extends TestKi
     */
   private def persistentFileMappingStr(indices: Int*): Map[String, Path] =
     persistentFileMapping(indices: _*) map (e => e._1.checksum -> e._2)
-  
+
+  /**
+    * Tests a [[Sink]] that was passed in an [[UnresolvedMetadataFiles]]
+    * message. The function checks whether the sink constructs a correct
+    * metadata file at the expected path.
+    *
+    * @param unresolvedMsg the message about unresolved files
+    */
+  private def checkMetadataPersistenceSink(unresolvedMsg: UnresolvedMetadataFiles): Unit =
+    val results = processingResults()
+    val mid = unresolvedMsg.mediumID
+    val metadataQueue = new LinkedBlockingQueue[MetadataProcessingResult]
+    val errorResult = MetadataProcessingError(mid, MediaFileUri("errorFile"), new Exception("test exception"))
+    val metadataSource = Source(errorResult :: results)
+
+    import system.dispatcher
+    metadataSource.runWith(unresolvedMsg.metadataSink).foreach: _ =>
+      val expectedMetadataPath = FilePath.resolve(checksum(1) + ".mdt")
+      val mdtSource = MetadataParser.parseMetadata(FileIO.fromPath(expectedMetadataPath), mid)
+      val sink = Sink.foreach[MetadataProcessingSuccess](metadataQueue.offer)
+      mdtSource.runWith(sink)
+
+    def nextProcessingResult(): MetadataProcessingResult =
+      val result = metadataQueue.poll(3, TimeUnit.SECONDS)
+      result should not be null
+      result
+
+    val persistedResults = (1 to results.size).map: _ =>
+      nextProcessingResult()
+    metadataQueue.poll(100, TimeUnit.MILLISECONDS) should be(null)
+    persistedResults should contain theSameElementsAs results
+
   "A PersistenceMetadataManagerActor" should "create a default file scanner" in :
     val helper = new PersistenceMetaDataManagerActorTestHelper
     val testRef = TestActorRef[PersistentMetadataManagerActor](PersistentMetadataManagerActor
@@ -253,6 +284,15 @@ class PersistentMetadataManagerActorSpec(testSystem: ActorSystem) extends TestKi
       unresolvedMessage(4)
     )
     helper.expectNoChildReaderActor()
+    
+  it should "provide a Sink to create missing metadata files" in:
+    val helper = new PersistenceMetaDataManagerActorTestHelper
+    val actor = helper.initMediaFiles(2).createTestActor()
+    val result = enhancedScanResult(1, 2)
+    actor ! result
+    val unresolvedMsg = expectMsgType[UnresolvedMetadataFiles]
+
+    checkMetadataPersistenceSink(unresolvedMsg)
 
   /**
     * Stops an actor and waits until the termination message arrives.
@@ -367,31 +407,10 @@ class PersistentMetadataManagerActorSpec(testSystem: ActorSystem) extends TestKi
     actor ! esr
     val readerActor = helper.expectChildReaderActor()
     readerActor.expectMsgType[ReadMetadataFile]
-    val results = processingResults()
 
     stopActor(readerActor.ref)
-    val mid = mediumID(1)
     val unresolvedMsg = expectMsgType[UnresolvedMetadataFiles]
-    val metadataQueue = new LinkedBlockingQueue[MetadataProcessingResult]
-    val errorResult = MetadataProcessingError(mid, MediaFileUri("errorFile"), new Exception("test exception"))
-    val metadataSource = Source(errorResult :: results)
-    import system.dispatcher
-    metadataSource.runWith(unresolvedMsg.metadataSink).foreach: _ =>
-      val expectedMetadataPath = FilePath.resolve(checksum(1) + ".mdt")
-      val mdtSource = MetadataParser.parseMetadata(FileIO.fromPath(expectedMetadataPath), mid)
-      val sink = Sink.foreach[MetadataProcessingSuccess](metadataQueue.offer)
-      mdtSource.runWith(sink)
-
-    def nextProcessingResult(): MetadataProcessingResult =
-      val result = metadataQueue.poll(3, TimeUnit.SECONDS)
-      result should not be null
-      result
-
-    val persistedResults = (1 to results.size).map: _ =>
-      nextProcessingResult()
-    metadataQueue.poll(100, TimeUnit.MILLISECONDS) should be(null)
-
-    persistedResults should contain theSameElementsAs results
+    checkMetadataPersistenceSink(unresolvedMsg)
 
   it should "remove a processed medium from the in-progress map" in :
     val helper = new PersistenceMetaDataManagerActorTestHelper
