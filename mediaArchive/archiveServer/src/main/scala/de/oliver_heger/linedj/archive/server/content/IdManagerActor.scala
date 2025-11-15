@@ -18,12 +18,15 @@ package de.oliver_heger.linedj.archive.server.content
 
 import de.oliver_heger.linedj.shared.archive.metadata.Checksums
 import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors}
+import org.apache.pekko.actor.typed.scaladsl.AskPattern.*
 import org.apache.pekko.actor.typed.{ActorRef, Behavior}
+import org.apache.pekko.util.Timeout
 
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 import java.util.Locale
 import scala.concurrent.Future
+import scala.concurrent.duration.DurationInt
 
 /**
   * An actor implementation for generating and managing IDs for a specific
@@ -81,6 +84,17 @@ object IdManagerActor:
       */
     case GetId(name: EntityName,
                replyTo: ActorRef[GetIdResponse])
+
+    /**
+      * A command to query the IDs for multiple entities in parallel.
+      * This command is typically used when constructing the content of the
+      * archive, since for this use case, many entities are involved.
+      *
+      * @param names   a collection with the names to be taken into account
+      * @param replyTo the actor expecting the response message
+      */
+    case GetIds(names: Iterable[EntityName],
+                replyTo: ActorRef[GetIdsResponse])
   end QueryIdCommand
 
   /**
@@ -92,6 +106,15 @@ object IdManagerActor:
     */
   final case class GetIdResponse(name: EntityName,
                                  id: String)
+
+  /**
+    * A data class to represent the response of a [[QueryIdCommand.GetIds]]
+    * command. Here, the response consists of a map that associates all passed
+    * in names with their IDs.
+    *
+    * @param ids the mapping of the computed IDs
+    */
+  final case class GetIdsResponse(ids: Map[EntityName, String])
 
   /**
     * An internal data type to represent the possible states of an entry in the
@@ -199,6 +222,18 @@ object IdManagerActor:
             handleCommand(idPrefix, idFunc, nextIds)
           case _ => // Should actually not happen
             Behaviors.same
+
+      case (context, QueryIdCommand.GetIds(names, replyTo)) =>
+        import context.system
+        import context.executionContext
+        given Timeout(1.hour)
+        val nameRequests = names.toSet.map: name =>
+          context.self.ask[GetIdResponse]: ref =>
+            QueryIdCommand.GetId(name, ref)
+        Future.sequence(nameRequests).foreach: responses =>
+          val idMapping = responses.map(r => r.name -> r.id).toMap
+          replyTo ! GetIdsResponse(idMapping)
+        Behaviors.same
 
   /**
     * Obtains the ID for the given name either from the cache or by computing

@@ -21,6 +21,7 @@ import org.scalatest.Inspectors.forEvery
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
+import java.util.Locale
 import java.util.concurrent.{ArrayBlockingQueue, TimeUnit}
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -59,7 +60,7 @@ class IdManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLike 
     forEvery(id): c =>
       allowedCharacters.contains(c) shouldBe true
 
-  "An IdManagerActor" should "generate ID values" in :
+  "IdManagerActor.GetId" should "generate ID values" in :
     val probe = testKit.createTestProbe[IdManagerActor.GetIdResponse]()
     val name1 = Some("TestEntity1")
     val name2 = Some("TestEntity2")
@@ -181,3 +182,38 @@ class IdManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLike 
     val expectedResult = IdManagerActor.GetIdResponse(Some(name), IdPrefix + "_" + id)
     (1 to requestCount).foreach: _ =>
       probe.expectMessage(expectedResult)
+
+  "IdManagerActor.GetIds" should "handle requests for multiple entities" in :
+    val idFunc: IdManagerActor.IdCalculatorFunc = name => s"id for $name"
+    val names = List(Some("foo"), Some("bar"), Some("baz"), Some("oneMore"), Some("andAnother"))
+    val probe = testKit.createTestProbe[IdManagerActor.GetIdsResponse]()
+
+    val actor = testKit.spawn(IdManagerActor.newInstance(IdPrefix, idFunc))
+    actor ! IdManagerActor.QueryIdCommand.GetIds(names, probe.ref)
+
+    val result = probe.expectMessageType[IdManagerActor.GetIdsResponse]
+    result.ids should have size names.size
+    forEvery(names): name =>
+      result.ids(name) should be(IdPrefix + "_" + idFunc(name.get.toLowerCase(Locale.ROOT)))
+
+  it should "handle duplicates" in :
+    val name = Some("an entity")
+    val names = Array.fill(17)(name)
+    val probe = testKit.createTestProbe[IdManagerActor.GetIdsResponse]()
+
+    val actor = testKit.spawn(IdManagerActor.newInstance(IdPrefix))
+    actor ! IdManagerActor.QueryIdCommand.GetIds(names, probe.ref)
+
+    val result = probe.expectMessageType[IdManagerActor.GetIdsResponse]
+    result.ids.keySet should contain only name
+
+  it should "handle the empty entity name" in :
+    val name = Some("a defined entity name")
+    val probe = testKit.createTestProbe[IdManagerActor.GetIdsResponse]()
+
+    val actor = testKit.spawn(IdManagerActor.newInstance(IdPrefix))
+    actor ! IdManagerActor.QueryIdCommand.GetIds(List(name, None), probe.ref)
+
+    val result = probe.expectMessageType[IdManagerActor.GetIdsResponse]
+    result.ids.keySet should contain theSameElementsAs List(name, None)
+    result.ids(None) should be(IdPrefix + "0")
