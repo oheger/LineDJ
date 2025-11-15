@@ -21,6 +21,7 @@ import org.scalatest.Inspectors.forEvery
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
+import java.util.concurrent.{ArrayBlockingQueue, TimeUnit}
 import java.util.concurrent.atomic.AtomicInteger
 
 object IdManagerActorSpec:
@@ -86,14 +87,14 @@ class IdManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLike 
     actor ! IdManagerActor.QueryIdCommand.GetId(name2, probe.ref)
     actor ! IdManagerActor.QueryIdCommand.GetId(name3, probe.ref)
 
-    val result1 = probe.expectMessageType[IdManagerActor.GetIdResponse]
-    val result2 = probe.expectMessageType[IdManagerActor.GetIdResponse]
-    val result3 = probe.expectMessageType[IdManagerActor.GetIdResponse]
-    result1.name should be(name1)
-    result2.name should be(name2)
-    result3.name should be(name3)
-    result1.id should be(result2.id)
-    result1.id should be(result3.id)
+    val results = List(
+      probe.expectMessageType[IdManagerActor.GetIdResponse],
+      probe.expectMessageType[IdManagerActor.GetIdResponse],
+      probe.expectMessageType[IdManagerActor.GetIdResponse]
+    )
+    results.map(_.name) should contain theSameElementsAs List(name1, name2, name3)
+    val ids = results.map(_.id).toSet
+    ids should have size 1
 
   it should "return an ID value for the undefined name" in :
     val probe = testKit.createTestProbe[IdManagerActor.GetIdResponse]()
@@ -119,4 +120,64 @@ class IdManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLike 
     probe.expectMessage(expectedResult)
     probe.expectMessage(expectedResult)
     hashCount.get() should be(1)
-    
+
+  it should "handle requests asynchronously" in :
+    val idRequestQueue = new ArrayBlockingQueue[String](8, true)
+    val idResultQueue = new ArrayBlockingQueue[String](8, true)
+    // Use a synthetic calculator func that puts its parameters in the request queue and then waits for an item
+    // in the result queue. That way it can be controlled when results are available, and which requests to the
+    // actor are in processing state at the same time. The queues are configured to be fair to have a deterministic
+    // order in the processing of results.
+    val idFunc: IdManagerActor.IdCalculatorFunc = name =>
+      idRequestQueue.offer(name)
+      idResultQueue.take()
+
+    val name1 = "test-name-1"
+    val name2 = "test-name-2"
+    val id1 = "id-1"
+    val id2 = "id-2"
+    val probe = testKit.createTestProbe[IdManagerActor.GetIdResponse]()
+
+    val actor = testKit.spawn(IdManagerActor.newInstance(IdPrefix, idFunc))
+    actor ! IdManagerActor.QueryIdCommand.GetId(Some(name1), probe.ref)
+    actor ! IdManagerActor.QueryIdCommand.GetId(Some(name2), probe.ref)
+
+    idRequestQueue.poll(3, TimeUnit.SECONDS) should be(name1)
+    idRequestQueue.poll(3, TimeUnit.SECONDS) should be(name2)
+    idResultQueue.offer(id1)
+    idResultQueue.offer(id2)
+
+    val expectedResults = List(
+      IdManagerActor.GetIdResponse(Some(name1), IdPrefix + "_" + id1),
+      IdManagerActor.GetIdResponse(Some(name2), IdPrefix + "_" + id2)
+    )
+    val results = List(
+      probe.expectMessageType[IdManagerActor.GetIdResponse],
+      probe.expectMessageType[IdManagerActor.GetIdResponse]
+    )
+    results should contain theSameElementsAs expectedResults
+
+  it should "handle concurrent requests for the same name" in :
+    val idRequestQueue = new ArrayBlockingQueue[String](8, true)
+    val idResultQueue = new ArrayBlockingQueue[String](8, true)
+    // See above.
+    val idFunc: IdManagerActor.IdCalculatorFunc = name =>
+      idRequestQueue.offer(name)
+      idResultQueue.take()
+
+    val name = "a-very-popular-test-name"
+    val id = "popular-id"
+    val probe = testKit.createTestProbe[IdManagerActor.GetIdResponse]()
+    val idRequest = IdManagerActor.QueryIdCommand.GetId(Some(name), probe.ref)
+    val requestCount = 16
+
+    val actor = testKit.spawn(IdManagerActor.newInstance(IdPrefix, idFunc))
+    (1 to requestCount).foreach(_ => actor ! idRequest)
+
+    idRequestQueue.poll(3, TimeUnit.SECONDS) should be(name)
+    idRequestQueue.poll(100, TimeUnit.MILLISECONDS) should be(null)
+    idResultQueue.offer(id)
+
+    val expectedResult = IdManagerActor.GetIdResponse(Some(name), IdPrefix + "_" + id)
+    (1 to requestCount).foreach: _ =>
+      probe.expectMessage(expectedResult)
