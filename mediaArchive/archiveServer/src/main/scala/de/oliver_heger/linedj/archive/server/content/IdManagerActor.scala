@@ -17,9 +17,9 @@
 package de.oliver_heger.linedj.archive.server.content
 
 import de.oliver_heger.linedj.shared.archive.metadata.Checksums
-import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors}
 import org.apache.pekko.actor.typed.scaladsl.AskPattern.*
-import org.apache.pekko.actor.typed.{ActorRef, Behavior}
+import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors}
+import org.apache.pekko.actor.typed.{ActorRef, Behavior, Scheduler}
 import org.apache.pekko.util.Timeout
 
 import java.nio.charset.StandardCharsets
@@ -189,6 +189,27 @@ object IdManagerActor:
     handleCommand(idPrefix, idFunc, Map.empty).narrow
 
   /**
+    * A [[Timeout]] in implicit scope for the ''ask'' operations used by this
+    * implementation. Here a rather long value is set. Real timeouts are
+    * handled by the content management actor.
+    */
+  private given requestTimeout: Timeout(1.hour)
+
+  extension (a: ActorRef[QueryIdCommand])
+    /**
+      * A convenience function to query the IDs for multiple names from an ID
+      * manager actor. This function performs an ''ask'' operation on this
+      * actor and wraps the required command creation and timeout handling.
+      *
+      * @param names     a collection of names to request IDs for
+      * @param scheduler the scheduler for the ask operation
+      * @return a [[Future]] with the response message
+      */
+    def getIds(names: Iterable[EntityName])(using scheduler: Scheduler): Future[GetIdsResponse] =
+      a.ask[GetIdsResponse]: ref =>
+        QueryIdCommand.GetIds(names, ref)
+
+  /**
     * The main command handler function of the ID manager actor.
     *
     * @param idPrefix the prefix for IDs
@@ -224,9 +245,7 @@ object IdManagerActor:
             Behaviors.same
 
       case (context, QueryIdCommand.GetIds(names, replyTo)) =>
-        import context.system
-        import context.executionContext
-        given Timeout(1.hour)
+        import context.{executionContext, system}
         val nameRequests = names.toSet.map: name =>
           context.self.ask[GetIdResponse]: ref =>
             QueryIdCommand.GetId(name, ref)

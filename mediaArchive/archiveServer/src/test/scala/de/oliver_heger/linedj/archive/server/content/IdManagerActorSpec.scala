@@ -17,13 +17,14 @@
 package de.oliver_heger.linedj.archive.server.content
 
 import org.apache.pekko.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
+import org.apache.pekko.actor.typed.Scheduler
 import org.scalatest.Inspectors.forEvery
-import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
 import java.util.Locale
-import java.util.concurrent.{ArrayBlockingQueue, TimeUnit}
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.{ArrayBlockingQueue, TimeUnit}
 
 object IdManagerActorSpec:
   /** The ID prefix used by default for test cases. */
@@ -33,9 +34,11 @@ end IdManagerActorSpec
 /**
   * Test class for [[IdManagerActor]].
   */
-class IdManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLike with Matchers:
+class IdManagerActorSpec extends ScalaTestWithActorTestKit with AsyncFlatSpecLike with Matchers:
 
   import IdManagerActorSpec.*
+
+  given Scheduler = testKit.scheduler
 
   "HashIdCalculatorFunc" should "compute the same ID value for the same input" in :
     val input = "The name of an entity, for which an ID is to be computed"
@@ -59,6 +62,7 @@ class IdManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLike 
 
     forEvery(id): c =>
       allowedCharacters.contains(c) shouldBe true
+    succeed
 
   "IdManagerActor.GetId" should "generate ID values" in :
     val probe = testKit.createTestProbe[IdManagerActor.GetIdResponse]()
@@ -104,6 +108,7 @@ class IdManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLike 
     actor ! IdManagerActor.QueryIdCommand.GetId(None, probe.ref)
 
     probe.expectMessage(IdManagerActor.GetIdResponse(None, IdPrefix + "0"))
+    succeed
 
   it should "cache calculated ID values" in :
     val hashCount = new AtomicInteger
@@ -182,38 +187,31 @@ class IdManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLike 
     val expectedResult = IdManagerActor.GetIdResponse(Some(name), IdPrefix + "_" + id)
     (1 to requestCount).foreach: _ =>
       probe.expectMessage(expectedResult)
+    succeed
 
   "IdManagerActor.GetIds" should "handle requests for multiple entities" in :
     val idFunc: IdManagerActor.IdCalculatorFunc = name => s"id for $name"
     val names = List(Some("foo"), Some("bar"), Some("baz"), Some("oneMore"), Some("andAnother"))
-    val probe = testKit.createTestProbe[IdManagerActor.GetIdsResponse]()
-
     val actor = testKit.spawn(IdManagerActor.newInstance(IdPrefix, idFunc))
-    actor ! IdManagerActor.QueryIdCommand.GetIds(names, probe.ref)
 
-    val result = probe.expectMessageType[IdManagerActor.GetIdsResponse]
-    result.ids should have size names.size
-    forEvery(names): name =>
-      result.ids(name) should be(IdPrefix + "_" + idFunc(name.get.toLowerCase(Locale.ROOT)))
+    actor.getIds(names) map : result =>
+      result.ids should have size names.size
+      forEvery(names): name =>
+        result.ids(name) should be(IdPrefix + "_" + idFunc(name.get.toLowerCase(Locale.ROOT)))
+      succeed
 
   it should "handle duplicates" in :
     val name = Some("an entity")
     val names = Array.fill(17)(name)
-    val probe = testKit.createTestProbe[IdManagerActor.GetIdsResponse]()
-
     val actor = testKit.spawn(IdManagerActor.newInstance(IdPrefix))
-    actor ! IdManagerActor.QueryIdCommand.GetIds(names, probe.ref)
 
-    val result = probe.expectMessageType[IdManagerActor.GetIdsResponse]
-    result.ids.keySet should contain only name
+    actor.getIds(names) map : result =>
+      result.ids.keySet should contain only name
 
   it should "handle the empty entity name" in :
     val name = Some("a defined entity name")
-    val probe = testKit.createTestProbe[IdManagerActor.GetIdsResponse]()
-
     val actor = testKit.spawn(IdManagerActor.newInstance(IdPrefix))
-    actor ! IdManagerActor.QueryIdCommand.GetIds(List(name, None), probe.ref)
 
-    val result = probe.expectMessageType[IdManagerActor.GetIdsResponse]
-    result.ids.keySet should contain theSameElementsAs List(name, None)
-    result.ids(None) should be(IdPrefix + "0")
+    actor.getIds(List(name, None)).map: result =>
+      result.ids.keySet should contain theSameElementsAs List(name, None)
+      result.ids(None) should be(IdPrefix + "0")
