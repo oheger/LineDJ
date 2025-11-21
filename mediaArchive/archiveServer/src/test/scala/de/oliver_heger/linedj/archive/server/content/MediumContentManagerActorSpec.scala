@@ -27,6 +27,7 @@ import org.scalatest.matchers.should.Matchers
 
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicInteger
+import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
 
 object MediumContentManagerActorSpec:
@@ -56,6 +57,9 @@ object MediumContentManagerActorSpec:
   /** The prefix for artist IDs. */
   private val ArtistIdPrefix = "art"
 
+  /** The prefix for album IDs. */
+  private val AlbumIdPrefix = "alb"
+
   /**
     * A default function to generate IDs that is passed to ID manager actors to
     * have a deterministic ID calculation.
@@ -70,6 +74,15 @@ object MediumContentManagerActorSpec:
     * @return the ID of this artist
     */
   private def calcArtistID(name: String): String = s"${ArtistIdPrefix}_${idCalcFunc(name)}"
+
+  /**
+    * Generates the ID for a given optional album name.
+    *
+    * @param optName the optional album name
+    * @return the ID of this album
+    */
+  private def calcAlbumID(optName: Option[String]): String =
+    optName.map(name => s"${AlbumIdPrefix}_${idCalcFunc(name)}").getOrElse(s"${AlbumIdPrefix}0")
 
   /**
     * Convenience function to create a [[MediaMetadata]] instance with an
@@ -435,6 +448,51 @@ class MediumContentManagerActorSpec extends ScalaTestWithActorTestKit with AnyFl
     managerActor ! MediumContentManagerActor.MediumContentManagerCommand.UpdateData(nextSongData)
 
     probeIdManager.expectNoMessage(100.millis)
+
+  it should "support a transformer function" in :
+    val transformerFunc: MediumContentManagerActor.DataTransformer[Option[String], ArchiveModel.AlbumInfo] = mapping =>
+      val transformedMapping = mapping.map: (key, albums) =>
+        val albumInfos = albums.map: album =>
+          val albumID = calcAlbumID(album)
+          val albumName = album.getOrElse("")
+          ArchiveModel.AlbumInfo(albumID, albumName)
+        (key, albumInfos)
+      Future.successful(transformedMapping)
+    val dataExtractorFunc: MediumContentManagerActor.DataExtractor[Option[String]] = (_, metadata) => metadata.album
+    val songData = List(
+      createMetadata(artist = Some("Dire Straits"), album = "Brothers in Arms", title = Some("So far away")),
+      createMetadata(artist = Some("Dire Straits"), album = "Love over Gold", title = Some("Telegraph Road")),
+      createMetadata(artist = Some("Marillion"), album = "Misplaced Childhood"),
+      createMetadata(artist = Some("Dire Straits"), album = "Communique", title = Some("Once upon a time in the west"))
+    )
+    val managerActor = testKit.spawn(
+      MediumContentManagerActor.newTransformingInstance(
+        keyExtractor = artistKeyExtractor,
+        dataExtractor = dataExtractorFunc,
+        transformer = transformerFunc,
+        idManager = createIdManager()
+      )
+    )
+    val artistID = calcArtistID("Dire Straits")
+    val probe = testKit.createTestProbe[ArchiveCommands.GetMediumDataResponse[ArchiveModel.AlbumInfo]]()
+    val request = ArchiveCommands.ReadMediumContentCommand.GetAlbumsForArtist(
+      TestMediumID,
+      artistID,
+      probe.ref
+    )
+
+    managerActor ! MediumContentManagerActor.MediumContentManagerCommand.UpdateData(songData)
+    managerActor ! MediumContentManagerActor.MediumContentManagerCommand.GetDataFor(
+      artistID,
+      request,
+      probe.ref
+    )
+
+    val result = probe.expectMessageType[ArchiveCommands.GetMediumDataResponse[ArchiveModel.AlbumInfo]]
+    result.request should be(request)
+    val expectedAlbumInfos = List("Brothers in Arms", "Communique", "Love over Gold").map: albumName =>
+      ArchiveModel.AlbumInfo(calcAlbumID(Some(albumName)), albumName)
+    result.optResult.value should contain theSameElementsInOrderAs expectedAlbumInfos
 
   it should "provide an ordering for MediaMetadata" in :
     val Artist = Some("Dire Straits")

@@ -73,6 +73,25 @@ private object MediumContentManagerActor:
   type GroupingFunc = String => String
 
   /**
+    * Alias for a transformation function that is invoked on a mapping
+    * constructed from the [[KeyExtractor]] and [[DataExtractor]] functions. In
+    * some use cases, these functions are not sufficient to create the desired
+    * outcome; especially, if the creation of target data requires complex and
+    * maybe asynchronous operations. An example would be the construction of
+    * another entity type for which IDs have to be queried from an ID manager
+    * actor. To handle such cases, an actor instance can be configured with a
+    * [[DataExtractor]] function that produces temporary data, which is then
+    * mapped to the final results using the transformation function. The
+    * transformation function is called with the whole mapping that has been
+    * constructed so far. So, it can apply possible optimizations (such as
+    * grouping the existing data) to produce the final result.
+    *
+    * @tparam SRC the source (temporary) type of data
+    * @tparam DST the destination type of data
+    */
+  type DataTransformer[SRC, DST] = Map[String, List[SRC]] => Future[Map[String, List[DST]]]
+
+  /**
     * Constant for a name that is going to be used for items (song titles,
     * artist or album names) for which no information is available.
     */
@@ -204,6 +223,37 @@ private object MediumContentManagerActor:
                         idManager: ActorRef[IdManagerActor.QueryIdCommand],
                         groupingFunc: GroupingFunc = identity)
                        (using ord: Ordering[DATA]): Behavior[MediumContentManagerCommand[DATA]] =
+    val dummyTransformer: DataTransformer[DATA, DATA] = Future.successful
+    newTransformingInstance(
+      keyExtractor,
+      dataExtractor,
+      dummyTransformer,
+      idManager,
+      groupingFunc
+    )
+
+  /**
+    * Returns the [[Behavior]] of a new actor instance to manage a specific
+    * view on the data of a medium that requires an additional transformation
+    * function.
+    *
+    * @param keyExtractor  the function to extract keys; the keys are the basis
+    *                      for grouping the data
+    * @param dataExtractor the function to extract data
+    * @param transformer   the transformation function
+    * @param idManager     the actor to obtain IDs for extracted keys
+    * @param groupingFunc  the function to control grouping
+    * @param ord           a [[Ordering]] for sorting the data
+    * @tparam TEMP the type of temporary data returned by the data extractor
+    * @tparam DATA the type of the data managed by this instance
+    * @return the [[Behavior]] of the new actor instance
+    */
+  def newTransformingInstance[TEMP, DATA](keyExtractor: KeyExtractor,
+                                          dataExtractor: DataExtractor[TEMP],
+                                          transformer: DataTransformer[TEMP, DATA],
+                                          idManager: ActorRef[IdManagerActor.QueryIdCommand],
+                                          groupingFunc: GroupingFunc = identity)
+                                         (using ord: Ordering[DATA]): Behavior[MediumContentManagerCommand[DATA]] =
     Behaviors.setup[MediumContentManagerCommand[DATA]]: context =>
       given Scheduler = context.system.scheduler
 
@@ -246,12 +296,36 @@ private object MediumContentManagerActor:
         * @return a [[Future]] with the data mapping
         */
       def constructMapping(data: Iterable[MediaMetadata]): Future[Map[String, List[DATA]]] =
+        for
+          temp <- constructTempMapping(data)
+          mapping <- transformer(temp)
+        yield sortMapping(mapping)
+
+      /**
+        * Constructs the temporary mapping for the given song metadata based on
+        * the configured key and data extractor functions.
+        *
+        * @param data the current song metadata on the managed medium
+        * @return a [[Future]] with the temporary data mapping
+        */
+      def constructTempMapping(data: Iterable[MediaMetadata]): Future[Map[String, List[TEMP]]] =
         val metadataNames = data.map(d => d -> keyExtractor(d)).toMap
         idManager.getIds(data.map(keyExtractor)).map: idsResponse =>
           val metadataIDs = data.toList.map(m => m -> idsResponse.ids(metadataNames(m))).toMap
           val groupedMetadata = data.toList.groupBy(m => groupingFunc(metadataIDs(m)))
           groupedMetadata.map: (id, list) =>
-            (id, list.map(md => dataExtractor(metadataIDs(md), md)).distinct.sorted)
+            (id, list.map(md => dataExtractor(metadataIDs(md), md)).distinct)
+
+      /**
+        * Sorts the given mapping based on the implicit ordering configured for
+        * this actor instance.
+        *
+        * @param mapping the mapping
+        * @return the sorted mapping
+        */
+      def sortMapping(mapping: Map[String, List[DATA]]): Map[String, List[DATA]] =
+        mapping.map: (key, items) =>
+          (key, items.sorted)
 
       /**
         * Triggers an asynchronous construction of the data mapping based on
