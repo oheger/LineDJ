@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.archive.server.content
 import de.oliver_heger.linedj.archive.server.model
 import de.oliver_heger.linedj.archive.server.model.{ArchiveCommands, ArchiveModel}
 import de.oliver_heger.linedj.shared.archive.metadata.{Checksums, MediaMetadata}
-import org.apache.pekko.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
+import org.apache.pekko.actor.testkit.typed.scaladsl.{ScalaTestWithActorTestKit, TestProbe}
 import org.apache.pekko.actor.typed.ActorRef
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpecLike
@@ -27,6 +27,7 @@ import org.scalatest.matchers.should.Matchers
 
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicInteger
+import scala.concurrent.duration.DurationInt
 
 object MediumContentManagerActorSpec:
   /** ID for a test medium. */
@@ -112,6 +113,20 @@ object MediumContentManagerActorSpec:
     */
   private def concatID(id: String, list: List[String]): List[String] =
     list.map(concatID(id))
+
+  /**
+    * Create a request to query artist information for the test medium.
+    *
+    * @param probe the test probe to receive the response
+    * @return the request for artist information
+    */
+  private def createArtistsRequest(probe: TestProbe[ArchiveCommands.GetMediumDataResponse[ArchiveModel.ArtistInfo]]):
+  MediumContentManagerActor.MediumContentManagerCommand[ArchiveModel.ArtistInfo] =
+    MediumContentManagerActor.MediumContentManagerCommand.GetDataFor(
+      MediumContentManagerActor.AggregateGroupingKey,
+      ArchiveCommands.ReadMediumContentCommand.GetArtists(TestMediumID, probe.ref),
+      probe.ref
+    )
 end MediumContentManagerActorSpec
 
 class MediumContentManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLike with Matchers
@@ -304,11 +319,7 @@ class MediumContentManagerActorSpec extends ScalaTestWithActorTestKit with AnyFl
       )
     )
     val probe = testKit.createTestProbe[ArchiveCommands.GetMediumDataResponse[ArchiveModel.ArtistInfo]]()
-    val dataRequest = MediumContentManagerActor.MediumContentManagerCommand.GetDataFor(
-      MediumContentManagerActor.AggregateGroupingKey,
-      ArchiveCommands.ReadMediumContentCommand.GetArtists(TestMediumID, probe.ref),
-      probe.ref
-    )
+    val dataRequest = createArtistsRequest(probe)
     managerActor ! MediumContentManagerActor.MediumContentManagerCommand.UpdateData(songData)
     managerActor ! dataRequest
     probe.expectMessageType[ArchiveCommands.GetMediumDataResponse[ArchiveModel.ArtistInfo]]
@@ -323,6 +334,107 @@ class MediumContentManagerActorSpec extends ScalaTestWithActorTestKit with AnyFl
     val artistResult = probe.expectMessageType[ArchiveCommands.GetMediumDataResponse[ArchiveModel.ArtistInfo]]
 
     artistResult.optResult.value should contain(ArchiveModel.ArtistInfo(calcArtistID("Supertramp"), "Supertramp"))
+
+  it should "not construct the mapping twice under concurrent access" in :
+    val Artist = "Dire Straits"
+    val artistID = calcArtistID(Artist)
+    val songData = List(
+      createMetadata(artist = Some(Artist), album = "Brothers in Arms", title = Some("Brothers in Arms"))
+    )
+    val probeIdManager = testKit.createTestProbe[IdManagerActor.QueryIdCommand]()
+    val managerActor = testKit.spawn(
+      MediumContentManagerActor.newInstance(
+        keyExtractor = artistKeyExtractor,
+        dataExtractor = artistExtractor,
+        idManager = probeIdManager.ref,
+        groupingFunc = MediumContentManagerActor.AggregateGroupingFunc
+      )
+    )
+    val probeClient1 = testKit.createTestProbe[ArchiveCommands.GetMediumDataResponse[ArchiveModel.ArtistInfo]]()
+    val dataRequest1 = createArtistsRequest(probeClient1)
+    val probeClient2 = testKit.createTestProbe[ArchiveCommands.GetMediumDataResponse[ArchiveModel.ArtistInfo]]()
+    val dataRequest2 = createArtistsRequest(probeClient2)
+    managerActor ! MediumContentManagerActor.MediumContentManagerCommand.UpdateData(songData)
+
+    managerActor ! dataRequest1
+    managerActor ! dataRequest2
+
+    val idsRequest = probeIdManager.expectMessageType[IdManagerActor.QueryIdCommand.GetIds]
+    probeIdManager.expectNoMessage(100.millis)
+    idsRequest.replyTo ! IdManagerActor.GetIdsResponse(Map(Some(Artist) -> artistID))
+    val expectedArtistInfos = List(ArchiveModel.ArtistInfo(artistID, Artist))
+    val result1 = probeClient1.expectMessageType[ArchiveCommands.GetMediumDataResponse[ArchiveModel.ArtistInfo]]
+    val result2 = probeClient2.expectMessageType[ArchiveCommands.GetMediumDataResponse[ArchiveModel.ArtistInfo]]
+    result1.optResult.value should contain theSameElementsAs expectedArtistInfos
+    result2.optResult.value should contain theSameElementsAs expectedArtistInfos
+
+  it should "handle updates while constructing the mapping" in :
+    val Artist1 = "Dire Straits"
+    val artist1ID = calcArtistID(Artist1)
+    val Artist2 = "Alon Parsons"
+    val artist2ID = calcArtistID(Artist2)
+    val song1 = createMetadata(artist = Some(Artist1), album = "Communique", title = Some("Lady writer"))
+    val song2 = createMetadata(
+      artist = Some(Artist2),
+      album = "Tails of mystery and imagination",
+      title = Some("The raven")
+    )
+    val probeIdManager = testKit.createTestProbe[IdManagerActor.QueryIdCommand]()
+    val managerActor = testKit.spawn(
+      MediumContentManagerActor.newInstance(
+        keyExtractor = artistKeyExtractor,
+        dataExtractor = artistExtractor,
+        idManager = probeIdManager.ref,
+        groupingFunc = MediumContentManagerActor.AggregateGroupingFunc
+      )
+    )
+    val probeClient = testKit.createTestProbe[ArchiveCommands.GetMediumDataResponse[ArchiveModel.ArtistInfo]]()
+    val dataRequest = createArtistsRequest(probeClient)
+    managerActor ! MediumContentManagerActor.MediumContentManagerCommand.UpdateData(List(song1))
+
+    managerActor ! dataRequest
+    val idsRequest1 = probeIdManager.expectMessageType[IdManagerActor.QueryIdCommand.GetIds]
+    managerActor ! MediumContentManagerActor.MediumContentManagerCommand.UpdateData(List(song1, song2))
+    val idsRequest2 = probeIdManager.expectMessageType[IdManagerActor.QueryIdCommand.GetIds]
+    idsRequest1.replyTo ! IdManagerActor.GetIdsResponse(Map.empty)
+    val ids: Map[IdManagerActor.EntityName, String] = Map(
+      Some(Artist1) -> artist1ID,
+      Some(Artist2) -> artist2ID
+    )
+    idsRequest2.replyTo ! IdManagerActor.GetIdsResponse(ids)
+
+    val response = probeClient.expectMessageType[ArchiveCommands.GetMediumDataResponse[ArchiveModel.ArtistInfo]]
+    val expectedArtistInfos = List(
+      ArchiveModel.ArtistInfo(artist1ID, Artist1),
+      ArchiveModel.ArtistInfo(artist2ID, Artist2)
+    )
+    response.optResult.value should contain theSameElementsAs expectedArtistInfos
+
+  it should "clear pending requests after they have been processed" in :
+    val songData = List(
+      createMetadata(artist = Some("Dire Straits"), album = "Brothers in Arms", title = Some("So far away")),
+    )
+    val probeIdManager = testKit.createTestProbe[IdManagerActor.QueryIdCommand]()
+    val managerActor = testKit.spawn(
+      MediumContentManagerActor.newInstance(
+        keyExtractor = artistKeyExtractor,
+        dataExtractor = artistExtractor,
+        idManager = probeIdManager.ref,
+        groupingFunc = MediumContentManagerActor.AggregateGroupingFunc
+      )
+    )
+    val probeClient = testKit.createTestProbe[ArchiveCommands.GetMediumDataResponse[ArchiveModel.ArtistInfo]]()
+    val dataRequest = createArtistsRequest(probeClient)
+    managerActor ! MediumContentManagerActor.MediumContentManagerCommand.UpdateData(songData)
+
+    managerActor ! dataRequest
+    val idRequest = probeIdManager.expectMessageType[IdManagerActor.QueryIdCommand.GetIds]
+    idRequest.replyTo ! IdManagerActor.GetIdsResponse(Map(Some("Dire Straits") -> "someID"))
+    probeClient.expectMessageType[ArchiveCommands.GetMediumDataResponse[ArchiveModel.ArtistInfo]]
+    val nextSongData = createMetadata(artist = Some("Marillion"), album = "Misplaced Childhood") :: songData
+    managerActor ! MediumContentManagerActor.MediumContentManagerCommand.UpdateData(nextSongData)
+
+    probeIdManager.expectNoMessage(100.millis)
 
   it should "provide an ordering for MediaMetadata" in :
     val Artist = Some("Dire Straits")

@@ -165,20 +165,26 @@ private object MediumContentManagerActor:
       * cached.
       *
       * @param mapping the updated mapping
+      * @param seqNo   the sequence number this update is for
       */
-    case DataMappingUpdated(mapping: Map[String, List[DATA]])
+    case DataMappingUpdated(mapping: Map[String, List[DATA]],
+                            seqNo: Int)
   end MediumContentManagerCommand
 
   /**
     * A data class to hold the current state of an actor instance.
     *
-    * @param metadata    the current list of song metadata on the managed
-    *                    medium
-    * @param dataMapping the data view if already computed
+    * @param metadata       the current list of song metadata on the managed
+    *                       medium
+    * @param dataMapping    the data view if already computed
+    * @param pendingClients a list with requests that are currently processed
+    * @param seqNo          a sequence number to detect stale updates
     * @tparam DATA the type of data managed by this instance
     */
   private case class MediumContentState[DATA](metadata: Iterable[MediaMetadata],
-                                              dataMapping: Option[Map[String, List[DATA]]])
+                                              dataMapping: Option[Map[String, List[DATA]]],
+                                              pendingClients: List[MediumContentManagerCommand.GetDataFor[DATA]],
+                                              seqNo: Int)
 
   /**
     * Returns the [[Behavior]] of a new actor instance to manage a specific 
@@ -206,7 +212,9 @@ private object MediumContentManagerActor:
       def handleCommand(state: MediumContentState[DATA]): Behavior[MediumContentManagerCommand[DATA]] =
         Behaviors.receiveMessage:
           case MediumContentManagerCommand.UpdateData(data) =>
-            val nextState = state.copy[DATA](metadata = data, dataMapping = None)
+            val nextState = state.copy[DATA](metadata = data, dataMapping = None, seqNo = state.seqNo + 1)
+            if state.pendingClients.nonEmpty then
+              triggerMappingConstruction(nextState)
             handleCommand(nextState)
 
           case getData: MediumContentManagerCommand.GetDataFor[DATA] =>
@@ -216,13 +224,19 @@ private object MediumContentManagerActor:
                 Behaviors.same
 
               case None =>
-                constructMapping(state.metadata).foreach: mapping =>
-                  context.self ! MediumContentManagerCommand.DataMappingUpdated(mapping)
-                  getData.replyTo ! ArchiveCommands.GetMediumDataResponse(getData.request, mapping.get(getData.id))
-                Behaviors.same
+                if state.pendingClients.isEmpty then
+                  triggerMappingConstruction(state)
+                val nextState = state.copy(pendingClients = getData :: state.pendingClients)
+                handleCommand(nextState)
 
-          case MediumContentManagerCommand.DataMappingUpdated(mapping) =>
-            handleCommand(state.copy(dataMapping = Some(mapping)))
+          case MediumContentManagerCommand.DataMappingUpdated(mapping, seqNo) =>
+            val nextState = if seqNo == state.seqNo then
+              state.pendingClients.foreach: getData =>
+                getData.replyTo ! ArchiveCommands.GetMediumDataResponse(getData.request, mapping.get(getData.id))
+              state.copy(dataMapping = Some(mapping), pendingClients = Nil)
+            else
+              state // Ignore a state updated mapping.
+            handleCommand(nextState)
 
       /**
         * Returns a [[Future]] with an updated mapping from the given song
@@ -239,4 +253,17 @@ private object MediumContentManagerActor:
           groupedMetadata.map: (id, list) =>
             (id, list.map(md => dataExtractor(metadataIDs(md), md)).distinct.sorted)
 
-      handleCommand(MediumContentState(List.empty, None))
+      /**
+        * Triggers an asynchronous construction of the data mapping based on
+        * the current state. When this is done, the asynchronous task sends a
+        * message to this actor, so that the new mapping can be added to the
+        * state, and pending requests can be served.
+        *
+        * @param state the current state of this actor
+        */
+      def triggerMappingConstruction(state: MediumContentState[DATA]): Unit =
+        context.log.info("Constructing medium view.")
+        constructMapping(state.metadata).foreach: mapping =>
+          context.self ! MediumContentManagerCommand.DataMappingUpdated(mapping, state.seqNo)
+
+      handleCommand(MediumContentState(List.empty, None, Nil, 0))
