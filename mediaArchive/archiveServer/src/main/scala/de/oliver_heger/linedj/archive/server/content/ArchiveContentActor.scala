@@ -42,6 +42,12 @@ object ArchiveContentActor:
     */
   private type MediaContentMap = Map[Checksums.MediumChecksum, ActorRef[MediumContentActor.MediumContentCommand]]
 
+  /** The prefix used for IDs generated for artists. */
+  private val ArtistIDPrefix = "art"
+
+  /** The prefix used for IDs generated for albums. */
+  private val AlbumIDPrefix = "alb"
+
   /**
     * A factory trait for creating new instances of the archive content actor.
     */
@@ -58,72 +64,97 @@ object ArchiveContentActor:
     * A default [[Factory]] instance that can be used to create new actor
     * instances.
     */
-  final val behavior: Factory = () => handleArchiveCommand(Nil, Map.empty, Map.empty)
+  final val behavior: Factory = () => setUpBehavior()
 
   /**
-    * The main command handler function for the archive content actor.
+    * Returns the [[Behavior]] of a new actor instance.
     *
-    * @param mediaOverviews the current list of available media
-    * @param media          a map with medium details for all known media
-    * @param mediaContent   a map with actors for the content of media
-    * @return the updated behavior
+    * @return the [[Behavior]] of the new instance
     */
-  private def handleArchiveCommand(mediaOverviews: List[ArchiveModel.MediumOverview],
-                                   media: Map[Checksums.MediumChecksum, ArchiveModel.MediumDetails],
-                                   mediaContent: MediaContentMap): Behavior[ArchiveContentCommand] =
-    Behaviors.receive:
-      case (ctx, ArchiveCommands.UpdateArchiveContentCommand.AddMedium(medium)) =>
-        ctx.log.info("Added medium {}.", medium.overview)
-        val (_, nextMediaContent) = contentActorFor(ctx, mediaContent, medium.id)
-        handleArchiveCommand(medium.overview :: mediaOverviews, media + (medium.id -> medium), nextMediaContent)
+  private def setUpBehavior(): Behavior[ArchiveContentCommand] =
+    Behaviors.setup[ArchiveContentCommand]: ctx =>
+      val artistIdManager = ctx.spawn(IdManagerActor.newInstance(ArtistIDPrefix), "artistIdManager")
+      val albumIdManager = ctx.spawn(IdManagerActor.newInstance(AlbumIDPrefix), "albumIdManager")
 
-      case (ctx, ArchiveCommands.UpdateArchiveContentCommand.AddMediaFile(mediumID, metadata)) =>
-        val (actor, nextMediaContent) = contentActorFor(ctx, mediaContent, mediumID)
-        actor ! metadata
-        handleArchiveCommand(mediaOverviews, media, nextMediaContent)
+      /**
+        * The main command handler function for the archive content actor.
+        *
+        * @param mediaOverviews the current list of available media
+        * @param media          a map with medium details for all known media
+        * @param mediaContent   a map with actors for the content of media
+        * @return the updated behavior
+        */
+      def handle(mediaOverviews: List[ArchiveModel.MediumOverview],
+                 media: Map[Checksums.MediumChecksum, ArchiveModel.MediumDetails],
+                 mediaContent: MediaContentMap): Behavior[ArchiveContentCommand] =
+        Behaviors.receiveMessage:
+          case ArchiveCommands.UpdateArchiveContentCommand.AddMedium(medium) =>
+            ctx.log.info("Added medium {}.", medium.overview)
+            val (_, nextMediaContent) = contentActorFor(ctx, mediaContent, medium.id, artistIdManager, albumIdManager)
+            handle(medium.overview :: mediaOverviews, media + (medium.id -> medium), nextMediaContent)
 
-      case (_, ArchiveCommands.ReadArchiveContentCommand.GetMedia(replyTo)) =>
-        replyTo ! ArchiveCommands.GetMediaResponse(mediaOverviews)
-        Behaviors.same
+          case ArchiveCommands.UpdateArchiveContentCommand.AddMediaFile(mediumID, metadata) =>
+            val (actor, nextMediaContent) = contentActorFor(
+              ctx,
+              mediaContent,
+              mediumID,
+              artistIdManager,
+              albumIdManager
+            )
+            actor ! metadata
+            handle(mediaOverviews, media, nextMediaContent)
 
-      case (_, ArchiveCommands.ReadArchiveContentCommand.GetMedium(id, replyTo)) =>
-        replyTo ! ArchiveCommands.GetMediumResponse(id, media.get(id))
-        Behaviors.same
+          case ArchiveCommands.ReadArchiveContentCommand.GetMedia(replyTo) =>
+            replyTo ! ArchiveCommands.GetMediaResponse(mediaOverviews)
+            Behaviors.same
 
-      case (_, req@ArchiveCommands.ReadMediumContentCommand.GetArtists(mediumID, replyTo)) =>
-        handleMediumRequest(req, mediumID, replyTo, mediaContent)
+          case ArchiveCommands.ReadArchiveContentCommand.GetMedium(id, replyTo) =>
+            replyTo ! ArchiveCommands.GetMediumResponse(id, media.get(id))
+            Behaviors.same
 
-      case (_, req@ArchiveCommands.ReadMediumContentCommand.GetAlbums(mediumID, replyTo)) =>
-        handleMediumRequest(req, mediumID, replyTo, mediaContent)
+          case req@ArchiveCommands.ReadMediumContentCommand.GetArtists(mediumID, replyTo) =>
+            handleMediumRequest(req, mediumID, replyTo, mediaContent)
 
-      case (_, req@ArchiveCommands.ReadMediumContentCommand.GetSongsForArtist(mediumID, _, replyTo)) =>
-        handleMediumRequest(req, mediumID, replyTo, mediaContent)
+          case req@ArchiveCommands.ReadMediumContentCommand.GetAlbums(mediumID, replyTo) =>
+            handleMediumRequest(req, mediumID, replyTo, mediaContent)
 
-      case (_, req@ArchiveCommands.ReadMediumContentCommand.GetSongsForAlbum(mediumID, _, replyTo)) =>
-        handleMediumRequest(req, mediumID, replyTo, mediaContent)
+          case req@ArchiveCommands.ReadMediumContentCommand.GetSongsForArtist(mediumID, _, replyTo) =>
+            handleMediumRequest(req, mediumID, replyTo, mediaContent)
 
-      case (_, req@ArchiveCommands.ReadMediumContentCommand.GetAlbumsForArtist(mediumID, _, replyTo)) =>
-        handleMediumRequest(req, mediumID, replyTo, mediaContent)
+          case req@ArchiveCommands.ReadMediumContentCommand.GetSongsForAlbum(mediumID, _, replyTo) =>
+            handleMediumRequest(req, mediumID, replyTo, mediaContent)
+
+          case req@ArchiveCommands.ReadMediumContentCommand.GetAlbumsForArtist(mediumID, _, replyTo) =>
+            handleMediumRequest(req, mediumID, replyTo, mediaContent)
+
+      handle(Nil, Map.empty, Map.empty)
 
   /**
     * Obtains the content actor for a specific medium from the given map. If it
     * does not exist, it is created now. Result is the actor and the map, which
     * may have been updated.
     *
-    * @param ctx the actor context
-    * @param map the map with actors
-    * @param id  the ID of the affected medium
+    * @param ctx             the actor context
+    * @param map             the map with actors
+    * @param id              the ID of the affected medium
+    * @param artistIdManager the actor managing artist IDs
+    * @param albumIdManager  the actor managing album IDs
     * @return the actor and the possibly updated map
     */
   private def contentActorFor(ctx: ActorContext[ArchiveContentCommand],
                               map: MediaContentMap,
-                              id: Checksums.MediumChecksum):
+                              id: Checksums.MediumChecksum,
+                              artistIdManager: ActorRef[IdManagerActor.QueryIdCommand],
+                              albumIdManager: ActorRef[IdManagerActor.QueryIdCommand]):
   (ActorRef[MediumContentActor.MediumContentCommand], MediaContentMap) =
     map.get(id) match
       case Some(actor) =>
         (actor, map)
       case None =>
-        val actor = ctx.spawn(MediumContentActor(), "mediumContent_" + id.checksum)
+        val actor = ctx.spawn(
+          MediumContentActor(id.checksum, artistIdManager, albumIdManager),
+          "mediumContent_" + id.checksum
+        )
         (actor, map + (id -> actor))
 
   /**

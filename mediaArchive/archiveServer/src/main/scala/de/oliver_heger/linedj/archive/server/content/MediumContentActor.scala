@@ -16,11 +16,14 @@
 
 package de.oliver_heger.linedj.archive.server.content
 
-import de.oliver_heger.linedj.archive.server.content.MediumContentManager.KeyExtractor
+import de.oliver_heger.linedj.archive.server.content.MediumContentManagerActor.MediumContentManagerCommand
 import de.oliver_heger.linedj.archive.server.model.{ArchiveCommands, ArchiveModel}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
-import org.apache.pekko.actor.typed.Behavior
+import org.apache.pekko.actor.typed
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
+import org.apache.pekko.actor.typed.{ActorRef, Behavior, Scheduler}
+
+import scala.concurrent.{ExecutionContext, Future}
 
 /**
   * An object providing an internal actor implementation to manage and query
@@ -29,9 +32,9 @@ import org.apache.pekko.actor.typed.scaladsl.Behaviors
   * The archive content manager actor creates an instance of this actor class 
   * for every medium in the archive. An instance stores the (metadata about 
   * the) songs on this medium and allows querying them based on different
-  * groupings. Each support grouping is provided by a dedicated
-  * [[MediumContentManager]] instance. This allows creating the corresponding
-  * views lazily, when there is actually a request.
+  * groupings. Each supported grouping is provided by a dedicated
+  * [[MediumContentManagerActor]] instance. This allows creating the 
+  * corresponding views lazily, when there is actually a request.
   */
 private object MediumContentActor:
   /**
@@ -41,21 +44,15 @@ private object MediumContentActor:
     */
   type MediumContentCommand = MediaMetadata | ArchiveCommands.ReadMediumContentCommand
 
-  /** The prefix used for IDs generated for artists. */
-  private val ArtistIDPrefix = "art"
-
-  /** The prefix used for IDs generated for albums. */
-  private val AlbumIDPrefix = "alb"
-
   /** [[KeyExtractor]] function to obtain a song's artist. */
-  private val ArtistKeyExtractor: KeyExtractor = _.artist
+  private val ArtistKeyExtractor: MediumContentManagerActor.KeyExtractor = _.artist
 
   /** [[KeyExtractor]] function to obtain a song's album. */
-  private val AlbumKeyExtractor: KeyExtractor = _.album
+  private val AlbumKeyExtractor: MediumContentManagerActor.KeyExtractor = _.album
 
   /**
-    * A data class to hold the different content managers used by an actor
-    * instance. This is part of the actor's state.
+    * A data class to hold the different content manager actors used by an
+    * actor instance. This is part of the actor's state.
     *
     * @param artists        view for the artists on this medium
     * @param albums         view for the albums of this medium
@@ -63,121 +60,165 @@ private object MediumContentActor:
     * @param songsByArtist  view for the songs of a specific artist
     * @param songsByAlbum   view for the songs of a specific album
     */
-  private case class ContentManagers(artists: MediumContentManager[ArchiveModel.ArtistInfo],
-                                     albums: MediumContentManager[ArchiveModel.AlbumInfo],
-                                     albumsByArtist: MediumContentManager[ArchiveModel.AlbumInfo],
-                                     songsByArtist: MediumContentManager[MediaMetadata],
-                                     songsByAlbum: MediumContentManager[MediaMetadata]):
+  private case class ContentManagers(artists: ActorRef[MediumContentManagerCommand[ArchiveModel.ArtistInfo]],
+                                     albums: ActorRef[MediumContentManagerCommand[ArchiveModel.AlbumInfo]],
+                                     albumsByArtist: ActorRef[MediumContentManagerCommand[ArchiveModel.AlbumInfo]],
+                                     songsByArtist: ActorRef[MediumContentManagerCommand[MediaMetadata]],
+                                     songsByAlbum: ActorRef[MediumContentManagerCommand[MediaMetadata]]):
     /**
-      * Notifies all managed content managers about a change in the list of
-      * available songs.
+      * Notifies all managed content manager actors about a change in the list 
+      * of available songs.
       *
       * @param songs the update list of song data
       */
     def updateSongs(songs: Iterable[MediaMetadata]): Unit =
-      artists.update(songs)
-      albums.update(songs)
-      albumsByArtist.update(songs)
-      songsByArtist.update(songs)
-      songsByAlbum.update(songs)
+      artists ! MediumContentManagerCommand.UpdateData(songs)
+
+      val albumCommand = MediumContentManagerCommand.UpdateData[ArchiveModel.AlbumInfo](songs)
+      albums ! albumCommand
+      albumsByArtist ! albumCommand
+
+      val songsCommand = MediumContentManagerCommand.UpdateData[MediaMetadata](songs)
+      songsByArtist ! songsCommand
+      songsByAlbum ! songsCommand
   end ContentManagers
 
   /**
     * Returns the behavior of a new actor instance.
     *
+    * @param mediumID        the ID of the medium
+    * @param artistIdManager the ID manager that manages artist IDs
+    * @param albumIdManager  the ID manager that manages album IDs
     * @return the behavior to create a new instance
     */
-  def apply(): Behavior[MediumContentCommand] =
-    handleCommand(createManagers(), Nil)
+  def apply(mediumID: String,
+            artistIdManager: ActorRef[IdManagerActor.QueryIdCommand],
+            albumIdManager: ActorRef[IdManagerActor.QueryIdCommand]): Behavior[MediumContentCommand] =
+    Behaviors.setup[MediumContentCommand]: context =>
+      /**
+        * A transformation function that constructs the final result for the
+        * ''albumsForArtists'' view.
+        *
+        * @param mapping the temporary mapping
+        * @return the transformed mapping
+        */
+      def albumForArtistTransformer(mapping: Map[String, List[Option[String]]]):
+      Future[Map[String, List[ArchiveModel.AlbumInfo]]] =
+        given Scheduler = context.system.scheduler
 
-  /**
-    * The main command handler function of this actor implementation.
-    *
-    * @param managers the object with content managers
-    * @param songs    the current list of songs on this medium
-    * @return the updated behavior
-    */
-  private def handleCommand(managers: ContentManagers, songs: List[MediaMetadata]): Behavior[MediumContentCommand] =
-    Behaviors.receiveMessage:
-      case song: MediaMetadata =>
-        val nextSongs = song :: songs
-        managers.updateSongs(nextSongs)
-        handleCommand(managers, nextSongs)
+        given ExecutionContext = context.system.executionContext
 
-      case req@ArchiveCommands.ReadMediumContentCommand.GetArtists(_, replyTo) =>
-        val artists = managers.artists("")
-        replyTo ! ArchiveCommands.GetMediumDataResponse(req, artists)
-        Behaviors.same
+        val albumNames = mapping.values.flatten
+        albumIdManager.getIds(albumNames).map: idResponse =>
+          mapping.map: (key, albumNames) =>
+            (key, albumNames.map(name => ArchiveModel.AlbumInfo(idResponse.ids(name), name.getOrElse(""))))
 
-      case req@ArchiveCommands.ReadMediumContentCommand.GetAlbums(_, replyTo) =>
-        val albums = managers.albums("")
-        replyTo ! ArchiveCommands.GetMediumDataResponse(req, albums)
-        Behaviors.same
+      /**
+        * Generates the name of the content actor managing a specific view.
+        *
+        * @param view the name of the view
+        * @return the name of the corresponding content actor
+        */
+      def contentName(view: String): String = s"$mediumID.$view"
 
-      case req@ArchiveCommands.ReadMediumContentCommand.GetAlbumsForArtist(_, artistID, replyTo) =>
-        val albums = managers.albumsByArtist(artistID)
-        replyTo ! ArchiveCommands.GetMediumDataResponse(req, albums)
-        Behaviors.same
+      /**
+        * Creates a [[ContentManagers]] object with all the managers to construct
+        * the supported views of data.
+        *
+        * @return the object with all managers
+        */
+      def createManagers(): ContentManagers =
+        import MediumContentManagerActor.given
+        ContentManagers(
+          artists = context.spawn(
+            MediumContentManagerActor.newInstance(
+              keyExtractor = ArtistKeyExtractor,
+              dataExtractor = (id, data) => ArchiveModel.ArtistInfo(id, extractArtistName(data)),
+              groupingFunc = MediumContentManagerActor.AggregateGroupingFunc,
+              idManager = artistIdManager
+            ),
+            contentName("artists")
+          ),
+          albums = context.spawn(
+            MediumContentManagerActor.newInstance(
+              keyExtractor = AlbumKeyExtractor,
+              dataExtractor = (id, data) => ArchiveModel.AlbumInfo(id, extractAlbumName(data)),
+              groupingFunc = MediumContentManagerActor.AggregateGroupingFunc,
+              idManager = albumIdManager
+            ),
+            contentName("albums")
+          ),
+          albumsByArtist = context.spawn(
+            MediumContentManagerActor.newTransformingInstance(
+              keyExtractor = ArtistKeyExtractor,
+              dataExtractor = (_, metadata) => metadata.album,
+              transformer = albumForArtistTransformer,
+              idManager = artistIdManager
+            ),
+            contentName("albumsByArtist")
+          ),
+          songsByArtist = context.spawn(
+            MediumContentManagerActor.newInstance(
+              keyExtractor = ArtistKeyExtractor,
+              dataExtractor = MediumContentManagerActor.MetadataExtractor,
+              idManager = artistIdManager
+            ),
+            contentName("songsByArtist")
+          ),
+          songsByAlbum = context.spawn(
+            MediumContentManagerActor.newInstance(
+              keyExtractor = AlbumKeyExtractor,
+              dataExtractor = MediumContentManagerActor.MetadataExtractor,
+              idManager = albumIdManager
+            ),
+            contentName("songsByAlbum")
+          )
+        )
 
-      case req@ArchiveCommands.ReadMediumContentCommand.GetSongsForArtist(_, artistID, replyTo) =>
-        val songs = managers.songsByArtist(artistID)
-        replyTo ! ArchiveCommands.GetMediumDataResponse(req, songs)
-        Behaviors.same
+      val managers = createManagers()
 
-      case req@ArchiveCommands.ReadMediumContentCommand.GetSongsForAlbum(_, albumID, replyTo) =>
-        val songs = managers.songsByAlbum(albumID)
-        replyTo ! ArchiveCommands.GetMediumDataResponse(req, songs)
-        Behaviors.same
+      /**
+        * The main command handler function of this actor implementation.
+        *
+        * @param songs the current list of songs on this medium
+        * @return the updated behavior
+        */
+      def handleCommand(songs: List[MediaMetadata]): Behavior[MediumContentCommand] =
+        Behaviors.receiveMessage:
+          case song: MediaMetadata =>
+            val nextSongs = song :: songs
+            managers.updateSongs(nextSongs)
+            handleCommand(nextSongs)
 
-  /**
-    * Creates a [[ContentManagers]] object with all the managers to construct
-    * the supported views of data.
-    *
-    * @return the object with all managers
-    */
-  private def createManagers(): ContentManagers =
-    import MediumContentManager.given
-    ContentManagers(
-      artists = MediumContentManager(
-        idPrefix = ArtistIDPrefix,
-        keyExtractor = ArtistKeyExtractor,
-        dataExtractor = (id, data) => ArchiveModel.ArtistInfo(id, extractArtistName(data)),
-        groupingFunc = _ => ""
-      ),
-      albums = MediumContentManager(
-        idPrefix = AlbumIDPrefix,
-        keyExtractor = AlbumKeyExtractor,
-        dataExtractor = (id, data) => ArchiveModel.AlbumInfo(id, extractAlbumName(data)),
-        groupingFunc = _ => ""
-      ),
-      albumsByArtist = MediumContentManager(
-        idPrefix = ArtistIDPrefix,
-        keyExtractor = ArtistKeyExtractor,
-        dataExtractor = extractAlbumForArtist
-      ),
-      songsByArtist = MediumContentManager(
-        idPrefix = ArtistIDPrefix,
-        keyExtractor = ArtistKeyExtractor,
-        dataExtractor = MediumContentManager.MetadataExtractor
-      ),
-      songsByAlbum = MediumContentManager(
-        idPrefix = AlbumIDPrefix,
-        keyExtractor = AlbumKeyExtractor,
-        dataExtractor = MediumContentManager.MetadataExtractor
-      )
-    )
+          case req@ArchiveCommands.ReadMediumContentCommand.GetArtists(_, replyTo) =>
+            managers.artists ! MediumContentManagerCommand.GetDataFor(
+              id = MediumContentManagerActor.AggregateGroupingKey,
+              request = req,
+              replyTo = replyTo
+            )
+            Behaviors.same
 
-  /**
-    * A data extractor function for the albums of an artist.
-    *
-    * @param id   the ID of the artist (unused)
-    * @param data the metadata of the current song
-    * @return the album for this song
-    */
-  private def extractAlbumForArtist(id: String, data: MediaMetadata): ArchiveModel.AlbumInfo =
-    val albumName = extractAlbumName(data)
-    val albumID = MediumContentManager.idFor(data.album, AlbumIDPrefix)
-    ArchiveModel.AlbumInfo(albumID, albumName)
+          case req@ArchiveCommands.ReadMediumContentCommand.GetAlbums(_, replyTo) =>
+            managers.albums ! MediumContentManagerCommand.GetDataFor(
+              id = MediumContentManagerActor.AggregateGroupingKey,
+              request = req,
+              replyTo = replyTo
+            )
+            Behaviors.same
+
+          case req@ArchiveCommands.ReadMediumContentCommand.GetAlbumsForArtist(_, artistID, replyTo) =>
+            managers.albumsByArtist ! MediumContentManagerCommand.GetDataFor(artistID, req, replyTo)
+            Behaviors.same
+
+          case req@ArchiveCommands.ReadMediumContentCommand.GetSongsForArtist(_, artistID, replyTo) =>
+            managers.songsByArtist ! MediumContentManagerCommand.GetDataFor(artistID, req, replyTo)
+            Behaviors.same
+
+          case req@ArchiveCommands.ReadMediumContentCommand.GetSongsForAlbum(_, albumID, replyTo) =>
+            managers.songsByAlbum ! MediumContentManagerCommand.GetDataFor(albumID, req, replyTo)
+            Behaviors.same
+
+      handleCommand(Nil)
 
   /**
     * Extracts the name of the artist of the given song data. Handles an

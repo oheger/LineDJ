@@ -25,6 +25,8 @@ import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
+import java.util.Locale
+
 object ArchiveContentActorSpec:
   /** Definitions of some test albums. */
   private val direStraitsSongs = List(
@@ -159,6 +161,57 @@ object ArchiveContentActorSpec:
     createSongData().foreach(propagateSong)
     propagateSong(unassignedSong)
     testMedium.id
+
+  /**
+    * Calculates the ID of an entity in the same way as this is done by the
+    * corresponding ID manager.
+    *
+    * @param prefix the ID prefix of this entity type
+    * @param name   the name of the entity
+    * @return the ID of this entity
+    */
+  private def calcID(prefix: String, name: String): String =
+    prefix + "_" + IdManagerActor.HashIdCalculatorFunc(name.toLowerCase(Locale.ROOT))
+
+  /**
+    * Calculates the ID of an artist in the same way as this is done by the ID
+    * manager for artists.
+    *
+    * @param artist the artist name
+    * @return the ID of this artist
+    */
+  private def calcArtistID(artist: String): String = calcID("art", artist)
+
+  /**
+    * Calculates the ID of an album in the same way as this is done by the ID
+    * manager for albums.
+    *
+    * @param album the album name
+    * @return the ID of this album
+    */
+  private def calcAlbumID(album: String): String = calcID("alb", album)
+
+  /**
+    * Transforms the given list of artist names to [[ArchiveModel.ArtistInfo]]
+    * objects by calculating the hashed IDs.
+    *
+    * @param names the artist names
+    * @return the corresponding info objects
+    */
+  private def createArtistInfos(names: Iterable[String]): Iterable[ArchiveModel.ArtistInfo] =
+    names.map: artist =>
+      ArchiveModel.ArtistInfo(calcArtistID(artist), artist)
+
+  /**
+    * Transforms the given list of album names to [[ArchiveModel.AlbumInfo]]
+    * objects by calculating the hashed IDs.
+    *
+    * @param names the album names
+    * @return the corresponding info objects
+    */
+  private def createAlbumInfos(names: Iterable[String]): Iterable[ArchiveModel.AlbumInfo] =
+    names.map: album =>
+      ArchiveModel.AlbumInfo(calcAlbumID(album), album)
 end ArchiveContentActorSpec
 
 /**
@@ -235,11 +288,8 @@ class ArchiveContentActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpec
     val response = probe.expectMessageType[ArchiveCommands.GetMediumDataResponse[ArchiveModel.ArtistInfo]]
     response.request should be(artistsRequest)
     val result = response.optResult.value
-    val expectedArtists = (
-      artistAlbums.keySet.map: artistName =>
-        ArchiveModel.ArtistInfo(MediumContentManager.idFor(Some(artistName), "art"), artistName)
-      ) + ArchiveModel.ArtistInfo("art0", "")
-    result.map(_.artistName) should contain theSameElementsAs (artistAlbums.keySet + "")
+    val expectedArtists = ArchiveModel.ArtistInfo("art0", "") :: createArtistInfos(artistAlbums.keySet).toList
+    result should contain theSameElementsAs expectedArtists
 
   it should "return information about the albums of a medium" in :
     val contentActor = testKit.spawn(ArchiveContentActor.behavior())
@@ -252,10 +302,7 @@ class ArchiveContentActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpec
     val response = probe.expectMessageType[ArchiveCommands.GetMediumDataResponse[ArchiveModel.AlbumInfo]]
     response.request should be(artistsRequest)
     val result = response.optResult.value
-    val expectedAlbums = (
-      albums.keySet.map: albumName =>
-        ArchiveModel.AlbumInfo(MediumContentManager.idFor(Some(albumName), "alb"), albumName)
-      ) + ArchiveModel.AlbumInfo("alb0", "")
+    val expectedAlbums = ArchiveModel.AlbumInfo("alb0", "") :: createAlbumInfos(albums.keySet).toList
     result should contain theSameElementsAs expectedAlbums
 
   it should "return the songs of a specific artist" in :
@@ -264,7 +311,7 @@ class ArchiveContentActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpec
     val probe = testKit.createTestProbe[ArchiveCommands.GetMediumDataResponse[MediaMetadata]]()
 
     val ArtistName = "Mike Oldfield"
-    val artistID = MediumContentManager.idFor(Some(ArtistName), "art")
+    val artistID = calcArtistID(ArtistName)
     val songsRequest = ArchiveCommands.ReadMediumContentCommand.GetSongsForArtist(
       mediumID,
       artistID,
@@ -317,7 +364,7 @@ class ArchiveContentActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpec
 
     val ArtistName = "Nightwish"
     val albumName = artistAlbums(ArtistName).head
-    val albumID = MediumContentManager.idFor(Some(albumName), "alb")
+    val albumID = calcAlbumID(albumName)
     val songsRequest = ArchiveCommands.ReadMediumContentCommand.GetSongsForAlbum(
       mediumID,
       albumID,
@@ -369,13 +416,12 @@ class ArchiveContentActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpec
     forEvery(artistAlbums): (artist, albums) =>
       val albumsRequest = ArchiveCommands.ReadMediumContentCommand.GetAlbumsForArtist(
         mediumID,
-        MediumContentManager.idFor(Some(artist), "art"),
+        calcArtistID(artist),
         probe.ref
       )
       contentActor ! albumsRequest
 
-      val expectedResult = albums.sorted.map: album =>
-        ArchiveModel.AlbumInfo(MediumContentManager.idFor(Some(album), "alb"), album)
+      val expectedResult = createAlbumInfos(albums.sorted)
       val response = probe.expectMessageType[ArchiveCommands.GetMediumDataResponse[ArchiveModel.AlbumInfo]]
       response.request should be(albumsRequest)
       response.optResult.value should contain theSameElementsInOrderAs expectedResult

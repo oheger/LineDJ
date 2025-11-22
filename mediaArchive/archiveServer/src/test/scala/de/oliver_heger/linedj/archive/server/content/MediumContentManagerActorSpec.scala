@@ -43,7 +43,7 @@ object MediumContentManagerActorSpec:
   /**
     * A test key extractor function that extracts the artist as key.
     */
-  private val artistKeyExtractor: MediumContentManager.KeyExtractor = data =>
+  private val artistKeyExtractor: MediumContentManagerActor.KeyExtractor = data =>
     extractCount.incrementAndGet()
     data.artist
 
@@ -51,7 +51,7 @@ object MediumContentManagerActorSpec:
     * A data extractor function for artist information of a media file. This is
     * used to test basic data access.
     */
-  private val artistExtractor: MediumContentManager.DataExtractor[ArchiveModel.ArtistInfo] = (id, data) =>
+  private val artistExtractor: MediumContentManagerActor.DataExtractor[ArchiveModel.ArtistInfo] = (id, data) =>
     ArchiveModel.ArtistInfo(id, data.artist.getOrElse(""))
 
   /** The prefix for artist IDs. */
