@@ -142,6 +142,18 @@ object ArchiveModel:
   final case class ItemsResult[DATA](items: List[DATA])
 
   /**
+    * A data class collecting all relevant information about a media file. This
+    * includes information about the location of the file.
+    *
+    * @param metadata     the metadata about the file
+    * @param relativePath the relative path of this file in the archive
+    * @param mediumID     the ID of the medium that contains this file
+    */
+  final case class MediaFileInfo(metadata: MediaMetadata,
+                                 relativePath: String,
+                                 mediumID: Checksums.MediumChecksum)
+
+  /**
     * A trait providing JSON converters for the classes of the archive data
     * model. By mixing in this trait, classes can get capabilities to do JSON
     * serialization with model classes.
@@ -172,4 +184,6 @@ object ArchiveModel:
 
     given itemsResultFormat[DATA: JsonFormat]: RootJsonFormat[ItemsResult[DATA]] =
       jsonFormat1(ItemsResult[DATA].apply)
+
+    given mediaFileInfoFormat: RootJsonFormat[MediaFileInfo] = jsonFormat3(MediaFileInfo.apply)
   end ArchiveJsonSupport

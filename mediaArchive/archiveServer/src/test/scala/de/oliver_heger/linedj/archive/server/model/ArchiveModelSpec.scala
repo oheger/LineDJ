@@ -16,7 +16,8 @@
 
 package de.oliver_heger.linedj.archive.server.model
 
-import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
+import de.oliver_heger.linedj.archive.server.model.ArchiveModel.MediaFileInfo
+import de.oliver_heger.linedj.shared.archive.metadata.{Checksums, MediaMetadata}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import spray.json.*
@@ -73,3 +74,21 @@ class ArchiveModelSpec extends AnyFlatSpec with Matchers with ArchiveModel.Archi
     val itemsResult = ArchiveModel.ItemsResult(items.toList)
 
     checkSerialization(itemsResult)
+
+  it should "work for MediaFileInfo" in :
+    val metadata = MediaMetadata(
+      title = Some("Song title"),
+      artist = Some("Artist"),
+      album = Some("Album"),
+      inceptionYear = Some(1984),
+      trackNumber = Some(3),
+      duration = Some(600),
+      formatDescription = Some("192bps"),
+      size = 54321,
+      checksum = "1234567890"
+    )
+    val path = "path/to/song/file.mp3"
+    val mediumID = Checksums.MediumChecksum("some-medium-id")
+    val fileInfo = MediaFileInfo(metadata, path, mediumID)
+
+    checkSerialization(fileInfo)
