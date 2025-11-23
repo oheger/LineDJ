@@ -16,16 +16,35 @@
 
 package de.oliver_heger.linedj.shared.archive.media
 
+import de.oliver_heger.linedj.FileTestHelper
+import org.scalatest.BeforeAndAfterEach
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+
+import java.nio.file.Files
 
 /**
   * Test class for [[MediaFileUri]].
   */
-class MediaFileUriSpec extends AnyFlatSpec with Matchers:
+class MediaFileUriSpec extends AnyFlatSpec with BeforeAndAfterEach with Matchers with FileTestHelper:
+  override protected def afterEach(): Unit =
+    tearDownTestFile()
+    super.afterEach()
+
   "A MediaFileUri" should "return the name of the URI" in:
     val uri = MediaFileUri("some%20medium/some%20artist/some%20album/01%20A%20nice%2Fcool%20song.mp3")
 
     val name = uri.name
 
     name should be("01 A nice/cool song")
+
+  it should "return the path of the URI" in:
+    val mediumPath = createPathInDirectory("some medium")
+    val artistPath = mediumPath.resolve("some artist")
+    val albumPath = Files.createDirectories(artistPath.resolve("some album"))
+    val songPath = Files.createFile(albumPath.resolve("01 A nice&cool song.mp3"))
+
+    val uri = MediaFileUri("some%20medium/some%20artist/some%20album/01%20A%20nice%26cool%20song.mp3")
+
+    val uriPath = testDirectory.resolve(uri.path)
+    uriPath should be(songPath)

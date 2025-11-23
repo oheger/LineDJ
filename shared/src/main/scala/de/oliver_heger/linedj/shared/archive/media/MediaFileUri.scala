@@ -31,3 +31,11 @@ case class MediaFileUri(uri: String) extends AnyVal:
     * @return the name of this URI
     */
   def name: String = UriHelper.removeExtension(UriHelper.urlDecode(UriHelper.extractName(uri)))
+
+  /**
+    * Returns the relative path represented by this URI. This is basically the
+    * URL-decode version of this URI.
+    *
+    * @return the path for this URI
+    */
+  def path: String = UriHelper.removeLeadingSeparator(UriHelper.decodeComponents(uri))

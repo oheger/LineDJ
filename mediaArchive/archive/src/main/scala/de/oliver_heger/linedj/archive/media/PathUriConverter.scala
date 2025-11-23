@@ -85,5 +85,4 @@ class PathUriConverter(val rootPath: Path):
     * @param uri the URI of the media file
     * @return the corresponding path
     */
-  def uriToPath(uri: MediaFileUri): Path =
-    rootPath.resolve(UriEncodingHelper.removeLeadingSeparator(UriEncodingHelper.decodeComponents(uri.uri)))
+  def uriToPath(uri: MediaFileUri): Path = rootPath.resolve(uri.path)
