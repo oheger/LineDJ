@@ -85,7 +85,11 @@ object ArchiveContentMetadataProcessingListener:
     case (ctx, e: MetadataProcessingEvent.ProcessingResultAvailable) =>
       e.result match
         case suc: MetadataProcessingSuccess =>
-          contentActor ! ArchiveCommands.UpdateArchiveContentCommand.AddMediaFile(e.checksum, fetchMetadata(suc))
+          contentActor ! ArchiveCommands.UpdateArchiveContentCommand.AddMediaFile(
+            e.checksum,
+            suc.uri,
+            fetchMetadata(suc)
+          )
         case MetadataProcessingError(_, uri, exception) =>
           ctx.log.warn("Received failed processing format for '{}'.", uri, exception)
       Behaviors.same

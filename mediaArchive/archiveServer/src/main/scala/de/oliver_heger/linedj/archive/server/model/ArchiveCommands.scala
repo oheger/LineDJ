@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.archive.server.model
 
+import de.oliver_heger.linedj.shared.archive.media.MediaFileUri
 import de.oliver_heger.linedj.shared.archive.metadata.{Checksums, MediaMetadata}
 import org.apache.pekko.actor.typed.ActorRef
 
@@ -83,9 +84,11 @@ object ArchiveCommands:
       * the archive.
       *
       * @param mediumID the ID of the medium the file belongs to
+      * @param fileUri  the URI of the file
       * @param metadata metadata about this file
       */
     case AddMediaFile(mediumID: Checksums.MediumChecksum,
+                      fileUri: MediaFileUri,
                       metadata: MediaMetadata)
   end UpdateArchiveContentCommand
 

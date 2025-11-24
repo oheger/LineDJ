@@ -133,7 +133,12 @@ class ArchiveContentMetadataProcessingListenerSpec extends ScalaTestWithActorTes
     val listener = testKit.spawn(ArchiveContentMetadataProcessingListener.behavior(probeContent.ref))
     listener ! MetadataProcessingEvent.ProcessingResultAvailable(TestChecksum, processingResult)
 
-    probeContent.expectMessage(ArchiveCommands.UpdateArchiveContentCommand.AddMediaFile(TestChecksum, metadata))
+    probeContent.expectMessage(
+      ArchiveCommands.UpdateArchiveContentCommand.AddMediaFile(
+      TestChecksum,
+      processingResult.uri,
+      metadata)
+    )
 
   it should "ignore a failure processing result" in :
     val metadata = MediaMetadata(
@@ -157,7 +162,9 @@ class ArchiveContentMetadataProcessingListenerSpec extends ScalaTestWithActorTes
     listener ! MetadataProcessingEvent.ProcessingResultAvailable(TestChecksum, failedResult)
     listener ! MetadataProcessingEvent.ProcessingResultAvailable(TestChecksum, processingResult)
 
-    probeContent.expectMessage(ArchiveCommands.UpdateArchiveContentCommand.AddMediaFile(TestChecksum, metadata))
+    probeContent.expectMessage(
+      ArchiveCommands.UpdateArchiveContentCommand.AddMediaFile(TestChecksum, processingResult.uri, metadata)
+    )
 
   it should "derive a title for metadata from the file URI" in :
     val uri = MediaFileUri("path/to/album/My%20song.mp3")
@@ -169,5 +176,9 @@ class ArchiveContentMetadataProcessingListenerSpec extends ScalaTestWithActorTes
     val listener = testKit.spawn(ArchiveContentMetadataProcessingListener.behavior(probeContent.ref))
     listener ! MetadataProcessingEvent.ProcessingResultAvailable(TestChecksum, processingResult)
 
-    val expectedCommand = ArchiveCommands.UpdateArchiveContentCommand.AddMediaFile(TestChecksum, expectedMetadata)
+    val expectedCommand = ArchiveCommands.UpdateArchiveContentCommand.AddMediaFile(
+      TestChecksum,
+      uri,
+      expectedMetadata
+    )
     probeContent.expectMessage(expectedCommand)

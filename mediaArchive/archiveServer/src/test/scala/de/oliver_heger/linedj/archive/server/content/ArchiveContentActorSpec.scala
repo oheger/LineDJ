@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.archive.server.content
 
 import de.oliver_heger.linedj.archive.server.model.{ArchiveCommands, ArchiveModel}
+import de.oliver_heger.linedj.shared.archive.media.MediaFileUri
 import de.oliver_heger.linedj.shared.archive.metadata.{Checksums, MediaMetadata}
 import org.apache.pekko.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
 import org.apache.pekko.actor.typed.ActorRef
@@ -154,6 +155,7 @@ object ArchiveContentActorSpec:
     def propagateSong(song: MediaMetadata): Unit =
       val addFileCommand = ArchiveCommands.UpdateArchiveContentCommand.AddMediaFile(
         mediumID = testMedium.id,
+        fileUri = MediaFileUri(s"https://${song.checksum}"),
         metadata = song
       )
       contentActor ! addFileCommand

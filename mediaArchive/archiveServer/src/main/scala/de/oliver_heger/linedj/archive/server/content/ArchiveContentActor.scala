@@ -93,7 +93,7 @@ object ArchiveContentActor:
             val (_, nextMediaContent) = contentActorFor(ctx, mediaContent, medium.id, artistIdManager, albumIdManager)
             handle(medium.overview :: mediaOverviews, media + (medium.id -> medium), nextMediaContent)
 
-          case ArchiveCommands.UpdateArchiveContentCommand.AddMediaFile(mediumID, metadata) =>
+          case ArchiveCommands.UpdateArchiveContentCommand.AddMediaFile(mediumID, _, metadata) =>
             val (actor, nextMediaContent) = contentActorFor(
               ctx,
               mediaContent,
