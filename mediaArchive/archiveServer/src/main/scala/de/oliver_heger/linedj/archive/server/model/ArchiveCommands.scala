@@ -194,3 +194,15 @@ object ArchiveCommands:
     */
   case class GetMediumDataResponse[DATA](request: ReadMediumContentCommand,
                                          optResult: Option[List[DATA]])
+
+  /**
+    * A data class representing the response for a request for information
+    * about a media file. If the file ID could not be resolved, no information
+    * is available.
+    *
+    * @param fileID      the ID of the affected file
+    * @param optFileInfo the optional file information
+    */
+  final case class GetFileInfoResponse(fileID: String,
+                                       optFileInfo: Option[ArchiveModel.MediaFileInfo])
+  
