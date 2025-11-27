@@ -55,26 +55,30 @@ object ArchiveContentActor:
     /**
       * Returns a [[Behavior]] for creating a new actor instance.
       *
+      * @param fileActorFactory the factory to create the actor that manages
+      *                         media files
       * @return the [[Behavior]] for the new actor instance
       */
-    def apply(): Behavior[ArchiveContentCommand]
+    def apply(fileActorFactory: MediaFileActor.Factory = MediaFileActor.behavior): Behavior[ArchiveContentCommand]
   end Factory
 
   /**
     * A default [[Factory]] instance that can be used to create new actor
     * instances.
     */
-  final val behavior: Factory = () => setUpBehavior()
+  final val behavior: Factory = fileActorFactory => setUpBehavior(fileActorFactory)
 
   /**
     * Returns the [[Behavior]] of a new actor instance.
     *
+    * @param fileActorFactory the factory to create a media file actor
     * @return the [[Behavior]] of the new instance
     */
-  private def setUpBehavior(): Behavior[ArchiveContentCommand] =
+  private def setUpBehavior(fileActorFactory: MediaFileActor.Factory): Behavior[ArchiveContentCommand] =
     Behaviors.setup[ArchiveContentCommand]: ctx =>
       val artistIdManager = ctx.spawn(IdManagerActor.newInstance(ArtistIDPrefix), "artistIdManager")
       val albumIdManager = ctx.spawn(IdManagerActor.newInstance(AlbumIDPrefix), "albumIdManager")
+      val fileManager = ctx.spawn(fileActorFactory(), "fileActor")
 
       /**
         * The main command handler function for the archive content actor.
@@ -93,7 +97,7 @@ object ArchiveContentActor:
             val (_, nextMediaContent) = contentActorFor(ctx, mediaContent, medium.id, artistIdManager, albumIdManager)
             handle(medium.overview :: mediaOverviews, media + (medium.id -> medium), nextMediaContent)
 
-          case ArchiveCommands.UpdateArchiveContentCommand.AddMediaFile(mediumID, _, metadata) =>
+          case ArchiveCommands.UpdateArchiveContentCommand.AddMediaFile(mediumID, fileUri, metadata) =>
             val (actor, nextMediaContent) = contentActorFor(
               ctx,
               mediaContent,
@@ -102,6 +106,7 @@ object ArchiveContentActor:
               albumIdManager
             )
             actor ! metadata
+            fileManager ! MediaFileActor.MediaFileCommand.AddFile(mediumID, fileUri, metadata)
             handle(mediaOverviews, media, nextMediaContent)
 
           case ArchiveCommands.ReadArchiveContentCommand.GetMedia(replyTo) =>
@@ -110,6 +115,10 @@ object ArchiveContentActor:
 
           case ArchiveCommands.ReadArchiveContentCommand.GetMedium(id, replyTo) =>
             replyTo ! ArchiveCommands.GetMediumResponse(id, media.get(id))
+            Behaviors.same
+
+          case ArchiveCommands.ReadArchiveContentCommand.GetFileInfo(fileID, replyTo) =>
+            fileManager ! MediaFileActor.MediaFileCommand.GetFileInfo(fileID, replyTo)
             Behaviors.same
 
           case req@ArchiveCommands.ReadMediumContentCommand.GetArtists(mediumID, replyTo) =>

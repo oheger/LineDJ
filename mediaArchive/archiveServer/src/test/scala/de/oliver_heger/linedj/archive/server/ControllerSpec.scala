@@ -73,7 +73,7 @@ class ControllerSpec(testSystem: classics.ActorSystem) extends TestKit(testSyste
                                  listenerFactory: ArchiveContentMetadataProcessingListener.Factory,
                                  contentBehavior: Behavior[ArchiveContentActor.ArchiveContentCommand] = mock,
                                  refGroupActorCreated: AtomicBoolean = new AtomicBoolean): ManagingActorFactory =
-    doReturn(contentBehavior).when(contentActorFactory).apply()
+    doReturn(contentBehavior).when(contentActorFactory).apply(null)
 
     val listenerBehavior = mock[Behavior[MetadataProcessingEvent]]
     doReturn(listenerBehavior).when(listenerFactory).apply(contentActor.ref)

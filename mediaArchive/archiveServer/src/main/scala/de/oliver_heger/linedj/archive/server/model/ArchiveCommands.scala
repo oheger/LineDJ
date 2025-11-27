@@ -63,6 +63,19 @@ object ArchiveCommands:
       */
     case GetMedium(id: Checksums.MediumChecksum,
                    replyTo: ActorRef[GetMediumResponse])
+
+    /**
+      * A command to request information about a specific media file stored in
+      * the archive. The file is identified by its ID (checksum). As a 
+      * response, a [[GetFileInfoResponse]] message is sent. This message 
+      * allows to distinguish between the cases that the file exists or is
+      * unknown.
+      *
+      * @param fileID  the ID of the file in question
+      * @param replyTo the actor to receive the response
+      */
+    case GetFileInfo(fileID: String,
+                     replyTo: ActorRef[GetFileInfoResponse])
   end ReadArchiveContentCommand
 
   /**

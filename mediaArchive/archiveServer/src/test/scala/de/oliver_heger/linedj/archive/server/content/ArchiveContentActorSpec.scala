@@ -21,6 +21,7 @@ import de.oliver_heger.linedj.shared.archive.media.MediaFileUri
 import de.oliver_heger.linedj.shared.archive.metadata.{Checksums, MediaMetadata}
 import org.apache.pekko.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
 import org.apache.pekko.actor.typed.ActorRef
+import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import org.scalatest.Inspectors.forEvery
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpecLike
@@ -214,6 +215,16 @@ object ArchiveContentActorSpec:
   private def createAlbumInfos(names: Iterable[String]): Iterable[ArchiveModel.AlbumInfo] =
     names.map: album =>
       ArchiveModel.AlbumInfo(calcAlbumID(album), album)
+
+  /**
+    * Returns a factory for a file actor that propagates incoming messages to
+    * the given probe actor reference.
+    *
+    * @param probe the probe
+    * @return the factory for the media file actor
+    */
+  private def fileActorFactory(probe: ActorRef[MediaFileActor.MediaFileCommand]): MediaFileActor.Factory =
+    () => Behaviors.monitor(probe, Behaviors.ignore)
 end ArchiveContentActorSpec
 
 /**
@@ -457,3 +468,35 @@ class ArchiveContentActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpec
 
     val expectedResult = ArchiveCommands.GetMediumDataResponse[ArchiveModel.AlbumInfo](albumRequest, None)
     probe.expectMessage(expectedResult)
+
+  it should "forward incoming messages about media files to the file actor" in :
+    val testMedium = createMedium(17)
+    val song = createMetadata("someArtist", "someAlbum", "someTitle", 3)
+    val probeFileActor = testKit.createTestProbe[MediaFileActor.MediaFileCommand]()
+    val fileUri = MediaFileUri(s"${testMedium.title}/some/song.mp3")
+    val addFileCommand = ArchiveCommands.UpdateArchiveContentCommand.AddMediaFile(
+      mediumID = testMedium.id,
+      fileUri = fileUri,
+      metadata = song
+    )
+
+    val contentActor = testKit.spawn(ArchiveContentActor.behavior(fileActorFactory(probeFileActor.ref)))
+    contentActor ! addFileCommand
+
+    val expectedFileCommand = MediaFileActor.MediaFileCommand.AddFile(
+      mediumID = testMedium.id,
+      fileUri = fileUri,
+      metadata = song
+    )
+    probeFileActor.expectMessage(expectedFileCommand)
+
+  it should "forward a request for a media file to the file actor" in :
+    val fileID = "some-media-file-id"
+    val probeFileActor = testKit.createTestProbe[MediaFileActor.MediaFileCommand]()
+    val probeClient = testKit.createTestProbe[ArchiveCommands.GetFileInfoResponse]()
+
+    val contentActor = testKit.spawn(ArchiveContentActor.behavior(fileActorFactory(probeFileActor.ref)))
+    contentActor ! ArchiveCommands.ReadArchiveContentCommand.GetFileInfo(fileID, probeClient.ref)
+
+    val expectedCommand = MediaFileActor.MediaFileCommand.GetFileInfo(fileID, probeClient.ref)
+    probeFileActor.expectMessage(expectedCommand)
