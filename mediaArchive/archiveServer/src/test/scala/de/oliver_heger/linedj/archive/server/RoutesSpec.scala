@@ -42,6 +42,9 @@ object RoutesSpec:
 
   /** The ID of a test medium. */
   private val TestMediumID = Checksums.MediumChecksum("test-medium-id")
+
+  /** The ID of a test media file. */
+  private val TestMediaFileID = "test-file-id"
 end RoutesSpec
 
 /**
@@ -288,4 +291,31 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers with S
 
     val contentActor = testKit.spawn(contentBehavior)
     Get(s"/api/archive/media/${TestMediumID.checksum}/artists/someArtist/albums") ~> testRoute(contentActor) ~> check:
+      status should be(StatusCodes.NotFound)
+
+  it should "define a route to query information about a media file" in :
+    val fileInfo = ArchiveModel.MediaFileInfo(
+      metadata = MediaMetadata(title = Some("Test song"), size = 10000, checksum = TestMediaFileID),
+      relativePath = "some/path/to/test-song.mp3",
+      mediumID = TestMediumID
+    )
+    val contentBehavior = Behaviors.receiveMessagePartial[ArchiveContentActor.ArchiveContentCommand]:
+      case ArchiveCommands.ReadArchiveContentCommand.GetFileInfo(fileID, replyTo) if fileID == TestMediaFileID =>
+        replyTo ! ArchiveCommands.GetFileInfoResponse(fileID = TestMediaFileID, optFileInfo = Some(fileInfo))
+        Behaviors.stopped
+
+    val contentActor = testKit.spawn(contentBehavior)
+    Get(s"/api/archive/files/$TestMediaFileID/info") ~> testRoute(contentActor) ~> check:
+      status should be(StatusCodes.OK)
+      val fileResponse = responseAs[ArchiveModel.MediaFileInfo]
+      fileResponse should be(fileInfo)
+
+  it should "ignore requests for a fileID without another path segment" in :
+    val contentActor = testKit.spawn(ArchiveContentActor.behavior())
+    Get(s"/api/archive/files$TestMediaFileID") ~> testRoute(contentActor) ~> check:
+      handled shouldBe false
+
+  it should "handle a request for information about a non-existing file" in :
+    val contentActor = testKit.spawn(ArchiveContentActor.behavior())
+    Get(s"/api/archive/files/$TestMediaFileID/info") ~> testRoute(contentActor) ~> check:
       status should be(StatusCodes.NotFound)

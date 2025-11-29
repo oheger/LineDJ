@@ -153,19 +153,44 @@ object Routes extends ArchiveModel.ArchiveJsonSupport:
               )
       )
 
+    /**
+      * Returns routes to query information about media files stored in the
+      * archive and to download them.
+      *
+      * @param fileID the ID of the requested media file
+      * @return the route
+      */
+    def mediaFilesRoute(fileID: String): Route =
+      concat(
+        path("info"):
+          get:
+            val futFileInfo = contentActor.ask[ArchiveCommands.GetFileInfoResponse]: ref =>
+              ArchiveCommands.ReadArchiveContentCommand.GetFileInfo(fileID, ref)
+            onSuccess(futFileInfo): response =>
+              response.optFileInfo match
+                case Some(fileInfo) =>
+                  complete(fileInfo)
+                case None =>
+                  complete(StatusCodes.NotFound)
+      )
+
     pathPrefix("api"):
       pathPrefix("archive"):
-        pathPrefix("media"):
-          concat(
-            pathEnd:
-              mediaRoute,
-            pathPrefix(Segment): mediumID =>
-              concat(
-                pathEnd:
-                  mediumDetailsRoute(mediumID),
-                pathPrefix("artists"):
-                  mediumArtistsRoutes(mediumID),
-                pathPrefix("albums"):
-                  mediumAlbumRoutes(mediumID)
-              )
-          )
+        concat(
+          pathPrefix("media"):
+            concat(
+              pathEnd:
+                mediaRoute,
+              pathPrefix(Segment): mediumID =>
+                concat(
+                  pathEnd:
+                    mediumDetailsRoute(mediumID),
+                  pathPrefix("artists"):
+                    mediumArtistsRoutes(mediumID),
+                  pathPrefix("albums"):
+                    mediumAlbumRoutes(mediumID)
+                )
+            ),
+          pathPrefix("files" / Segment): fileID =>
+            mediaFilesRoute(fileID)
+        )
