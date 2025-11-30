@@ -94,7 +94,7 @@ class MediaFileActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLike 
     val info = response.optFileInfo.value
     info.mediumID should be(mediumID(testIndex / 2))
     info.metadata should be(metadata(testIndex))
-    info.relativePath should be(mediaFileUri(testIndex).path)
+    info.fileUri should be(mediaFileUri(testIndex))
 
   it should "handle a non-existing file ID" in :
     val testFileID = fileID(42)

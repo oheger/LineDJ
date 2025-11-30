@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.archive.server.model
 
 import de.oliver_heger.linedj.archive.server.model.ArchiveModel.MediaFileInfo
+import de.oliver_heger.linedj.shared.archive.media.MediaFileUri
 import de.oliver_heger.linedj.shared.archive.metadata.{Checksums, MediaMetadata}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -87,8 +88,8 @@ class ArchiveModelSpec extends AnyFlatSpec with Matchers with ArchiveModel.Archi
       size = 54321,
       checksum = "1234567890"
     )
-    val path = "path/to/song/file.mp3"
+    val uri = MediaFileUri("path/to/song/file.mp3")
     val mediumID = Checksums.MediumChecksum("some-medium-id")
-    val fileInfo = MediaFileInfo(metadata, path, mediumID)
+    val fileInfo = MediaFileInfo(metadata, uri, mediumID)
 
     checkSerialization(fileInfo)

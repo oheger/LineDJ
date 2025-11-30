@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.archive.server.model
 
 import de.oliver_heger.linedj.io.parser.JsonProtocolSupport
+import de.oliver_heger.linedj.shared.archive.media.MediaFileUri
 import de.oliver_heger.linedj.shared.archive.metadata.{Checksums, MediaMetadata}
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import spray.json.{DefaultJsonProtocol, JsString, JsValue, JsonFormat, RootJsonFormat, deserializationError}
@@ -148,11 +149,12 @@ object ArchiveModel:
     * includes information about the location of the file.
     *
     * @param metadata     the metadata about the file
-    * @param relativePath the relative path of this file in the archive
+    * @param fileUri      the URI of this file in the archive; this can be used
+    *                     to resolve this file given the archive's root
     * @param mediumID     the ID of the medium that contains this file
     */
   final case class MediaFileInfo(metadata: MediaMetadata,
-                                 relativePath: String,
+                                 fileUri: MediaFileUri,
                                  mediumID: Checksums.MediumChecksum)
 
   /**
@@ -168,6 +170,15 @@ object ArchiveModel:
         override def read(json: JsValue): Checksums.MediumChecksum =
           json match
             case JsString(value) => Checksums.MediumChecksum(value)
+            case o => deserializationError(s"String expected, but got '$o'.")
+
+    given mediaFileUriFormat: RootJsonFormat[MediaFileUri] =
+      new RootJsonFormat[MediaFileUri]:
+        override def write(obj: MediaFileUri): JsValue = JsString(obj.uri)
+
+        override def read(json: JsValue): MediaFileUri =
+          json match
+            case JsString(value) => MediaFileUri(value)
             case o => deserializationError(s"String expected, but got '$o'.")
 
     given orderModeFormat: RootJsonFormat[OrderMode] = JsonProtocolSupport.enumFormat[OrderMode](OrderMode.valueOf)

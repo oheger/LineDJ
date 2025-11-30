@@ -83,7 +83,7 @@ object MediaFileActor:
       case MediaFileCommand.AddFile(mediumID, fileUri, metadata) =>
         val fileInfo = ArchiveModel.MediaFileInfo(
           metadata = metadata,
-          relativePath = fileUri.path,
+          fileUri = fileUri,
           mediumID = mediumID
         )
         handleCommand(files + (metadata.checksum -> fileInfo))

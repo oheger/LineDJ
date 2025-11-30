@@ -20,6 +20,7 @@ import de.oliver_heger.linedj.archive.server.content.ArchiveContentActor
 import de.oliver_heger.linedj.archive.server.model.{ArchiveCommands, ArchiveModel}
 import de.oliver_heger.linedj.server.common.ServerController
 import de.oliver_heger.linedj.shared.actors.ManagingActorFactory
+import de.oliver_heger.linedj.shared.archive.media.MediaFileUri
 import de.oliver_heger.linedj.shared.archive.metadata.{Checksums, MediaMetadata}
 import de.oliver_heger.linedj.utils.SystemPropertyAccess
 import org.apache.pekko.Done
@@ -297,7 +298,7 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers with S
   it should "define a route to query information about a media file" in :
     val fileInfo = ArchiveModel.MediaFileInfo(
       metadata = MediaMetadata(title = Some("Test song"), size = 10000, checksum = TestMediaFileID),
-      relativePath = "some/path/to/test-song.mp3",
+      fileUri = MediaFileUri("some/path/to/test-song.mp3"),
       mediumID = TestMediumID
     )
     val contentBehavior = Behaviors.receiveMessagePartial[ArchiveContentActor.ArchiveContentCommand]:
