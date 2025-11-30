@@ -119,17 +119,20 @@ object MediumAggregateStage:
     * @param fileDataFactory the function to create ''FileData'' objects
     * @return the object to calculate the next state
     */
-  private def nextState(file: Path, root: Path, archiveName: String, converter: PathUriConverter,
+  private def nextState(file: Path, 
+                        root: Path,
+                        archiveName: String,
+                        converter: PathUriConverter,
                         fileDataFactory: FileDataFactory): State[MediaState, Option[MediaScanResult]] =
     State { s =>
       if MediumDescription.isInfoFile(file) then
         val mid: MediumID = mediumIDFromSettingsPath(file, archiveName, converter)
         val newAgg = MediumAggregateData(file.getParent, mid, Nil)
         val (completed, active) = s.span(!_.isInScope(file))
-        (newAgg :: active, createScanResultForCompleteMedia(completed, root))
+        (newAgg :: active, createScanResultForCompleteMedia(completed, root, archiveName))
       else
         val (next, completed) = processFile(s, file, fileDataFactory)
-        (next, createScanResultForCompleteMedia(completed, root))
+        (next, createScanResultForCompleteMedia(completed, root, archiveName))
     }
 
   /**
@@ -164,9 +167,10 @@ object MediumAggregateStage:
     *
     * @param media the sequence with completed media
     * @param root  the root path of the current media archive
+    * @param archiveName the name of the owning archive
     * @return an optional ''MediaScanResult''
     */
-  private def createScanResultForCompleteMedia(media: Seq[MediumAggregateData], root: Path):
+  private def createScanResultForCompleteMedia(media: Seq[MediumAggregateData], root: Path, archiveName: String):
   Option[MediaScanResult] =
     if media.isEmpty then None
     else
@@ -174,7 +178,7 @@ object MediumAggregateStage:
         .foldLeft(Map.empty[MediumID, List[FileData]]) { (map, medium) =>
           map + (medium.id -> medium.files)
         }
-      Some(MediaScanResult(root, fileMap))
+      Some(MediaScanResult(root, fileMap, archiveName))
 
 /**
   * A specialized flow stage used during scanning of media files that
@@ -228,7 +232,7 @@ private class MediumAggregateStage(val root: Path,
         }
 
         override def onUpstreamFinish(): Unit = {
-          createScanResultForCompleteMedia(state, root) foreach (emit(out, _))
+          createScanResultForCompleteMedia(state, root, archiveName) foreach (emit(out, _))
           complete(out)
         }
       })

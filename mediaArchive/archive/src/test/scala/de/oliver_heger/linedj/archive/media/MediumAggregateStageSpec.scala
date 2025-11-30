@@ -141,7 +141,7 @@ object MediumAggregateStageSpec:
     */
   private def generateScanResult(mid: MediumID, paths: Path*): MediaScanResult =
     val files = paths.map(createFileData).toList
-    MediaScanResult(RootPath, Map(mid -> files))
+    MediaScanResult(RootPath, Map(mid -> files), ArchiveName)
 
   /**
     * Combines the given results to a combined media scan result containing the
@@ -199,7 +199,7 @@ class MediumAggregateStageSpec(testSystem: ActorSystem) extends TestKit(testSyst
 
   "A MediumAggregateStage" should "handle an empty directory structure" in:
     val result = runStream(List.empty)
-    result should be(List(MediaScanResult(RootPath, Map.empty)))
+    result should be(List(MediaScanResult(RootPath, Map.empty, ArchiveName)))
 
   it should "use a correct default file data converter function" in:
     val path = createDataFile()

@@ -48,6 +48,9 @@ import scala.concurrent.duration.*
 object MetadataManagerActorSpec:
   /** The root path of the test media archive. */
   private val ArchiveRootPath = Paths get "archiveRoot"
+  
+  /** The name of the test media archive. */
+  private val ArchiveName = "ArchiveWithNiceMusic"
 
   /** The test timeout value for media file processing. */
   private val ProcessingTimeout = 42.seconds
@@ -165,7 +168,7 @@ object MetadataManagerActorSpec:
     }
     val fileMap = Map(fileData: _*) +
       (MediumID(ArchiveRootPath.toString, None) -> generateMediaFiles(path("noMedium"), 11))
-    MediaScanResult(ArchiveRootPath, fileMap)
+    MediaScanResult(ArchiveRootPath, fileMap, ArchiveName)
 
   /**
     * Generates the checksum for a medium based on the given medium ID.
@@ -194,7 +197,7 @@ object MetadataManagerActorSpec:
     */
   def createResultForMedium(mid: MediumID): EnhancedMediaScanResult =
     val files = generateMediaFiles(path(mid.mediumURI), 4)
-    val scanRes = MediaScanResult(path(mid.mediumURI), Map(mid -> files))
+    val scanRes = MediaScanResult(path(mid.mediumURI), Map(mid -> files), ArchiveName)
     createEnhancedScanResult(scanRes)
 
   /**
@@ -324,7 +327,7 @@ class MetadataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
                                        expectAck: Boolean): EnhancedMediaScanResult =
     val root = path("anotherRootDirectory")
     val medID = MediumID(root.toString, Some("someDescFile.txt"))
-    val scanResult2 = MediaScanResult(root, Map(medID -> files))
+    val scanResult2 = MediaScanResult(root, Map(medID -> files), ArchiveName)
     val esr = EnhancedMediaScanResult(scanResult2, Map(medID -> createMediumChecksum(medID)))
     helper.sendMessage(esr)
     if expectAck then
@@ -573,7 +576,7 @@ class MetadataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
 
   it should "handle a failed metadata extraction operation" in:
     val mediaFiles = generateMediaFiles(path("test"), 16)
-    val scanResult = MediaScanResult(ArchiveRootPath, Map(TestMediumID -> mediaFiles))
+    val scanResult = MediaScanResult(ArchiveRootPath, Map(TestMediumID -> mediaFiles), ArchiveName)
     val enhancedResult = createEnhancedScanResult(scanResult)
     val processFilesRequest = ProcessMediaFiles(TestMediumID, mediaFiles, null)
     val processFilesResponse = ProcessMediaFilesResponse(processFilesRequest, success = false)

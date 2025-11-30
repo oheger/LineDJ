@@ -109,7 +109,7 @@ object MediaScanStateUpdateServiceSpec:
   private def scanResult(idx: Int): EnhancedMediaScanResult =
     val mid = mediumID(idx)
     val files = (1 to idx).map(i => FileData(songPath(idx, i), i * 42)).toList
-    val scanResult = MediaScanResult(Paths.get(mid.mediumURI), Map(mid -> files))
+    val scanResult = MediaScanResult(Paths.get(mid.mediumURI), Map(mid -> files), ArchiveName)
     EnhancedMediaScanResult(scanResult = scanResult, checksumMapping = Map(mid -> checkSum(idx)))
 
   /**

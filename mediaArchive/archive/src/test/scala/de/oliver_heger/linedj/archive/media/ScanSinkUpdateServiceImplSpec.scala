@@ -37,6 +37,9 @@ object ScanSinkUpdateServiceImplSpec:
 
   /** Test root path. */
   private val RootPath = Paths get "TestRoot"
+  
+  /** Test archive name. */
+  private val ArchiveName = "TestMusicArchive"
 
   /**
     * Produces an enhanced scan result object with dummy files for the
@@ -49,7 +52,7 @@ object ScanSinkUpdateServiceImplSpec:
     val fileMap = media.foldLeft(Map.empty[MediumID, List[FileData]]) { (m, id) =>
       m + (id -> createFiles(id))
     }
-    EnhancedMediaScanResult(MediaScanResult(RootPath, fileMap), Map.empty)
+    EnhancedMediaScanResult(MediaScanResult(RootPath, fileMap, ArchiveName), Map.empty)
 
   /**
     * Produces a list with mock file data objects for the given test medium.

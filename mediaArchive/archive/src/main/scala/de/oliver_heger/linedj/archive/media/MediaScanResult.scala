@@ -31,10 +31,13 @@ import java.nio.file.Path
   * medium assigned to it. The medium ID can be used to obtain a path pointing
   * to the corresponding medium description file if available.
   *
-  * @param root       the root path that has been scanned
-  * @param mediaFiles a map with files assigned to a medium
+  * @param root        the root path that has been scanned
+  * @param mediaFiles  a map with files assigned to a medium
+  * @param archiveName the name of the archive this result is about
   */
-case class MediaScanResult(root: Path, mediaFiles: Map[MediumID, List[FileData]])
+case class MediaScanResult(root: Path,
+                           mediaFiles: Map[MediumID, List[FileData]],
+                           archiveName: String)
 
 /**
   * A data class storing the result of a directory scan plus some additional

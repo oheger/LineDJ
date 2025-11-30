@@ -39,6 +39,9 @@ object ScanSinkActorSpec:
 
   /** A test sequence number. */
   private val SeqNo = 111
+  
+  /** The name of the test archive. */
+  private val ArchiveName = "TestArchive"
 
   /**
     * Creates a test medium ID with the given index.
@@ -60,7 +63,7 @@ object ScanSinkActorSpec:
   private def createScanResult(idx: Int): EnhancedMediaScanResult =
     val mid = createMediumID(idx)
     val files = (1 to idx).map(i => FileData(Paths get s"${mid.mediumURI}/music/song$i.mp3", i * 10))
-    val scanResult = MediaScanResult(Paths get mid.mediumURI, Map(mid -> files.toList))
+    val scanResult = MediaScanResult(Paths get mid.mediumURI, Map(mid -> files.toList), ArchiveName)
     EnhancedMediaScanResult(scanResult, Map(mid -> MediumChecksum(s"foo_$idx")))
 
   /**

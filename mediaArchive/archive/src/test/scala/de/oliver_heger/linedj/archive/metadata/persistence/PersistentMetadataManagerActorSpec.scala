@@ -49,6 +49,9 @@ import scala.reflect.ClassTag
 object PersistentMetadataManagerActorSpec:
   /** A root path for scan results. */
   private val RootPath = Paths get "root"
+  
+  /** The name of the test archive. */
+  private val ArchiveName = "MyTestArchive"
 
   /** The number of concurrent reader actors. */
   private val ParallelCount = 3
@@ -101,8 +104,10 @@ object PersistentMetadataManagerActorSpec:
     * @return the ''MediaScanResult''
     */
   private def scanResult(indices: Int*): MediaScanResult =
-    MediaScanResult(root = RootPath,
-      mediaFiles = indices.map(i => (mediumID(i), mediumFiles(mediumID(i)))).toMap
+    MediaScanResult(
+      root = RootPath,
+      mediaFiles = indices.map(i => (mediumID(i), mediumFiles(mediumID(i)))).toMap,
+      archiveName = ArchiveName
     )
 
   /**

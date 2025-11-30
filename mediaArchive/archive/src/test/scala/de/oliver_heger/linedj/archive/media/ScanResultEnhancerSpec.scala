@@ -100,8 +100,8 @@ class ScanResultEnhancerSpec extends AnyFlatSpec with Matchers with BeforeAndAft
     * @param media the map with media files
     * @return the scan result
     */
-  private def createScanResult(media: Map[MediumID, List[FileData]] = createMediaFileMap()):
-  MediaScanResult = MediaScanResult(testDirectory, media)
+  private def createScanResult(media: Map[MediumID, List[FileData]] = createMediaFileMap()): MediaScanResult =
+    MediaScanResult(testDirectory, media, "someArchiveName")
 
   "A ScanResultEnhancer" should "calculate a correct checksum" in:
     val mid = createMediumID(Medium1)
