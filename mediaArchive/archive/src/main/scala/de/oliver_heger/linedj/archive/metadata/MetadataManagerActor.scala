@@ -360,5 +360,11 @@ class MetadataManagerActor(config: MediaArchiveConfig,
       e._1 -> e._2.map(f => converter.pathToUri(f.path))
     }
     mediaFiles.map { (mid, files) =>
-      MetadataProcessingEvent.MediumAvailable(mid, esr.checksumMapping(mid), files, esr.scanResult.root)
+      MetadataProcessingEvent.MediumAvailable(
+        mid,
+        esr.checksumMapping(mid),
+        files,
+        esr.scanResult.root,
+        esr.scanResult.archiveName
+      )
     }.foreach(sendMetadataEvent)

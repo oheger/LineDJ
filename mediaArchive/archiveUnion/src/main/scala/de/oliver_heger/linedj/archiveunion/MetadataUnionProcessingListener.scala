@@ -71,7 +71,7 @@ object MetadataUnionProcessingListener {
           metadataUnionActor ! UpdateOperationCompleted(Some(processor))
           Behaviors.same
 
-        case MetadataProcessingEvent.MediumAvailable(mediumID, _, mediaFiles, _) =>
+        case MetadataProcessingEvent.MediumAvailable(mediumID, _, mediaFiles, _, _) =>
           metadataUnionActor ! MediaContribution(Map(mediumID -> mediaFiles))
           Behaviors.same
 

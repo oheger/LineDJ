@@ -87,11 +87,13 @@ enum MetadataProcessingEvent:
     * @param files    a collection with the URIs of the contained media files
     * @param rootPath the (local) root path of the archive; file URLs are 
     *                 relative to this path
+    * @param archiveName the name of the archive the medium belongs to
     */
   case MediumAvailable(mediumID: MediumID,
                        checksum: Checksums.MediumChecksum,
                        files: Iterable[MediaFileUri],
-                       rootPath: Path)
+                       rootPath: Path,
+                       archiveName: String)
 
   /**
     * A metadata event indicating that the info file about a medium has been

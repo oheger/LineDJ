@@ -913,7 +913,8 @@ class MetadataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
           mediumID = e._1,
           checksum = createMediumChecksum(e._1),
           files = e._2,
-          rootPath = ArchiveRootPath
+          rootPath = ArchiveRootPath,
+          archiveName = ArchiveName
         )
       }
       val events = (1 to expectedEvents.size).map { _ =>

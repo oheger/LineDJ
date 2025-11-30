@@ -70,7 +70,7 @@ class MetadataUnionProcessingListenerSpec(testSystem: ActorSystem) extends TestK
     val checksum = MediumChecksum("some-checksum")
 
     helper.sendEventAndExpectForwarding(
-      MetadataProcessingEvent.MediumAvailable(mediumID, checksum, mediaFiles, Paths.get("archiveRoot")),
+      MetadataProcessingEvent.MediumAvailable(mediumID, checksum, mediaFiles, Paths.get("archiveRoot"), "someArchive"),
       MediaContribution(Map(mediumID -> mediaFiles))
     )
 

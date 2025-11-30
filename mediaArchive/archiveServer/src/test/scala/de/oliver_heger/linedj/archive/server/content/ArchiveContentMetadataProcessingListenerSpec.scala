@@ -48,7 +48,8 @@ class ArchiveContentMetadataProcessingListenerSpec extends ScalaTestWithActorTes
       mediumID = TestMediumID,
       checksum = TestChecksum,
       files = List(MediaFileUri("some/path/song.mp3")),
-      rootPath = Paths.get("archiveRoot")
+      rootPath = Paths.get("archiveRoot"),
+      archiveName = "someTestArchive"
     )
     val description = MediumDescription("someName", "Test description", "RandomAlbums")
     val descriptionEvent = MetadataProcessingEvent.MediumDescriptionAvailable(TestMediumID, description)
@@ -70,7 +71,8 @@ class ArchiveContentMetadataProcessingListenerSpec extends ScalaTestWithActorTes
       mediumID = TestMediumID,
       checksum = TestChecksum,
       files = List(MediaFileUri("some/path/song.mp3")),
-      rootPath = Paths.get("archiveRoot")
+      rootPath = Paths.get("archiveRoot"),
+      archiveName = "someTestArchive"
     )
     val description = MediumDescription("someName", "Test description", "RandomAlbums")
     val descriptionEvent = MetadataProcessingEvent.MediumDescriptionAvailable(TestMediumID, description)
@@ -92,7 +94,8 @@ class ArchiveContentMetadataProcessingListenerSpec extends ScalaTestWithActorTes
       mediumID = TestMediumID,
       checksum = TestChecksum,
       files = List(MediaFileUri("some/path/song.mp3")),
-      rootPath = Paths.get("archiveRoot")
+      rootPath = Paths.get("archiveRoot"),
+      archiveName = "someArchive"
     )
     val description = MediumDescription("someName", "Test description", "unknownOrder")
     val descriptionEvent = MetadataProcessingEvent.MediumDescriptionAvailable(TestMediumID, description)
