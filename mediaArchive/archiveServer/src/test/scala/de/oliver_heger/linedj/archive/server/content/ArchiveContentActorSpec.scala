@@ -138,7 +138,8 @@ object ArchiveContentActorSpec:
         title = "Test medium " + idx
       ),
       description = "Description for test medium " + idx,
-      orderMode = Some(ArchiveModel.OrderMode.fromOrdinal(idx % ArchiveModel.OrderMode.values.length))
+      orderMode = Some(ArchiveModel.OrderMode.fromOrdinal(idx % ArchiveModel.OrderMode.values.length)),
+      archiveName = "test-archive"
     )
 
   /**

@@ -32,6 +32,9 @@ object ArchiveContentMetadataProcessingListenerSpec:
 
   /** The checksum of a test medium. */
   private val TestChecksum = Checksums.MediumChecksum("some-test-checksum")
+  
+  /** The name of the archive used by tests. */
+  private val ArchiveName = "TheTestArchive"
 end ArchiveContentMetadataProcessingListenerSpec
 
 /**
@@ -49,14 +52,15 @@ class ArchiveContentMetadataProcessingListenerSpec extends ScalaTestWithActorTes
       checksum = TestChecksum,
       files = List(MediaFileUri("some/path/song.mp3")),
       rootPath = Paths.get("archiveRoot"),
-      archiveName = "someTestArchive"
+      archiveName = ArchiveName
     )
     val description = MediumDescription("someName", "Test description", "RandomAlbums")
     val descriptionEvent = MetadataProcessingEvent.MediumDescriptionAvailable(TestMediumID, description)
     val expectedDetails = ArchiveModel.MediumDetails(
       overview = ArchiveModel.MediumOverview(TestChecksum, description.name),
       description = description.description,
-      orderMode = Some(ArchiveModel.OrderMode.RandomAlbums)
+      orderMode = Some(ArchiveModel.OrderMode.RandomAlbums),
+      archiveName = ArchiveName
     )
 
     val listener = testKit.spawn(ArchiveContentMetadataProcessingListener.behavior(probeContent.ref))
@@ -72,14 +76,15 @@ class ArchiveContentMetadataProcessingListenerSpec extends ScalaTestWithActorTes
       checksum = TestChecksum,
       files = List(MediaFileUri("some/path/song.mp3")),
       rootPath = Paths.get("archiveRoot"),
-      archiveName = "someTestArchive"
+      archiveName = ArchiveName
     )
     val description = MediumDescription("someName", "Test description", "RandomAlbums")
     val descriptionEvent = MetadataProcessingEvent.MediumDescriptionAvailable(TestMediumID, description)
     val expectedDetails = ArchiveModel.MediumDetails(
       overview = ArchiveModel.MediumOverview(TestChecksum, description.name),
       description = description.description,
-      orderMode = Some(ArchiveModel.OrderMode.RandomAlbums)
+      orderMode = Some(ArchiveModel.OrderMode.RandomAlbums),
+      archiveName = ArchiveName
     )
 
     val listener = testKit.spawn(ArchiveContentMetadataProcessingListener.behavior(probeContent.ref))
@@ -95,14 +100,15 @@ class ArchiveContentMetadataProcessingListenerSpec extends ScalaTestWithActorTes
       checksum = TestChecksum,
       files = List(MediaFileUri("some/path/song.mp3")),
       rootPath = Paths.get("archiveRoot"),
-      archiveName = "someArchive"
+      archiveName = ArchiveName
     )
     val description = MediumDescription("someName", "Test description", "unknownOrder")
     val descriptionEvent = MetadataProcessingEvent.MediumDescriptionAvailable(TestMediumID, description)
     val expectedDetails = ArchiveModel.MediumDetails(
       overview = ArchiveModel.MediumOverview(TestChecksum, description.name),
       description = description.description,
-      orderMode = None
+      orderMode = None,
+      archiveName = ArchiveName
     )
 
     val listener = testKit.spawn(ArchiveContentMetadataProcessingListener.behavior(probeContent.ref))

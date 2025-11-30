@@ -116,7 +116,8 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers with S
     val medium = ArchiveModel.MediumDetails(
       overview = ArchiveModel.MediumOverview(TestMediumID, "someTestMedium"),
       description = "This is a test medium",
-      orderMode = Some(ArchiveModel.OrderMode.Medium)
+      orderMode = Some(ArchiveModel.OrderMode.Medium),
+      archiveName = "someTestArchive"
     )
     val contentBehavior = Behaviors.receiveMessagePartial[ArchiveContentActor.ArchiveContentCommand]:
       case ArchiveCommands.ReadArchiveContentCommand.GetMedium(id, replyTo) if id == medium.id =>

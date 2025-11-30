@@ -119,7 +119,8 @@ object ArchiveContentMetadataProcessingListener:
         title = mediumDescription.mediumDescription.name
       ),
       description = mediumDescription.mediumDescription.description,
-      orderMode = toOrderMode(ctx, mediumDescription.mediumDescription.orderMode)
+      orderMode = toOrderMode(ctx, mediumDescription.mediumDescription.orderMode),
+      archiveName = mediumAvailable.archiveName
     )
 
     ctx.log.info("Got medium '{}'.", mediumDetails.overview.title)

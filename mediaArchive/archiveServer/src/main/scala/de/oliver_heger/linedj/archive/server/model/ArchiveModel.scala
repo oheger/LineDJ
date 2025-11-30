@@ -109,10 +109,12 @@ object ArchiveModel:
     * @param description a description for this medium
     * @param orderMode   the default order mode for playing the songs on the
     *                    medium if defined
+    * @param archiveName the name of the archive this medium belongs to
     */
   final case class MediumDetails(overview: MediumOverview,
                                  description: String,
-                                 orderMode: Option[OrderMode]):
+                                 orderMode: Option[OrderMode],
+                                 archiveName: String):
     export overview.*
 
   /**
@@ -174,7 +176,7 @@ object ArchiveModel:
 
     given mediaOverviewFormat: RootJsonFormat[MediaOverview] = jsonFormat1(MediaOverview.apply)
 
-    given mediumDetailsFormat: RootJsonFormat[MediumDetails] = jsonFormat3(MediumDetails.apply)
+    given mediumDetailsFormat: RootJsonFormat[MediumDetails] = jsonFormat4(MediumDetails.apply)
 
     given artistInfoFormat: RootJsonFormat[ArtistInfo] = jsonFormat2(ArtistInfo.apply)
 
