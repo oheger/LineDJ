@@ -20,6 +20,10 @@ import de.oliver_heger.linedj.archive.server.model.{ArchiveCommands, ArchiveMode
 import de.oliver_heger.linedj.shared.archive.metadata.Checksums
 import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors}
 import org.apache.pekko.actor.typed.{ActorRef, Behavior}
+import org.apache.pekko.util.Timeout
+
+import scala.concurrent.duration.DurationInt
+import scala.util.{Failure, Success}
 
 /**
   * An object providing an actor implementation for managing the content of a
@@ -49,6 +53,28 @@ object ArchiveContentActor:
   private val AlbumIDPrefix = "alb"
 
   /**
+    * An enumeration class defining internal commands the actor sends to
+    * itself to handle other commands.
+    */
+  private enum InternalArchiveContentCommand:
+    /**
+      * A command to construct a [[ArchiveModel.MediaFileDownloadInfo]] object
+      * based on information that has already been retrieved.
+      *
+      * @param fileInfoResponse the response for file information
+      * @param replyTo          the actor to receive the response
+      */
+    case ConstructDownloadInfo(fileInfoResponse: ArchiveCommands.GetFileResponse[ArchiveModel.MediaFileInfo],
+                               replyTo: ActorRef[ArchiveCommands.GetFileResponse[ArchiveModel.MediaFileDownloadInfo]])
+  end InternalArchiveContentCommand
+
+  /**
+    * A type collecting all commands this actor needs to handle. This is the
+    * combination of the public commands and the internal commands.
+    */
+  private type CommandType = ArchiveContentCommand | InternalArchiveContentCommand
+
+  /**
     * A factory trait for creating new instances of the archive content actor.
     */
   trait Factory:
@@ -66,7 +92,7 @@ object ArchiveContentActor:
     * A default [[Factory]] instance that can be used to create new actor
     * instances.
     */
-  final val behavior: Factory = fileActorFactory => setUpBehavior(fileActorFactory)
+  final val behavior: Factory = fileActorFactory => setUpBehavior(fileActorFactory).narrow
 
   /**
     * Returns the [[Behavior]] of a new actor instance.
@@ -74,11 +100,14 @@ object ArchiveContentActor:
     * @param fileActorFactory the factory to create a media file actor
     * @return the [[Behavior]] of the new instance
     */
-  private def setUpBehavior(fileActorFactory: MediaFileActor.Factory): Behavior[ArchiveContentCommand] =
-    Behaviors.setup[ArchiveContentCommand]: ctx =>
+  private def setUpBehavior(fileActorFactory: MediaFileActor.Factory): Behavior[CommandType] =
+    Behaviors.setup[CommandType]: ctx =>
       val artistIdManager = ctx.spawn(IdManagerActor.newInstance(ArtistIDPrefix), "artistIdManager")
       val albumIdManager = ctx.spawn(IdManagerActor.newInstance(AlbumIDPrefix), "albumIdManager")
       val fileManager = ctx.spawn(fileActorFactory(), "fileActor")
+
+      // A large timeout for ask operations. Timeouts are actually handled by clients of this actor.
+      given Timeout(1.hour)
 
       /**
         * The main command handler function for the archive content actor.
@@ -90,7 +119,7 @@ object ArchiveContentActor:
         */
       def handle(mediaOverviews: List[ArchiveModel.MediumOverview],
                  media: Map[Checksums.MediumChecksum, ArchiveModel.MediumDetails],
-                 mediaContent: MediaContentMap): Behavior[ArchiveContentCommand] =
+                 mediaContent: MediaContentMap): Behavior[CommandType] =
         Behaviors.receiveMessage:
           case ArchiveCommands.UpdateArchiveContentCommand.AddMedium(medium) =>
             ctx.log.info("Added medium {}.", medium.overview)
@@ -121,6 +150,22 @@ object ArchiveContentActor:
             fileManager ! MediaFileActor.MediaFileCommand.GetFileInfo(fileID, replyTo)
             Behaviors.same
 
+          case ArchiveCommands.ReadArchiveContentCommand.GetFileDownloadInfo(fileID, replyTo) =>
+            ctx.ask[MediaFileActor.MediaFileCommand, ArchiveCommands.GetFileResponse[ArchiveModel.MediaFileInfo]](
+              fileManager,
+              ref => MediaFileActor.MediaFileCommand.GetFileInfo(fileID, ref)
+            ):
+              case Success(response) =>
+                InternalArchiveContentCommand.ConstructDownloadInfo(response, replyTo)
+              case Failure(exception) =>
+                // This should actually not happen.
+                ctx.log.error("Failed to retrieve file information.", exception)
+                InternalArchiveContentCommand.ConstructDownloadInfo(
+                  ArchiveCommands.GetFileResponse(fileID, None),
+                  replyTo
+                )
+            Behaviors.same
+
           case req@ArchiveCommands.ReadMediumContentCommand.GetArtists(mediumID, replyTo) =>
             handleMediumRequest(req, mediumID, replyTo, mediaContent)
 
@@ -136,6 +181,14 @@ object ArchiveContentActor:
           case req@ArchiveCommands.ReadMediumContentCommand.GetAlbumsForArtist(mediumID, _, replyTo) =>
             handleMediumRequest(req, mediumID, replyTo, mediaContent)
 
+          case c: InternalArchiveContentCommand.ConstructDownloadInfo =>
+            val result = for
+              fileInfo <- c.fileInfoResponse.optResult
+              medium <- media.get(fileInfo.mediumID)
+            yield ArchiveModel.MediaFileDownloadInfo(fileInfo.fileUri, medium.archiveName)
+            c.replyTo ! ArchiveCommands.GetFileResponse(c.fileInfoResponse.fileID, result)
+            Behaviors.same
+
       handle(Nil, Map.empty, Map.empty)
 
   /**
@@ -150,7 +203,7 @@ object ArchiveContentActor:
     * @param albumIdManager  the actor managing album IDs
     * @return the actor and the possibly updated map
     */
-  private def contentActorFor(ctx: ActorContext[ArchiveContentCommand],
+  private def contentActorFor(ctx: ActorContext[CommandType],
                               map: MediaContentMap,
                               id: Checksums.MediumChecksum,
                               artistIdManager: ActorRef[IdManagerActor.QueryIdCommand],
@@ -182,7 +235,7 @@ object ArchiveContentActor:
   private def handleMediumRequest[DATA](req: ArchiveCommands.ReadMediumContentCommand,
                                         mediumID: Checksums.MediumChecksum,
                                         replyTo: ActorRef[ArchiveCommands.GetMediumDataResponse[DATA]],
-                                        mediaContent: MediaContentMap): Behavior[ArchiveContentCommand] =
+                                        mediaContent: MediaContentMap): Behavior[CommandType] =
     mediaContent.get(mediumID) match
       case Some(actor) =>
         actor ! req

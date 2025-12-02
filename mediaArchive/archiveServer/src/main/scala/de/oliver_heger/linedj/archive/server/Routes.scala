@@ -164,10 +164,10 @@ object Routes extends ArchiveModel.ArchiveJsonSupport:
       concat(
         path("info"):
           get:
-            val futFileInfo = contentActor.ask[ArchiveCommands.GetFileInfoResponse]: ref =>
+            val futFileInfo = contentActor.ask[ArchiveCommands.GetFileResponse[ArchiveModel.MediaFileInfo]]: ref =>
               ArchiveCommands.ReadArchiveContentCommand.GetFileInfo(fileID, ref)
             onSuccess(futFileInfo): response =>
-              response.optFileInfo match
+              response.optResult match
                 case Some(fileInfo) =>
                   complete(fileInfo)
                 case None =>

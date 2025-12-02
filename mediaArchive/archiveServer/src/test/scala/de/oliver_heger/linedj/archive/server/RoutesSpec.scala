@@ -303,7 +303,7 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers with S
     )
     val contentBehavior = Behaviors.receiveMessagePartial[ArchiveContentActor.ArchiveContentCommand]:
       case ArchiveCommands.ReadArchiveContentCommand.GetFileInfo(fileID, replyTo) if fileID == TestMediaFileID =>
-        replyTo ! ArchiveCommands.GetFileInfoResponse(fileID = TestMediaFileID, optFileInfo = Some(fileInfo))
+        replyTo ! ArchiveCommands.GetFileResponse(fileID = TestMediaFileID, optResult = Some(fileInfo))
         Behaviors.stopped
 
     val contentActor = testKit.spawn(contentBehavior)

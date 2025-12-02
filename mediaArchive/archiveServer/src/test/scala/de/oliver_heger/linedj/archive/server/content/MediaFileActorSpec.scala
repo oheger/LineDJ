@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.archive.server.content
 
-import de.oliver_heger.linedj.archive.server.model.ArchiveCommands
+import de.oliver_heger.linedj.archive.server.model.{ArchiveCommands, ArchiveModel}
 import de.oliver_heger.linedj.shared.archive.media.MediaFileUri
 import de.oliver_heger.linedj.shared.archive.metadata.{Checksums, MediaMetadata}
 import org.apache.pekko.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
@@ -86,12 +86,12 @@ class MediaFileActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLike 
     val testIndex = 4
     val testFileID = fileID(testIndex)
 
-    val probe = testKit.createTestProbe[ArchiveCommands.GetFileInfoResponse]()
+    val probe = testKit.createTestProbe[ArchiveCommands.GetFileResponse[ArchiveModel.MediaFileInfo]]()
     actor ! MediaFileActor.MediaFileCommand.GetFileInfo(testFileID, probe.ref)
 
-    val response = probe.expectMessageType[ArchiveCommands.GetFileInfoResponse]
+    val response = probe.expectMessageType[ArchiveCommands.GetFileResponse[ArchiveModel.MediaFileInfo]]
     response.fileID should be(testFileID)
-    val info = response.optFileInfo.value
+    val info = response.optResult.value
     info.mediumID should be(mediumID(testIndex / 2))
     info.metadata should be(metadata(testIndex))
     info.fileUri should be(mediaFileUri(testIndex))
@@ -100,10 +100,9 @@ class MediaFileActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLike 
     val testFileID = fileID(42)
     val actor = testKit.spawn(MediaFileActor.behavior())
 
-    val probe = testKit.createTestProbe[ArchiveCommands.GetFileInfoResponse]()
+    val probe = testKit.createTestProbe[ArchiveCommands.GetFileResponse[ArchiveModel.MediaFileInfo]]()
     actor ! MediaFileActor.MediaFileCommand.GetFileInfo(testFileID, probe.ref)
 
-    val response = probe.expectMessageType[ArchiveCommands.GetFileInfoResponse]
+    val response = probe.expectMessageType[ArchiveCommands.GetFileResponse[ArchiveModel.MediaFileInfo]]
     response.fileID should be(testFileID)
-    response.optFileInfo shouldBe empty
-    
+    response.optResult shouldBe empty

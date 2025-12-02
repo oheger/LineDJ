@@ -148,14 +148,26 @@ object ArchiveModel:
     * A data class collecting all relevant information about a media file. This
     * includes information about the location of the file.
     *
-    * @param metadata     the metadata about the file
-    * @param fileUri      the URI of this file in the archive; this can be used
-    *                     to resolve this file given the archive's root
-    * @param mediumID     the ID of the medium that contains this file
+    * @param metadata the metadata about the file
+    * @param fileUri  the URI of this file in the archive; this can be used
+    *                 to resolve this file given the archive's root
+    * @param mediumID the ID of the medium that contains this file
     */
   final case class MediaFileInfo(metadata: MediaMetadata,
                                  fileUri: MediaFileUri,
                                  mediumID: Checksums.MediumChecksum)
+
+  /**
+    * A data class to hold information that is needed to download a media file.
+    * The class stores the relative URI of the file in the archive and the name
+    * of the owning archive. This should be sufficient information to resolve
+    * the file.
+    *
+    * @param fileUri     the URI of the media file
+    * @param archiveName the name of the archive the file belongs to
+    */
+  final case class MediaFileDownloadInfo(fileUri: MediaFileUri,
+                                         archiveName: String)
 
   /**
     * A trait providing JSON converters for the classes of the archive data
@@ -199,4 +211,6 @@ object ArchiveModel:
       jsonFormat1(ItemsResult[DATA].apply)
 
     given mediaFileInfoFormat: RootJsonFormat[MediaFileInfo] = jsonFormat3(MediaFileInfo.apply)
+
+    given mediaFileDownloadInfoFormat: RootJsonFormat[MediaFileDownloadInfo] = jsonFormat2(MediaFileDownloadInfo.apply)
   end ArchiveJsonSupport

@@ -67,15 +67,25 @@ object ArchiveCommands:
     /**
       * A command to request information about a specific media file stored in
       * the archive. The file is identified by its ID (checksum). As a 
-      * response, a [[GetFileInfoResponse]] message is sent. This message 
-      * allows to distinguish between the cases that the file exists or is
-      * unknown.
+      * response, a [[GetFileResponse]] message is sent. This message allows to
+      * distinguish between the cases that the file exists or is unknown.
       *
       * @param fileID  the ID of the file in question
       * @param replyTo the actor to receive the response
       */
     case GetFileInfo(fileID: String,
-                     replyTo: ActorRef[GetFileInfoResponse])
+                     replyTo: ActorRef[GetFileResponse[ArchiveModel.MediaFileInfo]])
+
+    /**
+      * A command to request information required for downloading a specific 
+      * media file. This is analogous to [[GetFileInfo]], but for download
+      * information.
+      *
+      * @param fileID  the ID of the file in question
+      * @param replyTo the actor to receive the response
+      */
+    case GetFileDownloadInfo(fileID: String,
+                             replyTo: ActorRef[GetFileResponse[ArchiveModel.MediaFileDownloadInfo]])
   end ReadArchiveContentCommand
 
   /**
@@ -213,9 +223,8 @@ object ArchiveCommands:
     * about a media file. If the file ID could not be resolved, no information
     * is available.
     *
-    * @param fileID      the ID of the affected file
-    * @param optFileInfo the optional file information
+    * @param fileID    the ID of the affected file
+    * @param optResult the optional file information result
     */
-  final case class GetFileInfoResponse(fileID: String,
-                                       optFileInfo: Option[ArchiveModel.MediaFileInfo])
-  
+  final case class GetFileResponse[DATA](fileID: String,
+                                         optResult: Option[DATA])

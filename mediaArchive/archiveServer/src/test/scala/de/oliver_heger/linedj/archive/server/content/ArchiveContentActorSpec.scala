@@ -30,6 +30,9 @@ import org.scalatest.matchers.should.Matchers
 import java.util.Locale
 
 object ArchiveContentActorSpec:
+  /** The name of the archive used by tests. */
+  private val ArchiveName = "TestArchive"
+
   /** Definitions of some test albums. */
   private val direStraitsSongs = List(
     "Down to the waterline",
@@ -107,6 +110,32 @@ object ArchiveContentActorSpec:
       createMetadata(artist, album, song, index + 1)
 
   /**
+    * Generates an ID for a media file with the given metadata.
+    *
+    * @param artist the artist
+    * @param album  the album
+    * @param title  the title
+    * @return the ID of this file
+    */
+  private def createFileID(artist: String, album: String, title: String): String = s"$artist:$album:$title"
+
+  /**
+    * Generates the URI of a media file based on the ID of the file.
+    *
+    * @param fileID the file ID
+    * @return the URI of this file
+    */
+  private def createFileUri(fileID: String): MediaFileUri = MediaFileUri(s"https://$fileID")
+
+  /**
+    * Generates the URI of a media file based on its metadata.
+    *
+    * @param song the metadata of the file
+    * @return the URI of this file
+    */
+  private def createFileUri(song: MediaMetadata): MediaFileUri = createFileUri(song.checksum)
+
+  /**
     * Creates a test [[MediaMetadata]] instance for a test song.
     *
     * @param artist the artist
@@ -122,7 +151,7 @@ object ArchiveContentActorSpec:
       album = Some(album),
       trackNumber = Some(track),
       size = title.length * 100,
-      checksum = s"$artist:$album:$title"
+      checksum = createFileID(artist, album, title)
     )
 
   /**
@@ -139,7 +168,7 @@ object ArchiveContentActorSpec:
       ),
       description = "Description for test medium " + idx,
       orderMode = Some(ArchiveModel.OrderMode.fromOrdinal(idx % ArchiveModel.OrderMode.values.length)),
-      archiveName = "test-archive"
+      archiveName = ArchiveName
     )
 
   /**
@@ -157,7 +186,7 @@ object ArchiveContentActorSpec:
     def propagateSong(song: MediaMetadata): Unit =
       val addFileCommand = ArchiveCommands.UpdateArchiveContentCommand.AddMediaFile(
         mediumID = testMedium.id,
-        fileUri = MediaFileUri(s"https://${song.checksum}"),
+        fileUri = createFileUri(song),
         metadata = song
       )
       contentActor ! addFileCommand
@@ -494,10 +523,53 @@ class ArchiveContentActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpec
   it should "forward a request for a media file to the file actor" in :
     val fileID = "some-media-file-id"
     val probeFileActor = testKit.createTestProbe[MediaFileActor.MediaFileCommand]()
-    val probeClient = testKit.createTestProbe[ArchiveCommands.GetFileInfoResponse]()
+    val probeClient = testKit.createTestProbe[ArchiveCommands.GetFileResponse[ArchiveModel.MediaFileInfo]]()
 
     val contentActor = testKit.spawn(ArchiveContentActor.behavior(fileActorFactory(probeFileActor.ref)))
     contentActor ! ArchiveCommands.ReadArchiveContentCommand.GetFileInfo(fileID, probeClient.ref)
 
     val expectedCommand = MediaFileActor.MediaFileCommand.GetFileInfo(fileID, probeClient.ref)
     probeFileActor.expectMessage(expectedCommand)
+
+  it should "handle a command to obtain download information for a file" in :
+    val contentActor = testKit.spawn(ArchiveContentActor.behavior())
+    propagateTestMedium(contentActor)
+    val fileID = "Mike Oldfield:Crisis:Moonlight Shadow"
+    val probeClient = testKit.createTestProbe[ArchiveCommands.GetFileResponse[ArchiveModel.MediaFileDownloadInfo]]()
+
+    contentActor ! ArchiveCommands.ReadArchiveContentCommand.GetFileDownloadInfo(fileID, probeClient.ref)
+
+    val response = probeClient.expectMessageType[ArchiveCommands.GetFileResponse[ArchiveModel.MediaFileDownloadInfo]]
+    response.fileID should be(fileID)
+    val info = response.optResult.value
+    info.fileUri should be(createFileUri(fileID))
+    info.archiveName should be(ArchiveName)
+
+  it should "return an undefined file download result if querying a non-existing file ID" in :
+    val contentActor = testKit.spawn(ArchiveContentActor.behavior())
+    propagateTestMedium(contentActor)
+    val fileID = "non-existing-file"
+    val probeClient = testKit.createTestProbe[ArchiveCommands.GetFileResponse[ArchiveModel.MediaFileDownloadInfo]]()
+
+    contentActor ! ArchiveCommands.ReadArchiveContentCommand.GetFileDownloadInfo(fileID, probeClient.ref)
+
+    val response = probeClient.expectMessageType[ArchiveCommands.GetFileResponse[ArchiveModel.MediaFileDownloadInfo]]
+    response.fileID should be(fileID)
+    response.optResult shouldBe empty
+
+  it should "return an undefined file download result if the ID cannot be assigned to a medium" in :
+    val song = createMetadata("testArtist", "testAlbum", "testTile", 1)
+    val addFileCommand = ArchiveCommands.UpdateArchiveContentCommand.AddMediaFile(
+      mediumID = Checksums.MediumChecksum("unknown-medium-id"),
+      fileUri = createFileUri(song),
+      metadata = song
+    )
+    val contentActor = testKit.spawn(ArchiveContentActor.behavior())
+    contentActor ! addFileCommand
+    val probeClient = testKit.createTestProbe[ArchiveCommands.GetFileResponse[ArchiveModel.MediaFileDownloadInfo]]()
+
+    contentActor ! ArchiveCommands.ReadArchiveContentCommand.GetFileDownloadInfo(song.checksum, probeClient.ref)
+
+    val response = probeClient.expectMessageType[ArchiveCommands.GetFileResponse[ArchiveModel.MediaFileDownloadInfo]]
+    response.fileID should be(song.checksum)
+    response.optResult shouldBe empty

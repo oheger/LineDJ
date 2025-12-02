@@ -93,3 +93,11 @@ class ArchiveModelSpec extends AnyFlatSpec with Matchers with ArchiveModel.Archi
     val fileInfo = MediaFileInfo(metadata, uri, mediumID)
 
     checkSerialization(fileInfo)
+
+  it should "work for MediaFileDownloadInfo" in :
+    val downloadInfo = ArchiveModel.MediaFileDownloadInfo(
+      fileUri = MediaFileUri("/some/path/to/a/media-file.mp3"),
+      archiveName = "SomeTestArchive"
+    )
+
+    checkSerialization(downloadInfo)

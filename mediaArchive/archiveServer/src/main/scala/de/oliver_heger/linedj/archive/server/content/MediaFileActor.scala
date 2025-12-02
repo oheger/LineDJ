@@ -54,7 +54,7 @@ object MediaFileActor:
       * @param replyTo the actor to receive the response
       */
     case GetFileInfo(fileID: String,
-                     replyTo: ActorRef[ArchiveCommands.GetFileInfoResponse])
+                     replyTo: ActorRef[ArchiveCommands.GetFileResponse[ArchiveModel.MediaFileInfo]])
   end MediaFileCommand
 
   /**
@@ -89,5 +89,5 @@ object MediaFileActor:
         handleCommand(files + (metadata.checksum -> fileInfo))
 
       case MediaFileCommand.GetFileInfo(fileID, replyTo) =>
-        replyTo ! ArchiveCommands.GetFileInfoResponse(fileID, files.get(fileID))
+        replyTo ! ArchiveCommands.GetFileResponse(fileID, files.get(fileID))
         Behaviors.same
