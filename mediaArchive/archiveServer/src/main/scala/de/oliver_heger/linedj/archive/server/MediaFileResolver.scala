@@ -16,10 +16,12 @@
 
 package de.oliver_heger.linedj.archive.server
 
+import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.server.model.ArchiveModel
-import org.apache.pekko.stream.scaladsl.Source
+import org.apache.pekko.stream.scaladsl.{FileIO, Source}
 import org.apache.pekko.util.ByteString
 
+import java.nio.file.Files
 import scala.concurrent.{ExecutionContext, Future}
 
 /**
@@ -80,3 +82,35 @@ object MediaFileResolver:
     futSource.map(src => Some(src))
       .recover:
         case _: UnresolvableFileException => None
+
+  /**
+    * Returns a [[FileResolverFunc]] that can resolve media files from archives
+    * described by the given list of archive configurations. Based on the
+    * passed in [[ArchiveModel.MediaFileDownloadInfo]], the function looks up
+    * the owning archive and resolves the files URI against the archive's root
+    * path.
+    *
+    * @param archiveConfigs a collection with configurations for local media
+    *                       archives
+    * @return the [[FileResolverFunc]] for files from these archives
+    */
+  def localFileResolverFunc(archiveConfigs: Iterable[MediaArchiveConfig]): FileResolverFunc =
+    val archivePaths = archiveConfigs.map: archiveConfig =>
+      archiveConfig.archiveName -> archiveConfig.rootPath
+    .toMap
+
+    (fileID, downloadInfo) =>
+      archivePaths.get(downloadInfo.archiveName) match
+        case Some(rootPath) =>
+          val filePath = rootPath.resolve(downloadInfo.fileUri.path)
+          if Files.isReadable(filePath) then
+            Future.successful(FileIO.fromPath(filePath))
+          else
+            Future.failed(new UnresolvableFileException(fileID))
+        case None =>
+          Future.failed(
+            new UnresolvableFileException(
+              fileID,
+              s"Could not resolve file '$fileID' in unknown archive '${downloadInfo.archiveName}'."
+            )
+          )
