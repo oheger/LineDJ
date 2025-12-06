@@ -23,10 +23,13 @@ import org.apache.pekko.actor.typed.scaladsl.AskPattern.Askable
 import org.apache.pekko.actor.typed.scaladsl.adapter.*
 import org.apache.pekko.actor.typed.{ActorRef, ActorSystem}
 import org.apache.pekko.http.scaladsl.marshalling.ToResponseMarshaller
-import org.apache.pekko.http.scaladsl.model.StatusCodes
+import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, StatusCodes}
 import org.apache.pekko.http.scaladsl.server.Directives.*
 import org.apache.pekko.http.scaladsl.server.{Directives, Route}
-import org.apache.pekko.util.Timeout
+import org.apache.pekko.stream.scaladsl.Source
+import org.apache.pekko.util.{ByteString, Timeout}
+
+import scala.concurrent.Future
 
 /**
   * An object defining the routes supported by the archive server.
@@ -39,14 +42,18 @@ object Routes extends ArchiveModel.ArchiveJsonSupport:
     *
     * @param config       the configuration for the server
     * @param contentActor the actor managing the content of the archive
+    * @param resolver     the function to resolve media files in the archive
     * @return the top-level route of the server
     */
-  def route(config: ArchiveServerConfig, contentActor: ActorRef[ArchiveCommands.ArchiveQueryCommand])
+  def route(config: ArchiveServerConfig,
+            contentActor: ActorRef[ArchiveCommands.ArchiveQueryCommand],
+            resolver: MediaFileResolver.FileResolverFunc)
            (using system: classics.ActorSystem): Route =
     given ActorSystem[Nothing] = system.toTyped
 
     given Timeout(config.timeout)
     import org.apache.pekko.actor.typed.scaladsl.AskPattern.schedulerFromActorSystem
+    import system.dispatcher
 
     /** The route to query all known media. */
     val mediaRoute = get:
@@ -171,8 +178,33 @@ object Routes extends ArchiveModel.ArchiveJsonSupport:
                 case Some(fileInfo) =>
                   complete(fileInfo)
                 case None =>
-                  complete(StatusCodes.NotFound)
+                  complete(StatusCodes.NotFound),
+        path("download"):
+          get:
+            val futOptSource = for
+              downloadInfo <- contentActor.ask[ArchiveCommands.GetFileResponse[ArchiveModel.MediaFileDownloadInfo]]:
+                ref => ArchiveCommands.ReadArchiveContentCommand.GetFileDownloadInfo(fileID, ref)
+              source <- resolveDownloadSource(fileID, downloadInfo.optResult)
+            yield source
+            onSuccess(futOptSource):
+              case Some(source) =>
+                complete(HttpEntity(ContentTypes.`application/octet-stream`, source))
+              case None =>
+                complete(StatusCodes.NotFound)
       )
+
+    /**
+      * Handles the response for a download info request and invokes the 
+      * resolver function configured for this server.
+      *
+      * @param fileID          the ID of the affected file
+      * @param optDownloadInfo the download info for this file
+      * @return a [[Future]] with the optional download source
+      */
+    def resolveDownloadSource(fileID: String, optDownloadInfo: Option[ArchiveModel.MediaFileDownloadInfo]):
+    Future[Option[Source[ByteString, Any]]] =
+      optDownloadInfo.fold(Future.successful(None)): downloadInfo =>
+        MediaFileResolver.toOptionalSource(resolver(fileID, downloadInfo))
 
     pathPrefix("api"):
       pathPrefix("archive"):

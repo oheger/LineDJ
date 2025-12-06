@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.archive.server
 
+import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.archive.server.content.ArchiveContentActor
 import de.oliver_heger.linedj.archive.server.model.{ArchiveCommands, ArchiveModel}
 import de.oliver_heger.linedj.server.common.ServerController
@@ -34,6 +35,7 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
+import java.nio.file.Paths
 import scala.concurrent.Promise
 import scala.concurrent.duration.DurationInt
 
@@ -52,7 +54,7 @@ end RoutesSpec
   * Test class for the routes of the archive server.
   */
 class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers with ScalatestRouteTest
-  with ArchiveModel.ArchiveJsonSupport:
+  with MediaFileTestSupport with ArchiveModel.ArchiveJsonSupport:
   /** The test kit for typed actors. */
   private val testKit = ActorTestKit()
 
@@ -320,4 +322,46 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers with S
   it should "handle a request for information about a non-existing file" in :
     val contentActor = testKit.spawn(ArchiveContentActor.behavior())
     Get(s"/api/archive/files/$TestMediaFileID/info") ~> testRoute(contentActor) ~> check:
+      status should be(StatusCodes.NotFound)
+
+  it should "define a route to download a media file" in:
+    val archiveConfig = createArchiveConfigWithRootPath("myMusic")
+    val downloadInfo = ArchiveModel.MediaFileDownloadInfo(
+      archiveName = archiveConfig.archiveName,
+      fileUri = MediaFileUri("/test-medium/test-artist/test-album/test-song.mp3")
+    )
+    writeMediaFile(archiveConfig, Paths.get(downloadInfo.fileUri.path), FileTestHelper.TestData)
+    val serverConfig = TestServerConfig.copy(archiveConfigs = List(archiveConfig))
+    val contentBehavior = Behaviors.receiveMessagePartial[ArchiveContentActor.ArchiveContentCommand]:
+      case ArchiveCommands.ReadArchiveContentCommand.GetFileDownloadInfo(fileID, replyTo)
+        if fileID == TestMediaFileID =>
+        replyTo ! ArchiveCommands.GetFileResponse(fileID = fileID, optResult = Some(downloadInfo))
+        Behaviors.stopped
+
+    val contentActor = testKit.spawn(contentBehavior)
+    Get(s"/api/archive/files/$TestMediaFileID/download") ~> testRoute(contentActor, serverConfig) ~> check:
+      status should be(StatusCodes.OK)
+      val fileData = responseAs[String]
+      fileData should be(FileTestHelper.TestData)
+
+  it should "handle a download request for a non-existing media file" in:
+    val contentActor = testKit.spawn(ArchiveContentActor.behavior())
+    Get(s"/api/archive/files/$TestMediaFileID/download") ~> testRoute(contentActor) ~> check:
+      status should be(StatusCodes.NotFound)
+
+  it should "handle a download request for a non-resolvable media file" in:
+    val archiveConfig = createArchiveConfigWithRootPath("myMusic")
+    val downloadInfo = ArchiveModel.MediaFileDownloadInfo(
+      archiveName = archiveConfig.archiveName,
+      fileUri = MediaFileUri("/test-medium/test-artist/test-album/test-song.mp3")
+    )
+    val serverConfig = TestServerConfig.copy(archiveConfigs = List(archiveConfig))
+    val contentBehavior = Behaviors.receiveMessagePartial[ArchiveContentActor.ArchiveContentCommand]:
+      case ArchiveCommands.ReadArchiveContentCommand.GetFileDownloadInfo(fileID, replyTo)
+        if fileID == TestMediaFileID =>
+        replyTo ! ArchiveCommands.GetFileResponse(fileID = fileID, optResult = Some(downloadInfo))
+        Behaviors.stopped
+
+    val contentActor = testKit.spawn(contentBehavior)
+    Get(s"/api/archive/files/$TestMediaFileID/download") ~> testRoute(contentActor, serverConfig) ~> check:
       status should be(StatusCodes.NotFound)
