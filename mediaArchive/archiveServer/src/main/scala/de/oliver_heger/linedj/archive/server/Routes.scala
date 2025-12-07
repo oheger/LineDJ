@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.archive.server
 
 import de.oliver_heger.linedj.archive.server.model.{ArchiveCommands, ArchiveModel}
+import de.oliver_heger.linedj.extract.id3.stream.ID3SkipStage
 import de.oliver_heger.linedj.shared.archive.metadata.{Checksums, MediaMetadata}
 import org.apache.pekko.actor as classics
 import org.apache.pekko.actor.typed.scaladsl.AskPattern.Askable
@@ -37,6 +38,19 @@ import scala.concurrent.Future
   * The routes allow accessing the content of the archive in various ways.
   */
 object Routes extends ArchiveModel.ArchiveJsonSupport:
+  /**
+    * The name of the query parameter that controls whether to strip ID3
+    * metadata when downloading a media file.
+    */
+  private val ParamStripMetadata = "stripMetadata"
+
+  /**
+    * Constant for the value of a boolean parameter that is interpreted as
+    * '''true''' (ignoring case). All other values are considered to mean
+    * '''false'''.
+    */
+  private val ParamTrueValue = "true"
+
   /**
     * Returns the top-level route of the archive server.
     *
@@ -181,16 +195,21 @@ object Routes extends ArchiveModel.ArchiveJsonSupport:
                   complete(StatusCodes.NotFound),
         path("download"):
           get:
-            val futOptSource = for
-              downloadInfo <- contentActor.ask[ArchiveCommands.GetFileResponse[ArchiveModel.MediaFileDownloadInfo]]:
-                ref => ArchiveCommands.ReadArchiveContentCommand.GetFileDownloadInfo(fileID, ref)
-              source <- resolveDownloadSource(fileID, downloadInfo.optResult)
-            yield source
-            onSuccess(futOptSource):
-              case Some(source) =>
-                complete(HttpEntity(ContentTypes.`application/octet-stream`, source))
-              case None =>
-                complete(StatusCodes.NotFound)
+            parameter(ParamStripMetadata.optional): optStrip =>
+              val futOptSource = for
+                downloadInfo <- contentActor.ask[ArchiveCommands.GetFileResponse[ArchiveModel.MediaFileDownloadInfo]]:
+                  ref => ArchiveCommands.ReadArchiveContentCommand.GetFileDownloadInfo(fileID, ref)
+                source <- resolveDownloadSource(fileID, downloadInfo.optResult)
+              yield source
+              onSuccess(futOptSource):
+                case Some(source) =>
+                  val strippedSource = if optStrip.exists(_.equalsIgnoreCase(ParamTrueValue)) then
+                    source.via(new ID3SkipStage)
+                  else
+                    source
+                  complete(HttpEntity(ContentTypes.`application/octet-stream`, strippedSource))
+                case None =>
+                  complete(StatusCodes.NotFound)
       )
 
     /**
