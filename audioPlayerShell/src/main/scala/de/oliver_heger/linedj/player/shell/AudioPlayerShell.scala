@@ -28,7 +28,7 @@ import org.apache.pekko.stream.{BoundedSourceQueue, KillSwitch, KillSwitches}
 
 import java.nio.file.{Files, Path, Paths}
 import java.util.Locale
-import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import scala.collection.immutable.IndexedSeq
 import scala.concurrent.{ExecutionContext, Future}
 import scala.io.StdIn.readLine
@@ -38,33 +38,12 @@ import scala.io.StdIn.readLine
   * manipulate audio streams.
   */
 object AudioPlayerShell:
-  /**
-    * A map defining the names of the existing commands and help texts for
-    * them. The help texts consist of multiple lines.
-    */
-  private val Commands = Map(
-    "close" -> List(
-      "Closes the playlist.",
-      "Afterward, no more songs can be added. The existing playlist is fully played."
-    ),
-    "exit" -> List("Stops this application."),
-    "play" -> List(
-      "play <path>",
-      "Enqueues one or multiple audio file(s) as denoted by <path> to the playlist. If <path> points to a single " +
-        "file, this file is added. For directories, the content is scanned recursively and added. " +
-        "If the path contains whitespace, it must be surrounded by quotes."
-    ),
-    "stop" -> List("Pauses playback."),
-    "start" -> List("Resumes playback if it is currently paused."),
-    "skip" -> List("Skips the currently played audio source and continues with the next one (if any).")
-  )
-
   /** The command line argument to define a buffer. */
   private val BufferDirArgument = "--buffer-dir"
 
   /** The command line argument to define the size of buffer files. */
   private val BufferSizeArgument = "--buffer-size"
-  
+
   /** The command line argument to enable the buffer full sources mode. */
   private val BufferFullSourcesArgument = "--buffer-full-sources"
 
@@ -78,6 +57,21 @@ object AudioPlayerShell:
   type BufferFunc = AudioStreamPlayerStage.AudioStreamPlayerConfig[String, Any] =>
     Option[BufferedPlaylistSource.BufferedPlaylistSourceConfig[String, Any]]
 
+  /**
+    * A data class collecting information about a command supported by the
+    * shell. This is used by the main execution loop to check the provided
+    * arguments and trigger the execution.
+    *
+    * @param minArgs the minimum number of arguments of this command
+    * @param maxArgs the maximum number of arguments of this command
+    * @param help    the help texts (multi-line) for this command
+    * @param run     the execution function for this command
+    */
+  private case class CommandInfo(minArgs: Int,
+                                 maxArgs: Int,
+                                 help: List[String],
+                                 run: IndexedSeq[String] => Unit)
+
   def main(args: Array[String]): Unit =
     println("Audio Player Shell")
     println("Type `help` for a list of available commands.")
@@ -85,58 +79,22 @@ object AudioPlayerShell:
     implicit val actorSystem: classic.ActorSystem = classic.ActorSystem("AudioPlayerShell")
     val audioStreamFactory = new CompositeAudioStreamFactory(List(new Mp3AudioStreamFactory, DefaultAudioStreamFactory))
     val streamHandler = new PlaylistStreamHandler(audioStreamFactory, createBufferConfigFunc(args))
-    var done = false
+    val done = new AtomicBoolean
+    val commands = createCommands(streamHandler, done)
 
-    while !done do
+    while !done.get() do
       prompt()
       val (command, rawArguments) = readLine().split("""\s(?=([^"]*"[^"]*")*[^"]*$)""").splitAt(1)
-      val arguments = rawArguments.map { v =>
+      val arguments = rawArguments.map: v =>
         v.stripPrefix("\"").stripSuffix("\"")
-      }
 
-      command.head.toLowerCase(Locale.ROOT) match
-        case "exit" =>
-          checkArgumentsAndRun(command, arguments, 0, 0) { _ => done = true }
+      if command.head.nonEmpty then
+        commands.get(command.head.toLowerCase(Locale.ROOT)) match
+          case Some(cmdInfo) =>
+            checkArgumentsAndRun(command, arguments, cmdInfo.minArgs, cmdInfo.maxArgs)(cmdInfo.run)
 
-        case "play" =>
-          checkArgumentsAndRun(command, arguments, 1, 1) { args =>
-            filesToAdd(args.head).foreach(streamHandler.addToPlaylist)
-          }
-
-        case "start" =>
-          streamHandler.startPlayback()
-
-        case "stop" =>
-          streamHandler.stopPlayback()
-
-        case "skip" =>
-          streamHandler.skipCurrentSource()
-
-        case "close" =>
-          streamHandler.closePlaylist()
-
-        case "help" =>
-          checkArgumentsAndRun(command, arguments, 0, 1) { args =>
-            if args.isEmpty then
-              println("Available commands:")
-              println()
-              Commands.keys.toList.sorted.foreach(println)
-              println()
-              println("Type `help <command>` to get information about a specific command.")
-            else
-              Commands.get(args.head) match
-                case Some(help) =>
-                  println(s"Command `${args.head}`:")
-                  help.foreach(println)
-                case None =>
-                  println(s"Unknown command `${args.head}`")
-                  println("Type `help` for a list of all supported commands.")
-          }
-
-        case "" => // ignore empty input
-
-        case _ =>
-          println(s"Unknown command '${command.head}'.")
+          case None =>
+            println(s"Unknown command '${command.head}'.")
 
     println("Shutting down shell...")
     streamHandler.shutdown()
@@ -171,6 +129,87 @@ object AudioPlayerShell:
         bufferFullSources = argsMap.get(BufferFullSourcesArgument).exists(_.toBoolean)
       )
     }
+
+  /**
+    * Creates the map with the supported commands.
+    *
+    * @param streamHandler the [[PlaylistStreamHandler]]
+    * @param exitFlag      the flag to control the exit of the main loop
+    * @return the map with commands
+    */
+  private def createCommands(streamHandler: PlaylistStreamHandler,
+                             exitFlag: AtomicBoolean): Map[String, CommandInfo] =
+    var commandsMap = Map.empty[String, CommandInfo]
+    val allCommands = Map(
+      "close" -> CommandInfo(
+        minArgs = 0,
+        maxArgs = 0,
+        help = List(
+          "Closes the playlist.",
+          "Afterward, no more songs can be added. The existing playlist is fully played."
+        ),
+        run = _ => streamHandler.closePlaylist()
+      ),
+      "exit" -> CommandInfo(
+        minArgs = 0,
+        maxArgs = 0,
+        help = List("Stops this application."),
+        run = _ => exitFlag.set(true)
+      ),
+      "help" -> CommandInfo(
+        minArgs = 0,
+        maxArgs = 1,
+        help = List("Shows help about the commands supported by this application"),
+        run = args =>
+          if args.isEmpty then
+            println("Available commands:")
+            println()
+            commandsMap.keys.toList.sorted.foreach(println)
+            println()
+            println("Type `help <command>` to get information about a specific command.")
+          else
+            commandsMap.get(args.head) match
+              case Some(info) =>
+                println(s"Command `${args.head}`:")
+                info.help.foreach(println)
+              case None =>
+                println(s"Unknown command `${args.head}`")
+                println("Type `help` for a list of all supported commands.")
+      ),
+      "play" -> CommandInfo(
+        minArgs = 1,
+        maxArgs = 1,
+        help = List(
+          "play <path>",
+          "Enqueues one or multiple audio file(s) as denoted by <path> to the playlist. If <path> points to a single " +
+            "file, this file is added. For directories, the content is scanned recursively and added. " +
+            "If the path contains whitespace, it must be surrounded by quotes."
+        ),
+        run = args =>
+          filesToAdd(args.head).foreach(streamHandler.addToPlaylist)
+      ),
+      "skip" -> CommandInfo(
+        minArgs = 0,
+        maxArgs = 0,
+        help = List("Skips the currently played audio source and continues with the next one (if any)."),
+        run = _ => streamHandler.skipCurrentSource()
+      ),
+      "start" -> CommandInfo(
+        minArgs = 0,
+        maxArgs = 0,
+        help = List("Resumes playback if it is currently paused."),
+        run = _ => streamHandler.startPlayback()
+      ),
+      "stop" -> CommandInfo(
+        minArgs = 0,
+        maxArgs = 0,
+        help = List("Pauses playback."),
+        run = _ => streamHandler.stopPlayback()
+      )
+    )
+
+    commandsMap = allCommands
+    commandsMap
 
   /**
     * Checks whether a correct number of arguments was passed for a command. If
