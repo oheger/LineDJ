@@ -28,9 +28,11 @@ import org.apache.pekko.stream.{BoundedSourceQueue, KillSwitch, KillSwitches}
 
 import java.nio.file.{Files, Path, Paths}
 import java.util.Locale
-import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
+import java.util.concurrent.atomic.AtomicReference
 import scala.collection.immutable.IndexedSeq
-import scala.concurrent.{ExecutionContext, Future}
+import scala.collection.mutable.ListBuffer
+import scala.concurrent.duration.DurationInt
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.io.StdIn.readLine
 
 /**
@@ -70,35 +72,70 @@ object AudioPlayerShell:
   private case class CommandInfo(minArgs: Int,
                                  maxArgs: Int,
                                  help: List[String],
-                                 run: IndexedSeq[String] => Unit)
+                                 run: CommandHandler)
+
+  /**
+    * A data class collecting all relevant information for the main command
+    * loop of this application. When executing a command, the command gets
+    * access to an instance of this class.
+    *
+    * @param actorSystem   the actor system
+    * @param streamHandler the handler for audio streams
+    * @param commands      the map with supported commands
+    */
+  private case class CommandContext(actorSystem: classic.ActorSystem,
+                                    streamHandler: PlaylistStreamHandler,
+                                    commands: Map[String, CommandInfo]):
+    /**
+      * Shuts down this context by releasing all resources in use.
+      */
+    def shutdown(): Unit =
+      streamHandler.shutdown()
+      Await.ready(actorSystem.terminate(), 30.seconds)
+  end CommandContext
+
+  /**
+    * A data class storing information about the result of a command execution.
+    * The command handler function yields an instance of this class. This is
+    * then evaluated by the main command loop to decide how to proceed.
+    *
+    * @param output the output of the command as list of lines
+    * @param exit   a flag whether to exit the shell
+    */
+  private case class CommandResult(output: List[String],
+                                   exit: Boolean = false)
+
+  /**
+    * Type alias for a function that handles the execution of a command.
+    *
+    * @param ctx  the command context
+    * @param args the arguments passed to this command
+    * @return an object with the result of the command execution
+    */
+  private type CommandHandler = (ctx: CommandContext, args: IndexedSeq[String]) => CommandResult
 
   def main(args: Array[String]): Unit =
     println("Audio Player Shell")
     println("Type `help` for a list of available commands.")
 
-    implicit val actorSystem: classic.ActorSystem = classic.ActorSystem("AudioPlayerShell")
-    val audioStreamFactory = new CompositeAudioStreamFactory(List(new Mp3AudioStreamFactory, DefaultAudioStreamFactory))
-    val streamHandler = new PlaylistStreamHandler(audioStreamFactory, createBufferConfigFunc(args))
-    val done = new AtomicBoolean
-    val commands = createCommands(streamHandler, done)
+    val commandContext = createCommandContext(args)
+    var done = false
 
-    while !done.get() do
+    while !done do
       prompt()
       val (command, rawArguments) = readLine().split("""\s(?=([^"]*"[^"]*")*[^"]*$)""").splitAt(1)
       val arguments = rawArguments.map: v =>
         v.stripPrefix("\"").stripSuffix("\"")
 
       if command.head.nonEmpty then
-        commands.get(command.head.toLowerCase(Locale.ROOT)) match
+        commandContext.commands.get(command.head.toLowerCase(Locale.ROOT)) match
           case Some(cmdInfo) =>
-            checkArgumentsAndRun(command, arguments, cmdInfo.minArgs, cmdInfo.maxArgs)(cmdInfo.run)
+            done = checkArgumentsAndRun(commandContext, command, arguments, cmdInfo.minArgs, cmdInfo.maxArgs)(cmdInfo.run)
 
           case None =>
             println(s"Unknown command '${command.head}'.")
 
     println("Shutting down shell...")
-    streamHandler.shutdown()
-    actorSystem.terminate()
 
   /**
     * Returns a configuration for a buffered source if such a source is
@@ -121,26 +158,28 @@ object AudioPlayerShell:
       (kv(0), kv(1))
     }.toMap
 
-    argsMap.get(BufferDirArgument).map { bufferDir =>
+    argsMap.get(BufferDirArgument).map: bufferDir =>
       BufferedPlaylistSource.BufferedPlaylistSourceConfig(
         streamPlayerConfig = streamPlayerConfig,
         bufferFolder = Paths.get(bufferDir),
         bufferFileSize = argsMap.get(BufferSizeArgument).map(_.toInt).getOrElse(DefaultBufferFileSize),
         bufferFullSources = argsMap.get(BufferFullSourcesArgument).exists(_.toBoolean)
       )
-    }
 
   /**
-    * Creates the map with the supported commands.
+    * Creates the [[CommandContext]] for this shell. This contains the 
+    * supported commands and all required helper objects.
     *
-    * @param streamHandler the [[PlaylistStreamHandler]]
-    * @param exitFlag      the flag to control the exit of the main loop
-    * @return the map with commands
+    * @param args the command line arguments
+    * @return the [[CommandContext]]
     */
-  private def createCommands(streamHandler: PlaylistStreamHandler,
-                             exitFlag: AtomicBoolean): Map[String, CommandInfo] =
-    var commandsMap = Map.empty[String, CommandInfo]
-    val allCommands = Map(
+  private def createCommandContext(args: Array[String]): CommandContext =
+    given actorSystem: classic.ActorSystem = classic.ActorSystem("AudioPlayerShell")
+
+    val audioStreamFactory = new CompositeAudioStreamFactory(List(new Mp3AudioStreamFactory, DefaultAudioStreamFactory))
+    val streamHandler = new PlaylistStreamHandler(audioStreamFactory, createBufferConfigFunc(args))
+
+    val commands = Map(
       "close" -> CommandInfo(
         minArgs = 0,
         maxArgs = 0,
@@ -148,33 +187,44 @@ object AudioPlayerShell:
           "Closes the playlist.",
           "Afterward, no more songs can be added. The existing playlist is fully played."
         ),
-        run = _ => streamHandler.closePlaylist()
+        run = (_, _) =>
+          streamHandler.closePlaylist()
+          result("Playlist has been closed.")
       ),
       "exit" -> CommandInfo(
         minArgs = 0,
         maxArgs = 0,
         help = List("Stops this application."),
-        run = _ => exitFlag.set(true)
+        run = (ctx, _) =>
+          ctx.shutdown()
+          CommandResult(List.empty, exit = true)
       ),
       "help" -> CommandInfo(
         minArgs = 0,
         maxArgs = 1,
         help = List("Shows help about the commands supported by this application"),
-        run = args =>
-          if args.isEmpty then
-            println("Available commands:")
-            println()
-            commandsMap.keys.toList.sorted.foreach(println)
-            println()
-            println("Type `help <command>` to get information about a specific command.")
+        run = (ctx, args) =>
+          val output = if args.isEmpty then
+            val buffer = ListBuffer.empty[String]
+            buffer += "Available commands:"
+            buffer += ""
+            buffer ++= ctx.commands.keys.toList.sorted
+            buffer += ""
+            buffer += "Type `help <command>` to get information about a specific command."
+            buffer.toList
           else
-            commandsMap.get(args.head) match
+            ctx.commands.get(args.head) match
               case Some(info) =>
-                println(s"Command `${args.head}`:")
-                info.help.foreach(println)
+                val buffer = ListBuffer.empty[String]
+                buffer += s"Command `${args.head}`:"
+                buffer ++= info.help
+                buffer.toList
               case None =>
-                println(s"Unknown command `${args.head}`")
-                println("Type `help` for a list of all supported commands.")
+                List(
+                  s"Unknown command `${args.head}`",
+                  "Type `help` for a list of all supported commands."
+                )
+          CommandResult(output)
       ),
       "play" -> CommandInfo(
         minArgs = 1,
@@ -185,48 +235,69 @@ object AudioPlayerShell:
             "file, this file is added. For directories, the content is scanned recursively and added. " +
             "If the path contains whitespace, it must be surrounded by quotes."
         ),
-        run = args =>
-          filesToAdd(args.head).foreach(streamHandler.addToPlaylist)
+        run = (ctx, args) => {
+          val files = filesToAdd(args.head)
+          files.foreach(ctx.streamHandler.addToPlaylist)
+          val output = files.map(uri => s"Added '$uri' to current playlist.")
+          CommandResult(output)
+        }
       ),
       "skip" -> CommandInfo(
         minArgs = 0,
         maxArgs = 0,
         help = List("Skips the currently played audio source and continues with the next one (if any)."),
-        run = _ => streamHandler.skipCurrentSource()
+        run = (ctx, _) =>
+          ctx.streamHandler.skipCurrentSource()
+          result("Skipping playback of current audio source.")
       ),
       "start" -> CommandInfo(
         minArgs = 0,
         maxArgs = 0,
         help = List("Resumes playback if it is currently paused."),
-        run = _ => streamHandler.startPlayback()
+        run = (ctx, _) =>
+          ctx.streamHandler.startPlayback()
+          result("Audio playback started.")
       ),
       "stop" -> CommandInfo(
         minArgs = 0,
         maxArgs = 0,
         help = List("Pauses playback."),
-        run = _ => streamHandler.stopPlayback()
+        run = (ctx, _) =>
+          ctx.streamHandler.stopPlayback()
+          result("Audio playback stopped.")
       )
     )
 
-    commandsMap = allCommands
-    commandsMap
+    CommandContext(actorSystem, streamHandler, commands)
+
+  /**
+    * Convenience function to create a [[CommandResult]] object with only a 
+    * single output message.
+    *
+    * @param output the output message
+    * @return the result object
+    */
+  private def result(output: String): CommandResult = CommandResult(List(output))
 
   /**
     * Checks whether a correct number of arguments was passed for a command. If
     * so, executes the function to run the command; otherwise, an error message
     * is printed.
     *
+    * @param context   the command context
     * @param command   the array with the command name
     * @param arguments the array with the arguments
     * @param minArgs   the minimum number of arguments
     * @param maxArgs   the maximum number of arguments
     * @param run       the function to run the command
+    * @return a flag whether the loop should exit
     */
-  private def checkArgumentsAndRun(command: Array[String],
+  private def checkArgumentsAndRun(context: CommandContext,
+                                   command: Array[String],
                                    arguments: Array[String],
                                    minArgs: Int,
                                    maxArgs: Int)
-                                  (run: IndexedSeq[String] => Unit): Unit =
+                                  (run: CommandHandler): Boolean =
     if arguments.length < minArgs || arguments.length > maxArgs then
       val expectMsg = if minArgs == maxArgs then
         minArgs match
@@ -235,8 +306,11 @@ object AudioPlayerShell:
           case _ => s"exactly $minArgs arguments"
       else s"at least $minArgs and at most $maxArgs arguments"
       println(s"Command '${command.head}' expects $expectMsg, but got ${arguments.length}.")
+      false
     else
-      run(arguments.toIndexedSeq)
+      val result = run(context, arguments.toIndexedSeq)
+      result.output.foreach(println)
+      result.exit
 
   /**
     * Determines the audio files to be added to the playlist from the given
@@ -290,7 +364,7 @@ private def printAndPrompt(msg: String): Unit =
   */
 private class PlaylistStreamHandler(audioStreamFactory: AudioStreamFactory,
                                     bufferFunc: BufferFunc)
-                                   (implicit val system: classic.ActorSystem):
+                                   (using system: classic.ActorSystem):
   /** The execution context for operations with futures. */
   private given executionContext: ExecutionContext = system.dispatcher
 
@@ -315,21 +389,18 @@ private class PlaylistStreamHandler(audioStreamFactory: AudioStreamFactory,
     */
   def addToPlaylist(uri: String): Unit =
     playlistQueue.offer(uri)
-    printAndPrompt(s"Added '$uri' to current playlist.")
 
   /**
     * Stops audio playback.
     */
   def stopPlayback(): Unit =
     pauseActor ! PausePlaybackStage.StopPlayback
-    printAndPrompt("Audio playback stopped.")
 
   /**
     * Starts audio playback.
     */
   def startPlayback(): Unit =
     pauseActor ! PausePlaybackStage.StartPlayback
-    printAndPrompt("Audio playback started.")
 
   /**
     * Closes the current playlist.
@@ -353,7 +424,6 @@ private class PlaylistStreamHandler(audioStreamFactory: AudioStreamFactory,
     */
   def skipCurrentSource(): Unit =
     Option(refCancelStream.get()).foreach { ks =>
-      printAndPrompt("Skipping playback of current audio source.")
       ks.shutdown()
     }
 
