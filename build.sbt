@@ -31,6 +31,7 @@ lazy val VersionJacksonAnnotations = "2.20"
 lazy val VersionJavaFX = "11.0.2"
 lazy val VersionJguiraffe = "1.5"
 lazy val VersionJLayer = "1.0.1.4"
+lazy val VersionJLine = "3.30.6"
 lazy val VersionLog4j = "2.25.2"
 lazy val VersionMp3Spi = "1.9.5.4"
 lazy val VersionNetty = "4.2.6.Final"
@@ -1011,6 +1012,7 @@ lazy val audioPlayerShell = (project in file("audioPlayerShell"))
     name := "linedj-audio-player-shell",
     libraryDependencies ++= logDependencies,
     libraryDependencies ++= pekkoHttpDependencies,
+    libraryDependencies += "org.jline" % "jline" % VersionJLine,
     libraryDependencies ++= Seq(
       collectionsDependency,
       beanUtilsDependency

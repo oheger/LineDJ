@@ -25,6 +25,8 @@ import org.apache.pekko.actor as classic
 import org.apache.pekko.actor.typed.scaladsl.adapter.*
 import org.apache.pekko.stream.scaladsl.{FileIO, Sink, Source}
 import org.apache.pekko.stream.{BoundedSourceQueue, KillSwitch, KillSwitches}
+import org.jline.reader.LineReaderBuilder
+import org.jline.terminal.{Terminal, TerminalBuilder}
 
 import java.nio.file.{Files, Path, Paths}
 import java.util.Locale
@@ -33,7 +35,7 @@ import scala.collection.immutable.IndexedSeq
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.io.StdIn.readLine
+import scala.util.Using
 
 /**
   * An object implementing a simple shell for issuing commands to create and
@@ -79,11 +81,13 @@ object AudioPlayerShell:
     * loop of this application. When executing a command, the command gets
     * access to an instance of this class.
     *
+    * @param terminal      the object to generate output
     * @param actorSystem   the actor system
     * @param streamHandler the handler for audio streams
     * @param commands      the map with supported commands
     */
-  private case class CommandContext(actorSystem: classic.ActorSystem,
+  private case class CommandContext(terminal: Terminal,
+                                    actorSystem: classic.ActorSystem,
                                     streamHandler: PlaylistStreamHandler,
                                     commands: Map[String, CommandInfo]):
     /**
@@ -115,27 +119,41 @@ object AudioPlayerShell:
   private type CommandHandler = (ctx: CommandContext, args: IndexedSeq[String]) => CommandResult
 
   def main(args: Array[String]): Unit =
-    println("Audio Player Shell")
-    println("Type `help` for a list of available commands.")
+    Using(TerminalBuilder.builder().system(true).build()): terminal =>
+      val writer = terminal.writer()
+      val lineReader = LineReaderBuilder.builder()
+        .terminal(terminal)
+        .build()
 
-    val commandContext = createCommandContext(args)
-    var done = false
+      writer.println("Audio Player Shell")
+      writer.println("Type `help` for a list of available commands.")
+      writer.flush()
 
-    while !done do
-      prompt()
-      val (command, rawArguments) = readLine().split("""\s(?=([^"]*"[^"]*")*[^"]*$)""").splitAt(1)
-      val arguments = rawArguments.map: v =>
-        v.stripPrefix("\"").stripSuffix("\"")
+      val commandContext = createCommandContext(terminal, args)
+      var done = false
 
-      if command.head.nonEmpty then
-        commandContext.commands.get(command.head.toLowerCase(Locale.ROOT)) match
-          case Some(cmdInfo) =>
-            done = checkArgumentsAndRun(commandContext, command, arguments, cmdInfo.minArgs, cmdInfo.maxArgs)(cmdInfo.run)
+      while !done do
+        val line = lineReader.readLine("playerShell> ")
+        val (command, rawArguments) = line.split("""\s(?=([^"]*"[^"]*")*[^"]*$)""").splitAt(1)
+        val arguments = rawArguments.map: v =>
+          v.stripPrefix("\"").stripSuffix("\"")
 
-          case None =>
-            println(s"Unknown command '${command.head}'.")
+        if command.head.nonEmpty then
+          commandContext.commands.get(command.head.toLowerCase(Locale.ROOT)) match
+            case Some(cmdInfo) =>
+              done = checkArgumentsAndRun(
+                commandContext,
+                command,
+                arguments,
+                cmdInfo.minArgs,
+                cmdInfo.maxArgs
+              )(cmdInfo.run)
 
-    println("Shutting down shell...")
+            case None =>
+              writer.println(s"Unknown command '${command.head}'.")
+        writer.flush()
+
+      writer.println("Shutting down shell...")
 
   /**
     * Returns a configuration for a buffered source if such a source is
@@ -173,7 +191,7 @@ object AudioPlayerShell:
     * @param args the command line arguments
     * @return the [[CommandContext]]
     */
-  private def createCommandContext(args: Array[String]): CommandContext =
+  private def createCommandContext(terminal: Terminal, args: Array[String]): CommandContext =
     given actorSystem: classic.ActorSystem = classic.ActorSystem("AudioPlayerShell")
 
     val audioStreamFactory = new CompositeAudioStreamFactory(List(new Mp3AudioStreamFactory, DefaultAudioStreamFactory))
@@ -268,7 +286,7 @@ object AudioPlayerShell:
       )
     )
 
-    CommandContext(actorSystem, streamHandler, commands)
+    CommandContext(terminal, actorSystem, streamHandler, commands)
 
   /**
     * Convenience function to create a [[CommandResult]] object with only a 
@@ -305,11 +323,11 @@ object AudioPlayerShell:
           case 1 => "a single argument"
           case _ => s"exactly $minArgs arguments"
       else s"at least $minArgs and at most $maxArgs arguments"
-      println(s"Command '${command.head}' expects $expectMsg, but got ${arguments.length}.")
+      context.terminal.writer().println(s"Command '${command.head}' expects $expectMsg, but got ${arguments.length}.")
       false
     else
       val result = run(context, arguments.toIndexedSeq)
-      result.output.foreach(println)
+      result.output.foreach(context.terminal.writer().println)
       result.exit
 
   /**
