@@ -21,11 +21,12 @@ import de.oliver_heger.linedj.player.engine.stream.PausePlaybackStage.PlaybackSt
 import de.oliver_heger.linedj.player.engine.stream.{AudioStreamPlayerStage, BufferedPlaylistSource, LineWriterStage, PausePlaybackStage}
 import de.oliver_heger.linedj.player.engine.{AudioStreamFactory, CompositeAudioStreamFactory, DefaultAudioStreamFactory}
 import de.oliver_heger.linedj.player.shell.AudioPlayerShell.BufferFunc
+import org.apache.logging.log4j.LogManager
 import org.apache.pekko.actor as classic
 import org.apache.pekko.actor.typed.scaladsl.adapter.*
 import org.apache.pekko.stream.scaladsl.{FileIO, Sink, Source}
 import org.apache.pekko.stream.{BoundedSourceQueue, KillSwitch, KillSwitches}
-import org.jline.reader.LineReaderBuilder
+import org.jline.reader.{LineReaderBuilder, PrintAboveWriter}
 import org.jline.terminal.{Terminal, TerminalBuilder}
 
 import java.nio.file.{Files, Path, Paths}
@@ -35,7 +36,7 @@ import scala.collection.immutable.IndexedSeq
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.util.Using
+import scala.util.{Failure, Success, Using}
 
 /**
   * An object implementing a simple shell for issuing commands to create and
@@ -119,19 +120,24 @@ object AudioPlayerShell:
   private type CommandHandler = (ctx: CommandContext, args: IndexedSeq[String]) => CommandResult
 
   def main(args: Array[String]): Unit =
-    Using(TerminalBuilder.builder().system(true).build()): terminal =>
+    val result = Using.Manager: use =>
+      use(Output.initializeLogging())
+      val terminal = use(TerminalBuilder.builder().system(true).build())
       val writer = terminal.writer()
       val lineReader = LineReaderBuilder.builder()
         .terminal(terminal)
         .build()
 
-      writer.println("Audio Player Shell")
-      writer.println("Type `help` for a list of available commands.")
-      writer.flush()
-
       val commandContext = createCommandContext(terminal, args)
-      var done = false
+      Output.initializeOutput(commandContext.actorSystem, new PrintAboveWriter(lineReader))
+      Output.output(
+        List(
+          "Audio Player Shell",
+          "Type `help` for a list of available commands."
+        )
+      )
 
+      var done = false
       while !done do
         val line = lineReader.readLine("playerShell> ")
         val (command, rawArguments) = line.split("""\s(?=([^"]*"[^"]*")*[^"]*$)""").splitAt(1)
@@ -153,7 +159,10 @@ object AudioPlayerShell:
               writer.println(s"Unknown command '${command.head}'.")
         writer.flush()
 
-      writer.println("Shutting down shell...")
+    result match
+      case Failure(exception) =>
+        exception.printStackTrace()
+      case Success(value) =>
 
   /**
     * Returns a configuration for a buffered source if such a source is
@@ -214,6 +223,8 @@ object AudioPlayerShell:
         maxArgs = 0,
         help = List("Stops this application."),
         run = (ctx, _) =>
+          Output.output(List("Shutting down AudioPlayerShell."))
+          Output.shutdownOutput()
           ctx.shutdown()
           CommandResult(List.empty, exit = true)
       ),
@@ -323,11 +334,11 @@ object AudioPlayerShell:
           case 1 => "a single argument"
           case _ => s"exactly $minArgs arguments"
       else s"at least $minArgs and at most $maxArgs arguments"
-      context.terminal.writer().println(s"Command '${command.head}' expects $expectMsg, but got ${arguments.length}.")
+      Output.output(List(s"Command '${command.head}' expects $expectMsg, but got ${arguments.length}."))
       false
     else
       val result = run(context, arguments.toIndexedSeq)
-      result.output.foreach(context.terminal.writer().println)
+      Output.output(result.output)
       result.exit
 
   /**
@@ -358,21 +369,6 @@ object AudioPlayerShell:
 end AudioPlayerShell
 
 /**
-  * Prints the prompt for user input.
-  */
-private def prompt(): Unit =
-  print("$ ")
-
-/**
-  * Prints a message and shows a new prompt.
-  *
-  * @param msg the message to be printed
-  */
-private def printAndPrompt(msg: String): Unit =
-  println(msg)
-  prompt()
-
-/**
   * A helper class that manages the current playlist. It can add  a new source
   * to the playlist, and pause or resume playback.
   *
@@ -400,6 +396,13 @@ private class PlaylistStreamHandler(audioStreamFactory: AudioStreamFactory,
   private val playlistQueue = startPlaylistStream()
 
   /**
+    * The logger. Since the log output is redirected to the [[Output]] module,
+    * writing to the logger nicely integrates with other messages produced by
+    * commands.
+    */
+  private val log = LogManager.getLogger(getClass)
+
+  /**
     * Starts a new audio stream. If one is currently in progress, it is
     * canceled before.
     *
@@ -425,7 +428,6 @@ private class PlaylistStreamHandler(audioStreamFactory: AudioStreamFactory,
     */
   def closePlaylist(): Unit =
     playlistQueue.complete()
-    printAndPrompt("Playlist has been closed.")
 
   /**
     * Shuts down this object and stops the playlist.
@@ -463,19 +465,17 @@ private class PlaylistStreamHandler(audioStreamFactory: AudioStreamFactory,
     val sink = Sink.foreach[AudioStreamPlayerStage.PlaylistStreamResult[Any, Any]] {
       case AudioStreamPlayerStage.PlaylistStreamResult.AudioStreamEnd(audioSourcePath, _) =>
         refCancelStream.set(null)
-        printAndPrompt(s"Audio stream for '$audioSourcePath' was completed successfully.")
+        log.info("Audio stream for '{}' was completed successfully.", audioSourcePath)
       case AudioStreamPlayerStage.PlaylistStreamResult.AudioStreamFailure(audioSourcePath, exception) =>
         refCancelStream.set(null)
-        println(s"Audio stream for '$audioSourcePath' failed with an exception:")
-        exception.printStackTrace()
-        prompt()
+        log.error("Audio stream for '{}' failed with an exception.", audioSourcePath, exception)
       case AudioStreamPlayerStage.PlaylistStreamResult.AudioStreamStart(audioSourcePath, killSwitch) =>
         refCancelStream.set(killSwitch)
-        printAndPrompt(s"Starting playback of '$audioSourcePath'.")
+        log.info("Starting playback of '{}'.", audioSourcePath)
     }
 
     bufferFunc(config).map { bufferConfig =>
-      println("Creating a buffered source with configuration: " + bufferConfig)
+      log.info("Creating a buffered source with configuration: {}", bufferConfig)
       val bufferedSource = BufferedPlaylistSource(bufferConfig, source)
       val bufferedConfig = BufferedPlaylistSource.mapConfig(bufferConfig.streamPlayerConfig)
       AudioStreamPlayerStage.runPlaylistStream(bufferedConfig, bufferedSource, sink)._1
