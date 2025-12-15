@@ -28,6 +28,7 @@ import org.apache.pekko.stream.scaladsl.{FileIO, Sink, Source}
 import org.apache.pekko.stream.{BoundedSourceQueue, KillSwitch, KillSwitches}
 import org.jline.reader.{LineReaderBuilder, PrintAboveWriter}
 import org.jline.terminal.{Terminal, TerminalBuilder}
+import org.jline.utils.AttributedString
 
 import java.nio.file.{Files, Path, Paths}
 import java.util.Locale
@@ -127,9 +128,10 @@ object AudioPlayerShell:
       val lineReader = LineReaderBuilder.builder()
         .terminal(terminal)
         .build()
+      val promptString = new AttributedString("playerShell> ", Output.StylePrompt)
 
       val commandContext = createCommandContext(terminal, args)
-      Output.initializeOutput(commandContext.actorSystem, new PrintAboveWriter(lineReader))
+      Output.initializeOutput(commandContext.actorSystem, terminal, new PrintAboveWriter(lineReader))
       Output.output(
         List(
           "Audio Player Shell",
@@ -139,7 +141,7 @@ object AudioPlayerShell:
 
       var done = false
       while !done do
-        val line = lineReader.readLine("playerShell> ")
+        val line = lineReader.readLine(promptString.toAnsi)
         val (command, rawArguments) = line.split("""\s(?=([^"]*"[^"]*")*[^"]*$)""").splitAt(1)
         val arguments = rawArguments.map: v =>
           v.stripPrefix("\"").stripSuffix("\"")
