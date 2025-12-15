@@ -105,10 +105,10 @@ object AudioPlayerShell:
     * The command handler function yields an instance of this class. This is
     * then evaluated by the main command loop to decide how to proceed.
     *
-    * @param output the output of the command as list of lines
+    * @param output the output of the command
     * @param exit   a flag whether to exit the shell
     */
-  private case class CommandResult(output: List[String],
+  private case class CommandResult(output: Output.CommandOutput,
                                    exit: Boolean = false)
 
   /**
@@ -133,9 +133,11 @@ object AudioPlayerShell:
       val commandContext = createCommandContext(terminal, args)
       Output.initializeOutput(commandContext.actorSystem, terminal, new PrintAboveWriter(lineReader))
       Output.output(
-        List(
-          "Audio Player Shell",
-          "Type `help` for a list of available commands."
+        Output.SyncOutput(
+          List(
+            "Audio Player Shell",
+            "Type `help` for a list of available commands."
+          )
         )
       )
 
@@ -225,10 +227,10 @@ object AudioPlayerShell:
         maxArgs = 0,
         help = List("Stops this application."),
         run = (ctx, _) =>
-          Output.output(List("Shutting down AudioPlayerShell."))
+          Output.output(Output.SyncOutput(List("Shutting down AudioPlayerShell.")))
           Output.shutdownOutput()
           ctx.shutdown()
-          CommandResult(List.empty, exit = true)
+          CommandResult(Output.SyncOutput(List.empty), exit = true)
       ),
       "help" -> CommandInfo(
         minArgs = 0,
@@ -255,7 +257,7 @@ object AudioPlayerShell:
                   s"Unknown command `${args.head}`",
                   "Type `help` for a list of all supported commands."
                 )
-          CommandResult(output)
+          result(output)
       ),
       "play" -> CommandInfo(
         minArgs = 1,
@@ -270,7 +272,7 @@ object AudioPlayerShell:
           val files = filesToAdd(args.head)
           files.foreach(ctx.streamHandler.addToPlaylist)
           val output = files.map(uri => s"Added '$uri' to current playlist.")
-          CommandResult(output)
+          result(output)
         }
       ),
       "skip" -> CommandInfo(
@@ -308,7 +310,16 @@ object AudioPlayerShell:
     * @param output the output message
     * @return the result object
     */
-  private def result(output: String): CommandResult = CommandResult(List(output))
+  private def result(output: String): CommandResult = CommandResult(Output.SyncOutput(List(output)))
+
+  /**
+    * Convenience function to create [[CommandResult]] object with a list of
+    * lines to output.
+    *
+    * @param lines the single lines of output
+    * @return the result object
+    */
+  private def result(lines: List[String]): CommandResult = CommandResult(Output.SyncOutput(lines))
 
   /**
     * Checks whether a correct number of arguments was passed for a command. If
@@ -336,7 +347,12 @@ object AudioPlayerShell:
           case 1 => "a single argument"
           case _ => s"exactly $minArgs arguments"
       else s"at least $minArgs and at most $maxArgs arguments"
-      Output.output(List(s"Command '${command.head}' expects $expectMsg, but got ${arguments.length}."))
+      Output.output(
+        Output.SyncOutput(
+          List(s"Command '${command.head}' expects $expectMsg, but got ${arguments.length}."),
+          Output.StyleError
+        )
+      )
       false
     else
       val result = run(context, arguments.toIndexedSeq)
