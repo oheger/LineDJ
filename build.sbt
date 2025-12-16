@@ -1012,13 +1012,10 @@ lazy val audioPlayerShell = (project in file("audioPlayerShell"))
     name := "linedj-audio-player-shell",
     libraryDependencies ++= logDependencies,
     libraryDependencies ++= pekkoHttpDependencies,
+    libraryDependencies += "com.github.oheger" %% "cloud-files-core" % VersionCloudFiles,
     libraryDependencies += "org.jline" % "jline" % VersionJLine,
-    libraryDependencies ++= Seq(
-      collectionsDependency,
-      beanUtilsDependency
-    ),
     assembly / mainClass := Some("de.oliver_heger.linedj.player.server.ServerMain")
-  ) dependsOn(playerEngine, mp3PlaybackContextFactory, log4jConfFragment)
+  ) dependsOn(playerEngine, mp3PlaybackContextFactory, log4jConfFragment, archiveServer)
 
 /**
   * A project providing some base functionality for HTTP server
