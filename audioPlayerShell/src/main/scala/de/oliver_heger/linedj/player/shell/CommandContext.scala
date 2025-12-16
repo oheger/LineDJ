@@ -56,16 +56,31 @@ final case class CommandResult(output: Output.CommandOutput,
 
 object CommandContext:
   /** The command line argument to define a buffer. */
-  private val BufferDirArgument = "--buffer-dir"
+  private val BufferDirArgument = "buffer-dir"
 
   /** The command line argument to define the size of buffer files. */
-  private val BufferSizeArgument = "--buffer-size"
+  private val BufferSizeArgument = "buffer-size"
 
   /** The command line argument to enable the buffer full sources mode. */
-  private val BufferFullSourcesArgument = "--buffer-full-sources"
+  private val BufferFullSourcesArgument = "buffer-full-sources"
 
   /** The default size of a buffer file. */
   private val DefaultBufferFileSize = 8388608 // 8 MB
+
+  /** The prefix for command line arguments. */
+  private val ArgumentPrefix = "--"
+
+  /**
+    * A map containing the supported command line arguments and help texts for
+    * them.
+    */
+  private val SupportedArguments = Map(
+    BufferDirArgument -> ("Defines the directory where to create buffer files.\n" +
+      "If present, buffering is enabled."),
+    BufferSizeArgument -> "The optional size of a buffer file (in bytes).",
+    BufferFullSourcesArgument -> ("A flag (true or false) that controls whether audio sources are fully\n" +
+      "loaded to the buffer.")
+  )
 
   /**
     * Type alias for a function that handles the execution of a command.
@@ -78,17 +93,21 @@ object CommandContext:
 
   /**
     * Creates the [[CommandContext]] for this shell. This contains the
-    * supported commands and all required helper objects.
+    * supported commands and all required helper objects. This function also
+    * parses the command line arguments. If this fails due to invalid
+    * arguments, it throws an [[IllegalArgumentException]] exception.
     *
     * @param terminal the terminal
     * @param args     the command line arguments
     * @return the [[CommandContext]]
     */
   def create(terminal: Terminal, args: Array[String]): CommandContext =
+    val argsMap = parseCommandLine(args)
+
     given actorSystem: classic.ActorSystem = classic.ActorSystem("AudioPlayerShell")
 
     val audioStreamFactory = new CompositeAudioStreamFactory(List(new Mp3AudioStreamFactory, DefaultAudioStreamFactory))
-    val streamHandler = new PlaylistStreamHandler(audioStreamFactory, createBufferConfigFunc(args))
+    val streamHandler = new PlaylistStreamHandler(audioStreamFactory, createBufferConfigFunc(argsMap))
 
     val commands = Map(
       "close" -> CommandInfo(
@@ -185,6 +204,21 @@ object CommandContext:
     CommandContext(terminal, actorSystem, streamHandler, commands)
 
   /**
+    * Prints help information for this application. Lists the supported command
+    * line arguments.
+    */
+  def printHelp(): Unit =
+    println("AudioPlayerShell [arguments]")
+    println()
+    println("Arguments have the form `--<argumentKey=argumentValue>`.")
+    println("The following argument keys are supported:")
+    println()
+    SupportedArguments.toList.sortBy(_._1).foreach: (key, help) =>
+      println(s"$key:")
+      val helpLines = help.split('\n')
+      helpLines.foreach(line => println("    " + line))
+
+  /**
     * Convenience function to create a [[CommandResult]] object with only a
     * single output message.
     *
@@ -203,24 +237,45 @@ object CommandContext:
   private def result(lines: List[String]): CommandResult = CommandResult(Output.SyncOutput(lines))
 
   /**
+    * Parses the command line arguments to a map.
+    *
+    * @param args the command line arguments
+    * @return a map with the single arguments and their values
+    */
+  private def parseCommandLine(args: Array[String]): Map[String, String] =
+    args.map: arg =>
+      val kv = parseArgument(arg)
+      if kv.length != 2 || !SupportedArguments.contains(kv(0)) then
+        throw new IllegalArgumentException(s"Invalid command line argument: '$arg'.")
+      (kv(0), kv(1))
+    .toMap
+
+  /**
+    * Parses a single command line argument into its key and value component.
+    *
+    * @param arg the argument
+    * @return an array with ideally two arguments for the key and the value
+    */
+  private def parseArgument(arg: String): Array[String] =
+    if arg.startsWith(ArgumentPrefix) then
+      val components = arg.split("=")
+      components(0) = components(0).substring(ArgumentPrefix.length)
+      components
+    else
+      Array(arg)
+
+  /**
     * Returns a configuration for a buffered source if such a source is
     * configured by command line arguments.
     *
-    * @param args               the array with command line arguments
+    * @param argsMap            the map with command line arguments
     * @param streamPlayerConfig the config for the stream player
     * @return an optional config for a buffered source
     */
-  private def createBufferConfigFunc(args: Array[String])
+  private def createBufferConfigFunc(argsMap: Map[String, String])
                                     (streamPlayerConfig:
                                      AudioStreamPlayerStage.AudioStreamPlayerConfig[String, Any]):
   PlaylistStreamHandler.OptBufferedSourceConfig =
-    val argsMap = args.map { arg =>
-      val kv = arg.split('=')
-      if kv.length != 2 then
-        throw new IllegalArgumentException(s"Invalid command line argument: '$arg'.")
-      (kv(0), kv(1))
-    }.toMap
-
     argsMap.get(BufferDirArgument).map: bufferDir =>
       BufferedPlaylistSource.BufferedPlaylistSourceConfig(
         streamPlayerConfig = streamPlayerConfig,

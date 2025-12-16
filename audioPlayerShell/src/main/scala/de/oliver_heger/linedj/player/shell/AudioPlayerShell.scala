@@ -73,7 +73,7 @@ object AudioPlayerShell:
 
     result match
       case Failure(exception) =>
-        exception.printStackTrace()
+        handleException(exception)
       case Success(value) =>
 
   /**
@@ -113,4 +113,19 @@ object AudioPlayerShell:
       val result = run(context, arguments.toIndexedSeq)
       Output.output(result.output)
       result.exit
+
+  /**
+    * Handles an exception that was thrown by the main function. In case of
+    * invalid command line arguments, prints a help text.
+    *
+    * @param exception the exception thrown by the main function
+    */
+  private def handleException(exception: Throwable): Unit =
+    exception match
+      case iex: IllegalArgumentException =>
+        println(iex.getMessage)
+        println()
+        CommandContext.printHelp()
+      case e =>
+        e.printStackTrace()
 end AudioPlayerShell
