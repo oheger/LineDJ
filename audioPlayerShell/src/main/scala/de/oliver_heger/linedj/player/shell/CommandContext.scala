@@ -314,14 +314,16 @@ object CommandContext extends ArchiveModel.ArchiveJsonSupport:
       ),
       "list-albums" -> CommandInfo(
         minArgs = 1,
-        maxArgs = 1,
+        maxArgs = 2,
         help = List(
           "Lists information about the albums contained on a specific medium.",
-          "Usage: list-albums <mediumID>"
+          "Usage: list-albums <mediumID> [<artistID>]",
+          "    If an artist ID is provided, only the albums of this artist are listed."
         ),
         run = (_, args) =>
           val mediumID = args.head
-          val requestUri = s"/api/archive/media/$mediumID/albums"
+          val artistPath = if args.length == 2 then s"/artists/${args(1)}" else ""
+          val requestUri = s"/api/archive/media/$mediumID$artistPath/albums"
           handleArchiveCommand[ArchiveModel.ItemsResult[ArchiveModel.AlbumInfo]](
             httpActor,
             requestUri,
