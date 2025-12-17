@@ -21,6 +21,7 @@ import de.oliver_heger.linedj.archive.server.model.ArchiveModel
 import de.oliver_heger.linedj.player.engine.mp3.Mp3AudioStreamFactory
 import de.oliver_heger.linedj.player.engine.stream.{AudioStreamPlayerStage, BufferedPlaylistSource}
 import de.oliver_heger.linedj.player.engine.{CompositeAudioStreamFactory, DefaultAudioStreamFactory}
+import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
 import org.apache.pekko.actor as classic
 import org.apache.pekko.actor.typed.scaladsl.adapter.*
 import org.apache.pekko.actor.typed.{ActorRef, ActorSystem}
@@ -328,6 +329,26 @@ object CommandContext extends ArchiveModel.ArchiveJsonSupport:
           ): albumsResult =>
             albumsResult.items.map: album =>
               s"${album.id}: ${album.albumName}"
+      ),
+      "list-songs" -> CommandInfo(
+        minArgs = 2,
+        maxArgs = 2,
+        help = List(
+          "Lists information about specific songs contained on a medium.",
+          "Usage: list-songs <mediumID> <elementID>",
+          "    where <elementID> can reference either an artist or an album."
+        ),
+        run = (_, args) =>
+          val mediumID = args.head
+          val elementID = args(1)
+          val requestPath = if elementID.startsWith("alb") then "albums" else "artists"
+          val requestUri = s"/api/archive/media/$mediumID/$requestPath/$elementID/songs"
+          handleArchiveCommand[ArchiveModel.ItemsResult[MediaMetadata]](
+            httpActor,
+            requestUri,
+            "list-songs"
+          ): songsResult =>
+            songsResult.items.flatMap(songToOutput)
       )
     )
 
@@ -455,6 +476,35 @@ object CommandContext extends ArchiveModel.ArchiveJsonSupport:
       .filter(path => !Files.isDirectory(path))
       .map(_.toString)
       .sorted
+
+  /**
+    * Produces output lines for a song.
+    *
+    * @param song the song data
+    * @return the output lines representing this song
+    */
+  private def songToOutput(song: MediaMetadata): List[String] =
+    List(
+      s"${song.checksum}:${optOut(song.artist)}",
+      s"${optOut(song.trackNumber, prefix = "", suffix = " -")}${optOut(song.album, suffix = " -")}" +
+        s"${optOut(song.title, prefix = " \"", suffix = "\"")}",
+      ""
+    )
+
+  /**
+    * Generates output for an [[Option]]. If the option is undefined, this
+    * results in an empty string. Otherwise, result is the given prefix
+    * followed by the string representation of the option value followed by the
+    * given suffix.
+    *
+    * @param opt    the option to output
+    * @param prefix a prefix to prepend to the option value
+    * @param suffix a suffix to append to the option value
+    * @tparam A the type of the option
+    * @return the output string for this option value
+    */
+  private def optOut[A](opt: Option[A], prefix: String = " ", suffix: String = ""): String =
+    opt.fold("")(prefix + _.toString + suffix)
 end CommandContext
 
 /**
