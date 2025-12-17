@@ -25,8 +25,8 @@ import org.apache.pekko.actor as classic
 import org.apache.pekko.actor.typed.scaladsl.adapter.*
 import org.apache.pekko.actor.typed.{ActorRef, ActorSystem}
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport.*
-import org.apache.pekko.http.scaladsl.model.{HttpRequest, Uri}
-import org.apache.pekko.http.scaladsl.unmarshalling.Unmarshal
+import org.apache.pekko.http.scaladsl.model.{HttpRequest, HttpResponse, Uri}
+import org.apache.pekko.http.scaladsl.unmarshalling.{Unmarshal, Unmarshaller}
 import org.apache.pekko.util.Timeout
 import org.jline.terminal.Terminal
 
@@ -283,22 +283,68 @@ object CommandContext extends ArchiveModel.ArchiveJsonSupport:
   private def createArchiveCommands(httpActor: ActorRef[HttpRequestSender.HttpCommand])
                                    (using system: ActorSystem[_],
                                     timeout: Timeout): Map[String, CommandInfo] =
-    given ExecutionContext = system.executionContext
-
     Map(
       "list-media" -> CommandInfo(
         minArgs = 0,
         maxArgs = 0,
         help = List("Lists information about the media contained in the media archive."),
         run = (_, _) =>
-          val lines = for
-            result <- HttpRequestSender.sendRequestSuccess(httpActor, HttpRequest(uri = "/api/archive/media"))
-            media <- Unmarshal(result.response).to[ArchiveModel.MediaOverview]
-          yield media.media.sortBy(_.title.toLowerCase(Locale.ROOT)).map: overview =>
-            s"${overview.id.checksum}: \"${overview.title}\""
-          CommandResult(Output.AsyncOutput("list-media", lines))
+          handleArchiveCommand[ArchiveModel.MediaOverview](httpActor, "/api/archive/media", "list-media"): media =>
+            media.media.sortBy(_.title.toLowerCase(Locale.ROOT)).map: overview =>
+              s"${overview.id.checksum}: \"${overview.title}\""
+      ),
+      "list-artists" -> CommandInfo(
+        minArgs = 1,
+        maxArgs = 1,
+        help = List(
+          "Lists information about the artists contained on a specific medium.",
+          "Usage: list-artists <mediumID>"
+        ),
+        run = (_, args) =>
+          val mediumID = args.head
+          val requestUri = s"/api/archive/media/$mediumID/artists"
+          handleArchiveCommand[ArchiveModel.ItemsResult[ArchiveModel.ArtistInfo]](
+            httpActor,
+            requestUri,
+            "list-artists"
+          ): artistsResult =>
+            artistsResult.items.map: artist =>
+              s"${artist.id}: ${artist.artistName}"
       )
     )
+
+  /**
+    * Generic function to handle commands that query data from a media archive.
+    * The function performs the following steps:
+    *  - It sends a request with the given URI to the archive.
+    *  - It deserializes the response to the target type.
+    *  - It invokes the output generator function to transform the result to a
+    *    list of strings to be output to the console.
+    *
+    * @param httpActor    the actor to send requests to the archive
+    * @param uri          the URI to send to the archive
+    * @param command      the name of the command to be handled
+    * @param outputFunc   a function to generate the output
+    * @param system       the actor system
+    * @param timeout      the timeout for the request
+    * @param unmarshaller the object to unmarshal the response
+    * @tparam A the type of the result object
+    * @return the result for this command
+    */
+  private def handleArchiveCommand[A](httpActor: ActorRef[HttpRequestSender.HttpCommand],
+                                      uri: String,
+                                      command: String)
+                                     (outputFunc: A => List[String])
+                                     (using system: ActorSystem[_],
+                                      timeout: Timeout,
+                                      unmarshaller: Unmarshaller[HttpResponse, A]): CommandResult =
+    given ExecutionContext = system.executionContext
+
+    val lines = for
+      result <- HttpRequestSender.sendRequestSuccess(httpActor, HttpRequest(uri = uri))
+      data <- Unmarshal(result.response).to[A]
+    yield outputFunc(data)
+    CommandResult(Output.AsyncOutput(command, lines))
 
   /**
     * Convenience function to create a [[CommandResult]] object with only a
