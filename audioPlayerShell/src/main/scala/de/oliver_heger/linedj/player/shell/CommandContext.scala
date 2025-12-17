@@ -310,6 +310,24 @@ object CommandContext extends ArchiveModel.ArchiveJsonSupport:
           ): artistsResult =>
             artistsResult.items.map: artist =>
               s"${artist.id}: ${artist.artistName}"
+      ),
+      "list-albums" -> CommandInfo(
+        minArgs = 1,
+        maxArgs = 1,
+        help = List(
+          "Lists information about the albums contained on a specific medium.",
+          "Usage: list-albums <mediumID>"
+        ),
+        run = (_, args) =>
+          val mediumID = args.head
+          val requestUri = s"/api/archive/media/$mediumID/albums"
+          handleArchiveCommand[ArchiveModel.ItemsResult[ArchiveModel.AlbumInfo]](
+            httpActor,
+            requestUri,
+            "list-albums"
+          ): albumsResult =>
+            albumsResult.items.map: album =>
+              s"${album.id}: ${album.albumName}"
       )
     )
 
