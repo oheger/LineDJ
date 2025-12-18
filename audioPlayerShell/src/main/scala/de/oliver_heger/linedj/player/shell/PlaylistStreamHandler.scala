@@ -16,17 +16,22 @@
 
 package de.oliver_heger.linedj.player.shell
 
+import com.github.cloudfiles.core.http.HttpRequestSender
 import de.oliver_heger.linedj.player.engine.AudioStreamFactory
 import de.oliver_heger.linedj.player.engine.stream.PausePlaybackStage.PlaybackState
 import de.oliver_heger.linedj.player.engine.stream.{AudioStreamPlayerStage, BufferedPlaylistSource, LineWriterStage, PausePlaybackStage}
 import de.oliver_heger.linedj.player.shell.PlaylistStreamHandler.BufferFunc
 import org.apache.logging.log4j.LogManager
 import org.apache.pekko.actor as classic
+import org.apache.pekko.actor.typed.{ActorRef, ActorSystem}
 import org.apache.pekko.stream.scaladsl.{FileIO, Sink, Source}
 import org.apache.pekko.actor.typed.scaladsl.adapter.*
+import org.apache.pekko.http.scaladsl.model.HttpRequest
+import org.apache.pekko.http.scaladsl.model.headers.`Content-Disposition`
 import org.apache.pekko.stream.{BoundedSourceQueue, KillSwitch, KillSwitches}
+import org.apache.pekko.util.Timeout
 
-import java.nio.file.Paths
+import java.nio.file.{Files, Path, Paths}
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -35,7 +40,7 @@ object PlaylistStreamHandler:
     * Type definition for an optional configuration of a buffered source.
     */
   type OptBufferedSourceConfig = Option[BufferedPlaylistSource.BufferedPlaylistSourceConfig[String, Any]]
-  
+
   /**
     * Type definition for a function that can create a configuration for a
     * buffered source. If specified on the command line, the function creates a
@@ -47,15 +52,22 @@ end PlaylistStreamHandler
 
 /**
   * A helper class that manages the current playlist. It can add a new source
-  * to the playlist, and pause or resume playback.
+  * to the playlist, and pause or resume playback. The class also resolves
+  * audio sources. Audio sources can either be paths to files on the local file
+  * system or IDs of media files in a media archive.
   *
   * @param audioStreamFactory the [[AudioStreamFactory]]
   * @param bufferFunc         the function to configure a buffered source
+  * @param optArchiveActor    optional reference to an actor for sending 
+  *                           requests to a media archive
   * @param system             the implicit actor system
+  * @param timeout            the timeout for HTTP requests
   */
 private class PlaylistStreamHandler(audioStreamFactory: AudioStreamFactory,
-                                    bufferFunc: BufferFunc)
-                                   (using system: classic.ActorSystem):
+                                    bufferFunc: BufferFunc,
+                                    optArchiveActor: Option[ActorRef[HttpRequestSender.HttpCommand]])
+                                   (using system: classic.ActorSystem,
+                                    timeout: Timeout):
   /** The execution context for operations with futures. */
   private given executionContext: ExecutionContext = system.dispatcher
 
@@ -163,14 +175,38 @@ private class PlaylistStreamHandler(audioStreamFactory: AudioStreamFactory,
 
   /**
     * A function to resolve audio sources in the playlist. The string is 
-    * interpreted as path to the audio file to be played.
+    * checked whether it points to a local file. If so, this file is loaded and
+    * played. Otherwise, and if an actor for communicating with a media archive 
+    * is available, the archive is queried to download the media file.
     *
     * @param path the path to the audio file
     * @return a ''Future'' with the source to be played
     */
   private def resolveAudioSource(path: String): Future[AudioStreamPlayerStage.AudioStreamSource] =
+    val localPath = Paths.get(path)
+    optArchiveActor match
+      case Some(archiveActor) if !Files.isRegularFile(localPath) =>
+        given ActorSystem[_] = system.toTyped
+
+        val requestUri = s"/api/archive/files/$path/download?stripMetadata=true"
+        HttpRequestSender.sendRequestSuccess(archiveActor, HttpRequest(uri = requestUri)).map: result =>
+          val optFileName = result.response.header[`Content-Disposition`].flatMap(_.params.get("filename"))
+          AudioStreamPlayerStage.AudioStreamSource(
+            optFileName.getOrElse(s"$path.mp3"),
+            result.response.entity.dataBytes
+          )
+      case _ =>
+        resolveLocalPath(localPath)
+
+  /**
+    * Resolves an audio source from a path to the local file system.
+    *
+    * @param path the path
+    * @return a [[Future]] with the source to be played
+    */
+  private def resolveLocalPath(path: Path): Future[AudioStreamPlayerStage.AudioStreamSource] =
     Future:
-      AudioStreamPlayerStage.AudioStreamSource(path, FileIO.fromPath(Paths.get(path)))
+      AudioStreamPlayerStage.AudioStreamSource(path.toString, FileIO.fromPath(path))
 
   /**
     * Returns the sink for the audio stream with the given path. The sink 

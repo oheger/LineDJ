@@ -129,11 +129,13 @@ object CommandContext extends ArchiveModel.ArchiveJsonSupport:
 
     given actorSystem: classic.ActorSystem = classic.ActorSystem("AudioPlayerShell")
 
-    val audioStreamFactory = new CompositeAudioStreamFactory(List(new Mp3AudioStreamFactory, DefaultAudioStreamFactory))
-    val streamHandler = new PlaylistStreamHandler(audioStreamFactory, createBufferConfigFunc(argsMap))
+    given Timeout = argsMap.get(HttpTimeoutArgument).map(t => Timeout(t.toInt.seconds)).getOrElse(DefaultHttpTimeout)
 
     val basicCommands = createBasicCommands()
     val (archiveCommands, optArchiveActor) = createArchiveCommands(argsMap, actorSystem)
+
+    val audioStreamFactory = new CompositeAudioStreamFactory(List(new Mp3AudioStreamFactory, DefaultAudioStreamFactory))
+    val streamHandler = new PlaylistStreamHandler(audioStreamFactory, createBufferConfigFunc(argsMap), optArchiveActor)
 
     CommandContext(terminal, actorSystem, streamHandler, optArchiveActor, basicCommands ++ archiveCommands)
 
@@ -257,17 +259,17 @@ object CommandContext extends ArchiveModel.ArchiveJsonSupport:
     *
     * @param args        the map with command line arguments
     * @param actorSystem the actor system
+    * @param timeout     the timeout for HTTP requests
     * @return a tuple with archive commands and an optional HTTP actor
     *         reference
     */
   private def createArchiveCommands(args: Map[String, String],
-                                    actorSystem: classic.ActorSystem):
+                                    actorSystem: classic.ActorSystem)
+                                   (using timeout: Timeout):
   (Map[String, CommandInfo], Option[ActorRef[HttpRequestSender.HttpCommand]]) =
     args.get(ArchiveUrlArgument) match
       case Some(url) =>
         given ActorSystem[_] = actorSystem.toTyped
-
-        given Timeout = args.get(HttpTimeoutArgument).map(t => Timeout(t.toInt.seconds)).getOrElse(DefaultHttpTimeout)
 
         val httpActor = actorSystem.spawn(HttpRequestSender(Uri(url)), "archiveActor")
         (createArchiveCommands(httpActor), Some(httpActor))
