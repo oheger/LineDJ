@@ -24,12 +24,14 @@ import org.apache.pekko.actor.typed.scaladsl.AskPattern.Askable
 import org.apache.pekko.actor.typed.scaladsl.adapter.*
 import org.apache.pekko.actor.typed.{ActorRef, ActorSystem}
 import org.apache.pekko.http.scaladsl.marshalling.ToResponseMarshaller
-import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, StatusCodes}
+import org.apache.pekko.http.scaladsl.model.headers.{ContentDispositionTypes, `Content-Disposition`}
+import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, HttpResponse, StatusCodes}
 import org.apache.pekko.http.scaladsl.server.Directives.*
 import org.apache.pekko.http.scaladsl.server.{Directives, Route}
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.util.{ByteString, Timeout}
 
+import java.nio.file.Paths
 import scala.concurrent.Future
 
 /**
@@ -202,12 +204,22 @@ object Routes extends ArchiveModel.ArchiveJsonSupport:
                 source <- resolveDownloadSource(fileID, downloadInfo.optResult)
               yield source
               onSuccess(futOptSource):
-                case Some(source) =>
+                case Some((downloadInfo, source)) =>
                   val strippedSource = if optStrip.exists(_.equalsIgnoreCase(ParamTrueValue)) then
                     source.via(new ID3SkipStage)
                   else
                     source
-                  complete(HttpEntity(ContentTypes.`application/octet-stream`, strippedSource))
+                  val fileName = Paths.get(downloadInfo.fileUri.path).getFileName.toString
+                  val response = HttpResponse(
+                    entity = HttpEntity(ContentTypes.`application/octet-stream`, strippedSource),
+                    headers = Seq(
+                      `Content-Disposition`(
+                        dispositionType = ContentDispositionTypes.attachment,
+                        params = Map("filename" -> fileName)
+                      )
+                    )
+                  )
+                  complete(response)
                 case None =>
                   complete(StatusCodes.NotFound)
       )
@@ -218,12 +230,14 @@ object Routes extends ArchiveModel.ArchiveJsonSupport:
       *
       * @param fileID          the ID of the affected file
       * @param optDownloadInfo the download info for this file
-      * @return a [[Future]] with the optional download source
+      * @return a [[Future]] with the optional download source and the download
+      *         info
       */
     def resolveDownloadSource(fileID: String, optDownloadInfo: Option[ArchiveModel.MediaFileDownloadInfo]):
-    Future[Option[Source[ByteString, Any]]] =
+    Future[Option[(ArchiveModel.MediaFileDownloadInfo, Source[ByteString, Any])]] =
       optDownloadInfo.fold(Future.successful(None)): downloadInfo =>
-        MediaFileResolver.toOptionalSource(resolver(fileID, downloadInfo))
+        MediaFileResolver.toOptionalSource(resolver(fileID, downloadInfo)).map: optSource =>
+          optSource.map(src => (downloadInfo, src))
 
     pathPrefix("api"):
       pathPrefix("archive"):

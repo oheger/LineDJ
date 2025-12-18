@@ -27,14 +27,15 @@ import de.oliver_heger.linedj.shared.archive.metadata.{Checksums, MediaMetadata}
 import de.oliver_heger.linedj.utils.SystemPropertyAccess
 import org.apache.pekko.Done
 import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
-import org.apache.pekko.actor.typed.{ActorRef, Behavior}
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
+import org.apache.pekko.actor.typed.{ActorRef, Behavior}
 import org.apache.pekko.http.scaladsl.model.StatusCodes
+import org.apache.pekko.http.scaladsl.model.headers.{ContentDispositionTypes, `Content-Disposition`}
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
-import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.{BeforeAndAfterAll, OptionValues}
 
 import java.nio.file.{Files, Path, Paths, StandardCopyOption}
 import scala.concurrent.Promise
@@ -66,7 +67,7 @@ end RoutesSpec
   * Test class for the routes of the archive server.
   */
 class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers with ScalatestRouteTest
-  with MediaFileTestSupport with ArchiveModel.ArchiveJsonSupport:
+  with OptionValues with MediaFileTestSupport with ArchiveModel.ArchiveJsonSupport:
   /** The test kit for typed actors. */
   private val testKit = ActorTestKit()
 
@@ -381,6 +382,9 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers with S
       status should be(StatusCodes.OK)
       val fileData = responseAs[String]
       fileData should be(FileTestHelper.TestData)
+      val contentDispoHeader = header[`Content-Disposition`].value
+      contentDispoHeader.dispositionType should be(ContentDispositionTypes.attachment)
+      contentDispoHeader.params("filename") should be(Paths.get(downloadInfo.fileUri.path).getFileName.toString)
 
   it should "handle a download request for a non-existing media file" in :
     val contentActor = testKit.spawn(ArchiveContentActor.behavior())
