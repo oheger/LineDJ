@@ -1014,7 +1014,13 @@ lazy val audioPlayerShell = (project in file("audioPlayerShell"))
     libraryDependencies ++= pekkoHttpDependencies,
     libraryDependencies += "com.github.oheger" %% "cloud-files-core" % VersionCloudFiles,
     libraryDependencies += "org.jline" % "jline" % VersionJLine,
-    assembly / mainClass := Some("de.oliver_heger.linedj.player.server.ServerMain")
+    assembly / mainClass := Some("de.oliver_heger.linedj.player.shell.AudioPlayerShell"),
+    assemblyMergeStrategy := {
+      case "log4j2.xml" => MergeStrategy.discard
+      case x =>
+        val oldStrategy = (ThisBuild / assemblyMergeStrategy).value
+        oldStrategy(x)
+    }
   ) dependsOn(playerEngine, mp3PlaybackContextFactory, log4jConfFragment, archiveServer)
 
 /**
