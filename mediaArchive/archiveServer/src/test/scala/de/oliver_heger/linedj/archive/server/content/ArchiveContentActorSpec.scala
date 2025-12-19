@@ -334,6 +334,35 @@ class ArchiveContentActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpec
     val expectedArtists = ArchiveModel.ArtistInfo("art0", "") :: createArtistInfos(artistAlbums.keySet).toList
     result should contain theSameElementsAs expectedArtists
 
+  it should "deduplicate artist information of a medium" in :
+    val altArtistName = "dire straits"
+    val contentActor = testKit.spawn(ArchiveContentActor.behavior())
+    val mediumID = propagateTestMedium(contentActor)
+    val song = createMetadata(
+      artist = altArtistName,
+      album = "Dire Straits",
+      title = "In the gallery",
+      track = 5
+    )
+    val direStraitsID = calcArtistID(altArtistName)
+    val fileUri = createFileUri(song)
+    val addFileCommand = ArchiveCommands.UpdateArchiveContentCommand.AddMediaFile(
+      mediumID = mediumID,
+      fileUri = fileUri,
+      metadata = song
+    )
+    contentActor ! addFileCommand
+    val probe = testKit.createTestProbe[ArchiveCommands.GetMediumDataResponse[ArchiveModel.ArtistInfo]]()
+
+    val artistsRequest = ArchiveCommands.ReadMediumContentCommand.GetArtists(mediumID, probe.ref)
+    contentActor ! artistsRequest
+
+    val response = probe.expectMessageType[ArchiveCommands.GetMediumDataResponse[ArchiveModel.ArtistInfo]]
+    response.request should be(artistsRequest)
+    val result = response.optResult.value
+    result should have size artistAlbums.size + 1
+    result.find(_.id == direStraitsID).value.artistName.toLowerCase(Locale.ROOT) should be(altArtistName)
+
   it should "return information about the albums of a medium" in :
     val contentActor = testKit.spawn(ArchiveContentActor.behavior())
     val mediumID = propagateTestMedium(contentActor)
@@ -347,6 +376,35 @@ class ArchiveContentActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpec
     val result = response.optResult.value
     val expectedAlbums = ArchiveModel.AlbumInfo("alb0", "") :: createAlbumInfos(albums.keySet).toList
     result should contain theSameElementsAs expectedAlbums
+
+  it should "deduplicate album information of a medium" in :
+    val altAlbumName = "dire straits"
+    val contentActor = testKit.spawn(ArchiveContentActor.behavior())
+    val mediumID = propagateTestMedium(contentActor)
+    val song = createMetadata(
+      artist = "Dire Straits",
+      album = altAlbumName,
+      title = "In the gallery",
+      track = 5
+    )
+    val direStraitsID = calcAlbumID(altAlbumName)
+    val fileUri = createFileUri(song)
+    val addFileCommand = ArchiveCommands.UpdateArchiveContentCommand.AddMediaFile(
+      mediumID = mediumID,
+      fileUri = fileUri,
+      metadata = song
+    )
+    contentActor ! addFileCommand
+    val probe = testKit.createTestProbe[ArchiveCommands.GetMediumDataResponse[ArchiveModel.AlbumInfo]]()
+
+    val artistsRequest = ArchiveCommands.ReadMediumContentCommand.GetAlbums(mediumID, probe.ref)
+    contentActor ! artistsRequest
+
+    val response = probe.expectMessageType[ArchiveCommands.GetMediumDataResponse[ArchiveModel.AlbumInfo]]
+    response.request should be(artistsRequest)
+    val result = response.optResult.value
+    result should have size albums.size + 1
+    result.find(_.id == direStraitsID).value.albumName.toLowerCase(Locale.ROOT) should be(altAlbumName)
 
   it should "return the songs of a specific artist" in :
     val contentActor = testKit.spawn(ArchiveContentActor.behavior())
@@ -469,6 +527,37 @@ class ArchiveContentActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpec
       response.request should be(albumsRequest)
       response.optResult.value should contain theSameElementsInOrderAs expectedResult
 
+  it should "deduplicate the albums of a specific artist" in :
+    val altAlbumName = "dire straits"
+    val ArtistName = "Dire Straits"
+    val contentActor = testKit.spawn(ArchiveContentActor.behavior())
+    val mediumID = propagateTestMedium(contentActor)
+    val song = createMetadata(
+      artist = ArtistName,
+      album = altAlbumName,
+      title = "In the gallery",
+      track = 5
+    )
+    val direStraitsID = calcAlbumID(altAlbumName)
+    val fileUri = createFileUri(song)
+    val addFileCommand = ArchiveCommands.UpdateArchiveContentCommand.AddMediaFile(
+      mediumID = mediumID,
+      fileUri = fileUri,
+      metadata = song
+    )
+    contentActor ! addFileCommand
+    val probe = testKit.createTestProbe[ArchiveCommands.GetMediumDataResponse[ArchiveModel.AlbumInfo]]()
+
+    val albumsRequest = ArchiveCommands.ReadMediumContentCommand.GetAlbumsForArtist(
+      mediumID,
+      calcArtistID(ArtistName),
+      probe.ref
+    )
+    contentActor ! albumsRequest
+
+    val response = probe.expectMessageType[ArchiveCommands.GetMediumDataResponse[ArchiveModel.AlbumInfo]]
+    val expectedAlbums = createAlbumInfos(artistAlbums(ArtistName).sorted)
+    response.optResult.value should contain theSameElementsInOrderAs expectedAlbums
 
   it should "return an undefined result when querying the albums of an artist of a non-existing medium" in :
     val contentActor = testKit.spawn(ArchiveContentActor.behavior())

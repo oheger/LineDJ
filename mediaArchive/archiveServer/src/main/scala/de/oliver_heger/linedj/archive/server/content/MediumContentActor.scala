@@ -51,6 +51,20 @@ private object MediumContentActor:
   private val AlbumKeyExtractor: MediumContentManagerActor.KeyExtractor = _.album
 
   /**
+    * The transformer function to deduplicate the artist mapping of a medium.
+    */
+  private val DeduplicateArtistTransformer:
+    MediumContentManagerActor.DataTransformer[ArchiveModel.ArtistInfo, ArchiveModel.ArtistInfo] =
+    deduplicateTransformer(_.id)
+
+  /**
+    * The transformer function to deduplicate the album mapping of a medium.
+    */
+  private val DeduplicateAlbumTransformer:
+    MediumContentManagerActor.DataTransformer[ArchiveModel.AlbumInfo, ArchiveModel.AlbumInfo] =
+    deduplicateTransformer(_.id)
+
+  /**
     * A data class to hold the different content manager actors used by an
     * actor instance. This is part of the actor's state.
     *
@@ -95,6 +109,7 @@ private object MediumContentActor:
             artistIdManager: ActorRef[IdManagerActor.QueryIdCommand],
             albumIdManager: ActorRef[IdManagerActor.QueryIdCommand]): Behavior[MediumContentCommand] =
     Behaviors.setup[MediumContentCommand]: context =>
+
       /**
         * A transformation function that constructs the final result for the
         * ''albumsForArtists'' view.
@@ -112,6 +127,7 @@ private object MediumContentActor:
         albumIdManager.getIds(albumNames).map: idResponse =>
           mapping.map: (key, albumNames) =>
             (key, albumNames.map(name => ArchiveModel.AlbumInfo(idResponse.ids(name), name.getOrElse(""))))
+        .flatMap(DeduplicateAlbumTransformer)
 
       /**
         * Generates the name of the content actor managing a specific view.
@@ -131,19 +147,21 @@ private object MediumContentActor:
         import MediumContentManagerActor.given
         ContentManagers(
           artists = context.spawn(
-            MediumContentManagerActor.newInstance(
+            MediumContentManagerActor.newTransformingInstance(
               keyExtractor = ArtistKeyExtractor,
               dataExtractor = (id, data) => ArchiveModel.ArtistInfo(id, extractArtistName(data)),
               groupingFunc = MediumContentManagerActor.AggregateGroupingFunc,
+              transformer = DeduplicateArtistTransformer,
               idManager = artistIdManager
             ),
             contentName("artists")
           ),
           albums = context.spawn(
-            MediumContentManagerActor.newInstance(
+            MediumContentManagerActor.newTransformingInstance(
               keyExtractor = AlbumKeyExtractor,
               dataExtractor = (id, data) => ArchiveModel.AlbumInfo(id, extractAlbumName(data)),
               groupingFunc = MediumContentManagerActor.AggregateGroupingFunc,
+              transformer = DeduplicateAlbumTransformer,
               idManager = albumIdManager
             ),
             contentName("albums")
@@ -237,3 +255,38 @@ private object MediumContentActor:
     * @return the name of the album of this song
     */
   private def extractAlbumName(data: MediaMetadata): String = data.album.getOrElse("")
+
+  /**
+    * Performs a deduplication of entries in a list. This function is needed
+    * for lists of artist and album information where names with different
+    * spelling are mapped to the same IDs. Then the lists contain multiple
+    * entries with the same ID, but different names. The function processes the
+    * list, so that all IDs are unique (choosing a random element).
+    *
+    * @param items  the list to be deduplicated
+    * @param idFunc the function to extract the ID of an item
+    * @tparam A the type of the items in the list
+    * @return the deduplicated list
+    */
+  private def deduplicate[A](items: List[A])(idFunc: A => String): List[A] =
+    val idMap = items.map(i => (idFunc(i), i)).toMap
+    if idMap.size < items.size then
+      val remainingItems = idMap.values.toSet
+      items.filter(remainingItems.contains)
+    else
+      items
+
+  /**
+    * A transformer function that performs a deduplication of a mapping view
+    * using the [[deduplicate]] function.
+    *
+    * @param idFunc  the function to extract the ID of an item
+    * @param mapping the mapping to be deduplicated
+    * @tparam A the type of the items in the mapping
+    * @return the deduplicated mapping
+    */
+  private def deduplicateTransformer[A](idFunc: A => String)(mapping: Map[String, List[A]]):
+  Future[Map[String, List[A]]] =
+    Future.successful(
+      mapping.map(e => (e._1, deduplicate(e._2)(idFunc)))
+    )
