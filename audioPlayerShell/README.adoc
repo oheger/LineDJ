@@ -1,0 +1,21 @@
+= Audio Player Shell
+
+This module implements a command line-based audio player application.
+
+== Synopsis
+The purpose of this application is to provide a command line shell with dedicated commands for playing audio files either from the local hard-disk or a media archive. While this is fully functional, the main intention behind this application is to have an easy way to test the audio player engine without having to implement a UI.
+
+As this is merely a test application itself, there are no unit tests for the functionality provided here.
+
+== Usage
+The application can be built using the following command from the SBT shell:
+
+ audioPlayerShell / assembly
+
+This yields a fat jar in the `audioPlayerShell/target/scala-XXX` folder which can be started using `java` with the `-jar` option. To see a list of all supported command line options, add the `help` parameter (or any other unsupported parameter) to the command line.
+
+When the application is running the `help` command prints all supported commands. Help information about a specific command can be requested by typing
+
+ help <command>
+
+Note that the number of supported commands depends on the command line arguments passed to the application. For instance, the commands to interact with a media archive are only available if the URL to an archive has been specified.
