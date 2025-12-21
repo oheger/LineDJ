@@ -20,29 +20,30 @@ import com.typesafe.sbt.osgi.OsgiKeys
 /** Definition of versions for production dependencies. */
 lazy val VersionAeron = "1.46.8"
 lazy val VersionAries = "1.3.7"
-lazy val VersionBouncyCastle = "1.82"
+lazy val VersionBouncyCastle = "1.83"
 lazy val VersionCloudFiles = "0.10.1"
 lazy val VersionCommonsBeanutils = "1.11.0"
 lazy val VersionCommonsCollections = "3.2.2"
 lazy val VersionCommonsConfig = "1.10"
-lazy val VersionCommonsConfig2 = "2.12.0"
-lazy val VersionJackson = "2.20.0"
+lazy val VersionCommonsConfig2 = "2.13.0"
+lazy val VersionJackson = "2.20.1"
 lazy val VersionJacksonAnnotations = "2.20"
 lazy val VersionJavaFX = "11.0.2"
 lazy val VersionJguiraffe = "1.5"
 lazy val VersionJLayer = "1.0.1.4"
 lazy val VersionJLine = "3.30.6"
-lazy val VersionLog4j = "2.25.2"
+lazy val VersionLog4j = "2.25.3"
+lazy val VersionLz4 = "1.10.2"
 lazy val VersionMp3Spi = "1.9.5.4"
-lazy val VersionNetty = "4.2.6.Final"
+lazy val VersionNetty = "4.2.9.Final"
 lazy val VersionOsgi = "5.0.0"
-lazy val VersionPekko = "1.2.1"
-lazy val VersionPekkoHttp = "1.2.0"
+lazy val VersionPekko = "1.4.0"
+lazy val VersionPekkoHttp = "1.3.0"
 lazy val VersionScala3 = "3.3.6"
-lazy val VersionScalaReflect = "2.13.17"
+lazy val VersionScalaReflect = "2.13.18"
 lazy val VersionScalaz = "7.3.8"
 lazy val VersionSprayJson = "1.3.6"
-lazy val VersionSslConfig = "0.6.1"
+lazy val VersionSslConfig = "0.7.1"
 lazy val VersionTritonus = "0.3.7.4"
 
 /** Test dependencies. */
@@ -90,7 +91,8 @@ lazy val pekkoDependencies = Seq(
   "org.apache.pekko" %% "pekko-remote" % VersionPekko,
   "org.apache.pekko" %% "pekko-serialization-jackson" % VersionPekko,
   "com.fasterxml.jackson.core" % "jackson-annotations" % VersionJacksonAnnotations,
-  "org.scala-lang" % "scala-reflect" % VersionScalaReflect
+  "org.scala-lang" % "scala-reflect" % VersionScalaReflect,
+  "at.yawk.lz4" % "lz4-java" % VersionLz4
 )
 
 /** Dependencies required for using Pekko HTTP. */

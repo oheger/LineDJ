@@ -34,7 +34,8 @@ object OSGi {
     module(organization = "org.osgi"),
     module(organization = "org.parboiled"),
     module(name = "scala-library"),
-    module(name = "scala-reflect")
+    module(name = "scala-reflect"),
+    module(name = "ssl-config-core_3")
   )
 
   /**
