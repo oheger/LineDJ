@@ -24,7 +24,7 @@ import org.apache.pekko.http.scaladsl.model.Uri
 import org.apache.pekko.pattern.ask
 import org.apache.pekko.stream.*
 import org.apache.pekko.stream.scaladsl.{Broadcast, Flow, GraphDSL, RunnableGraph, Sink, Source, Zip}
-import org.apache.pekko.util.ByteString
+import org.apache.pekko.util.{ByteString, Timeout}
 
 import scala.concurrent.Future
 import scala.reflect.ClassTag
@@ -227,9 +227,10 @@ class HttpArchiveContentProcessorActor extends AbstractStreamProcessingActor wit
     */
   private def processHttpResponse(req: ProcessHttpArchiveRequest,
                                   t: (Source[ByteString, Any], RequestData)): Future[Any] =
+    given Timeout = req.archiveConfig.processorTimeout
     val mediumID = createMediumID(req, t._2.mediumDesc)
     val msg = ProcessResponse(mediumID, t._2.mediumDesc, t._1, req.archiveConfig, req.seqNo)
-    t._2.processorActor.ask(msg)(req.archiveConfig.processorTimeout)
+    t._2.processorActor.ask(msg)
 
   /**
     * Creates a medium ID from the given medium description.
