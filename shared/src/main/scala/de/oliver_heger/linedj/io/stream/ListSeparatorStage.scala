@@ -19,6 +19,21 @@ package de.oliver_heger.linedj.io.stream
 import org.apache.pekko.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
 import org.apache.pekko.stream.{Attributes, FlowShape, Inlet, Outlet}
 import org.apache.pekko.util.ByteString
+import spray.json.*
+
+object ListSeparatorStage:
+  /**
+    * Returns a special stage to output a JSON array with elements of a 
+    * specific type. A format object for this data type must be available, so
+    * that a JSON serialization is possible.
+    *
+    * @param writer the implicit writer for JSON serialization
+    * @tparam A the data type of the elements to process
+    * @return the stage that produces JSON output 
+    */
+  def jsonStage[A](using writer: JsonWriter[A]): GraphStage[FlowShape[A, ByteString]] =
+    new ListSeparatorStage[A](prefix = "[\n", suffix = "\n]\n", separator = ",\n")((o, _) => o.toJson.compactPrint)
+end ListSeparatorStage
 
 /**
   * A specialized graph stage implementation that processes a list of elements
@@ -51,22 +66,19 @@ class ListSeparatorStage[A](prefix: String, separator: => String, suffix: String
 
       private var index = 0
 
-      setHandler(in, new InHandler {
-        override def onPush(): Unit = {
+      setHandler(in, new InHandler:
+        override def onPush(): Unit =
           val elemSeparator = if index == 0 then prefix else delimiter
           push(out, ByteString(elemSeparator + f(grab(in), index)))
           index += 1
-        }
 
-        override def onUpstreamFinish(): Unit = {
+        override def onUpstreamFinish(): Unit =
           val data = if index > 0 then suffix else prefix + suffix
           emit(out, ByteString(data))
           completeStage()
-        }
-      })
+      )
 
-      setHandler(out, new OutHandler {
-        override def onPull(): Unit = {
+      setHandler(out, new OutHandler:
+        override def onPull(): Unit =
           pull(in)
-        }
-      })
+      )
