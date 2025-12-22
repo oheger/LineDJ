@@ -19,6 +19,7 @@ package de.oliver_heger.linedj.archive.metadata.persistence
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.media.{EnhancedMediaScanResult, PathUriConverter}
 import de.oliver_heger.linedj.archive.metadata.{ScanForMetadataFiles, UnresolvedMetadataFiles}
+import de.oliver_heger.linedj.archivecommon.parser.MetadataParser
 import de.oliver_heger.linedj.io.stream.{FilterInstanceOfStage, ListSeparatorStage}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.shared.actors.ChildActorFactory
@@ -27,7 +28,7 @@ import de.oliver_heger.linedj.shared.archive.metadata.Checksums.MediumChecksum
 import de.oliver_heger.linedj.shared.archive.metadata.{MetadataFileInfo, RemovePersistentMetadata, RemovePersistentMetadataResult}
 import de.oliver_heger.linedj.shared.archive.union.{MetadataProcessingResult, MetadataProcessingSuccess}
 import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props, Terminated}
-import org.apache.pekko.stream.scaladsl.{FileIO, Keep, Sink}
+import org.apache.pekko.stream.scaladsl.{FileIO, Flow, Keep, Sink}
 
 import java.nio.file.Path
 import scala.annotation.tailrec
@@ -438,11 +439,11 @@ class PersistentMetadataManagerActor(config: MediaArchiveConfig,
     */
   private def persistMetadataSink(unresolvedMsg: UnresolvedMetadataFiles):
   Sink[MetadataProcessingResult, Future[Any]] =
-    val metadataConverter = new MetadataJsonConverter
-    val listStage = new ListSeparatorStage[MetadataProcessingSuccess]("[\n", ",\n", "\n]\n")((result, _) =>
-      metadataConverter.convert(result.uri.uri, result.metadata))
+    val mapStage = Flow[MetadataProcessingSuccess].map: suc =>
+      MetadataParser.MetadataWithUri(suc.uri.uri, suc.metadata)
+    val listStage = ListSeparatorStage.jsonStage[MetadataParser.MetadataWithUri]
     val fileSink = FileIO.toPath(generateMetadataPath(unresolvedMsg))
-    val writerFlow = FilterInstanceOfStage[MetadataProcessingSuccess].via(listStage)
+    val writerFlow = FilterInstanceOfStage[MetadataProcessingSuccess].via(mapStage).via(listStage)
     writerFlow.toMat(fileSink)(Keep.right)
 
   /**
