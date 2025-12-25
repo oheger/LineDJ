@@ -25,7 +25,7 @@ import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.shared.actors.ChildActorFactory
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.Checksums.MediumChecksum
-import de.oliver_heger.linedj.shared.archive.metadata.{MetadataFileInfo, RemovePersistentMetadata, RemovePersistentMetadataResult}
+import de.oliver_heger.linedj.shared.archive.metadata.{Checksums, MetadataFileInfo, RemovePersistentMetadata, RemovePersistentMetadataResult}
 import de.oliver_heger.linedj.shared.archive.union.{MetadataProcessingResult, MetadataProcessingSuccess}
 import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props, Terminated}
 import org.apache.pekko.stream.scaladsl.{FileIO, Flow, Keep, Sink}
@@ -33,6 +33,7 @@ import org.apache.pekko.stream.scaladsl.{FileIO, Flow, Keep, Sink}
 import java.nio.file.Path
 import scala.annotation.tailrec
 import scala.concurrent.Future
+import scala.util.{Failure, Success}
 
 object PersistentMetadataManagerActor:
   /** File extension for metadata files. */
@@ -80,6 +81,17 @@ object PersistentMetadataManagerActor:
     * @param files the map with metadata files
     */
   private case class MetadataFileResult(files: Map[MediumChecksum, Path])
+
+  /**
+    * A message sent by [[PersistentMetadataManagerActor]] to itself after the
+    * future returned by the ToC writer has completed. The result is then
+    * logged.
+    *
+    * @param optTocPath   the optional path to the file that was written
+    * @param optException an optional exception in case of a failure
+    */
+  private case class TocWriterResult(optTocPath: Option[Path],
+                                     optException: Option[Throwable])
 
   /**
     * An internally used data class that stores information about media that
@@ -157,8 +169,9 @@ object PersistentMetadataManagerActor:
   private class PersistentMetadataManagerActorImpl(config: MediaArchiveConfig,
                                                    metadataUnionActor: ActorRef,
                                                    fileScanner: PersistentMetadataFileScanner,
-                                                   converter: PathUriConverter)
-    extends PersistentMetadataManagerActor(config, metadataUnionActor, fileScanner, converter)
+                                                   converter: PathUriConverter,
+                                                   tocWriter: ArchiveTocWriter)
+    extends PersistentMetadataManagerActor(config, metadataUnionActor, fileScanner, converter, tocWriter)
       with ChildActorFactory
 
   /**
@@ -167,11 +180,21 @@ object PersistentMetadataManagerActor:
     * @param config             the configuration
     * @param metadataUnionActor the metadata union actor
     * @param converter          the ''PathUriConverter''
+    * @param tocWriter          the object to generate a ToC for the archive
     * @return creation properties for a new actor instance
     */
-  def apply(config: MediaArchiveConfig, metadataUnionActor: ActorRef, converter: PathUriConverter): Props =
-    Props(classOf[PersistentMetadataManagerActorImpl], config, metadataUnionActor,
-      new PersistentMetadataFileScanner, converter)
+  def apply(config: MediaArchiveConfig,
+            metadataUnionActor: ActorRef,
+            converter: PathUriConverter,
+            tocWriter: ArchiveTocWriter = ArchiveTocWriter()): Props =
+    Props(
+      classOf[PersistentMetadataManagerActorImpl],
+      config,
+      metadataUnionActor,
+      new PersistentMetadataFileScanner,
+      converter,
+      tocWriter
+    )
 
 /**
   * An actor for managing files with media metadata.
@@ -195,11 +218,13 @@ object PersistentMetadataManagerActor:
   * @param metadataUnionActor reference to the metadata union actor
   * @param fileScanner        the scanner for metadata files
   * @param converter          the ''PathUriConverter''
+  * @param tocWriter          the object to write the archive's ToC
   */
 class PersistentMetadataManagerActor(config: MediaArchiveConfig,
                                      metadataUnionActor: ActorRef,
                                      private[persistence] val fileScanner: PersistentMetadataFileScanner,
-                                     converter: PathUriConverter)
+                                     converter: PathUriConverter,
+                                     tocWriter: ArchiveTocWriter)
   extends Actor with ActorLogging:
   this: ChildActorFactory =>
 
@@ -237,11 +262,20 @@ class PersistentMetadataManagerActor(config: MediaArchiveConfig,
     */
   private var checksumMapping = Map.empty[MediumID, MediumChecksum]
 
+  /**
+    * Stores the IDs of media with incomplete metadata. For such media, a
+    * metadata extraction process is started.
+    */
+  private var mediaMissingMetadata = Set.empty[MediumID]
+
+  /**
+    * Stores the IDs of media for which updated metadata information is now
+    * available. For those media, the entry in the ToC must be updated.
+    */
+  private var modifiedMedia = Set.empty[Checksums.MediumChecksum]
+
   /** The child actor for remove metadata files operation. */
   private var removeActor: ActorRef = _
-
-  /** The child actor for writing a ToC for the archive. */
-  private var tocWriterActor: ActorRef = _
 
   /** The current number of active reader actors. */
   private var activeReaderActors = 0
@@ -253,12 +287,13 @@ class PersistentMetadataManagerActor(config: MediaArchiveConfig,
   override def preStart(): Unit =
     super.preStart()
     removeActor = createChildActor(MetadataFileRemoveActor())
-    tocWriterActor = createChildActor(Props[ArchiveToCWriterActor]())
 
   override def receive: Receive =
     case ScanForMetadataFiles =>
       triggerMetadataFileScan()
       checksumMapping = Map.empty
+      modifiedMedia = Set.empty
+      mediaMissingMetadata = Set.empty
 
     case MetadataFileResult(files) =>
       optMetadataFiles = Some(files)
@@ -281,6 +316,8 @@ class PersistentMetadataManagerActor(config: MediaArchiveConfig,
           case Some(cs) if success => addMetadataFile(metadataFiles, cs)
           case Some(cs) => removeMetadataFile(metadataFiles, cs)
           case None => metadataFiles
+      mediaMissingMetadata = mediaMissingMetadata - mediumID
+      writeToCFile()
 
     case FetchMetadataFileInfo(controller) =>
       sender() ! fetchCurrentMetaFileInfo(controller)
@@ -297,10 +334,14 @@ class PersistentMetadataManagerActor(config: MediaArchiveConfig,
       }
 
     case ScanCompleted =>
-      config.contentFile foreach { target =>
-        val info = fetchCurrentMetaFileInfo(sender())
-        tocWriterActor ! ArchiveToCWriterActor.WriteToC(target, info.metadataFiles.toList)
-      }
+      writeToCFile()
+
+    case TocWriterResult(None, Some(exception)) =>
+      log.error(exception, "Failed to write ToC file.")
+
+    case TocWriterResult(optTocPath, None) =>
+      optTocPath.foreach: path =>
+        log.info("ToC file has been written to path {}.", path)
 
     case Terminated(reader) =>
       activeReaderActors -= 1
@@ -320,6 +361,24 @@ class PersistentMetadataManagerActor(config: MediaArchiveConfig,
       mediaInProgress = Map.empty
       pendingReadRequests = Nil
       checkAndSendCloseAck(sender())
+
+  /**
+    * Writes or updates the ToC file for this archive if necessary when all
+    * information required is available.
+    */
+  private def writeToCFile(): Unit =
+    if mediaMissingMetadata.isEmpty then
+      config.contentFile foreach : target =>
+        val info = fetchCurrentMetaFileInfo(sender())
+        val mediaData = info.metadataFiles.map(e => e._1 -> Checksums.MediumChecksum(e._2))
+        val unused = info.unusedFiles.map(Checksums.MediumChecksum.apply)
+        val futToc = tocWriter.writeToc(target, mediaData, unused, modifiedMedia)(using context.system)
+        import context.dispatcher
+        futToc.onComplete:
+          case Success(value) =>
+            self ! TocWriterResult(value, None)
+          case Failure(exception) =>
+            self ! TocWriterResult(None, Some(exception))
 
   /**
     * Invokes the file scanner to start the scan for metadata files. When
@@ -408,6 +467,7 @@ class PersistentMetadataManagerActor(config: MediaArchiveConfig,
     val metadataPersistenceSink = persistMetadataSink(u)
     val unresolvedMsgWithSink = u.copy(metadataSink = metadataPersistenceSink)
     metaManagerActor ! unresolvedMsgWithSink
+    mediaMissingMetadata = mediaMissingMetadata + u.mediumID
 
   /**
     * Generates the path for a metadata file based on the specified
@@ -579,6 +639,7 @@ class PersistentMetadataManagerActor(config: MediaArchiveConfig,
     */
   private def addMetadataFile(metadataFiles: Map[MediumChecksum, Path],
                               checksum: MediumChecksum): Map[MediumChecksum, Path] =
+    modifiedMedia = modifiedMedia + checksum
     metadataFiles + (checksum -> generateMetadataPath(checksum))
 
   /**

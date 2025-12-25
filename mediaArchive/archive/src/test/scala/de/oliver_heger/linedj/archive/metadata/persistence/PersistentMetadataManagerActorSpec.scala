@@ -26,7 +26,7 @@ import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
 import de.oliver_heger.linedj.shared.actors.ChildActorFactory
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.Checksums.MediumChecksum
-import de.oliver_heger.linedj.shared.archive.metadata.{MediaMetadata, MetadataFileInfo, RemovePersistentMetadata, RemovePersistentMetadataResult}
+import de.oliver_heger.linedj.shared.archive.metadata.{Checksums, MediaMetadata, MetadataFileInfo, RemovePersistentMetadata, RemovePersistentMetadataResult}
 import de.oliver_heger.linedj.shared.archive.union.{MetadataProcessingError, MetadataProcessingResult, MetadataProcessingSuccess}
 import org.apache.pekko.actor.{ActorRef, ActorSystem, PoisonPill, Props}
 import org.apache.pekko.stream.scaladsl.{FileIO, Sink, Source}
@@ -49,7 +49,10 @@ import scala.reflect.ClassTag
 object PersistentMetadataManagerActorSpec:
   /** A root path for scan results. */
   private val RootPath = Paths get "root"
-  
+
+  /** A path for the archive's ToC file. */
+  private val TocPath = Paths.get("/path/to/toc.json")
+
   /** The name of the test archive. */
   private val ArchiveName = "MyTestArchive"
 
@@ -74,9 +77,6 @@ object PersistentMetadataManagerActorSpec:
   /** Constant for the metadata file remove child actor class. */
   private val ClassRemoveChildActor = MetadataFileRemoveActor().actorClass()
 
-  /** Constant for the ToC writer actor class. */
-  private val ClassToCWriterActor = classOf[ArchiveToCWriterActor]
-
   /** The converter used by the test actor. */
   private val Converter = new PathUriConverter(RootPath)
 
@@ -87,6 +87,15 @@ object PersistentMetadataManagerActorSpec:
     * @return the checksum for this index
     */
   private def checksum(index: Int): String = "check_" + index
+
+  /**
+    * Generates a [[Checksums.MediumChecksum]] based on the given index.
+    *
+    * @param index the index
+    * @return the medium checksum for this index
+    */
+  private def mediumChecksum(index: Int): Checksums.MediumChecksum =
+    Checksums.MediumChecksum(checksum(index))
 
   /**
     * Generates a medium ID based on the given index.
@@ -266,9 +275,11 @@ class PersistentMetadataManagerActorSpec(testSystem: ActorSystem) extends TestKi
 
     classOf[PersistentMetadataManagerActor].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[ChildActorFactory].isAssignableFrom(props.actorClass()) shouldBe true
+    props.args should have size 5
     props.args.head should be(helper.config)
     props.args(1) should be(helper.metadataUnionActor.ref)
     props.args(3) should be(Converter)
+    props.args(4) shouldBe a[ArchiveTocWriter]
 
   it should "notify the caller for unknown media immediately" in :
     val helper = new PersistenceMetaDataManagerActorTestHelper
@@ -289,8 +300,8 @@ class PersistentMetadataManagerActorSpec(testSystem: ActorSystem) extends TestKi
       unresolvedMessage(4)
     )
     helper.expectNoChildReaderActor()
-    
-  it should "provide a Sink to create missing metadata files" in:
+
+  it should "provide a Sink to create missing metadata files" in :
     val helper = new PersistenceMetaDataManagerActorTestHelper
     val actor = helper.initMediaFiles(2).createTestActor()
     val result = enhancedScanResult(1, 2)
@@ -635,17 +646,71 @@ class PersistentMetadataManagerActorSpec(testSystem: ActorSystem) extends TestKi
     request2.pathMapping should be(persistentFileMappingStr(2, 3, 4))
 
   it should "trigger a ToC write operation at the end of a scan" in :
-    val tocPath = Paths get "toc.json"
     val helper = new PersistenceMetaDataManagerActorTestHelper
     val actor = helper.initMediaFiles(1, 2, 3).createTestActor()
     actor ! enhancedScanResult(1, 2, 3)
-    val expContent = List((mediumID(1), checksum(1)), (mediumID(2), checksum(2)),
-      (mediumID(3), checksum(3)))
+    val expMedia = Map(
+      mediumID(1) -> mediumChecksum(1),
+      mediumID(2) -> mediumChecksum(2),
+      mediumID(3) -> mediumChecksum(3)
+    )
 
-    helper.sendScanComplete(Some(tocPath))
-    val op = helper.tocWriterActor.expectMsgType[ArchiveToCWriterActor.WriteToC]
-    op.target should be(tocPath)
-    op.content should contain theSameElementsAs expContent
+    helper.initTocWriter()
+      .sendScanComplete(Some(TocPath))
+
+    helper.verifyTocWriter(expMedia, Set.empty, Set.empty)
+
+  it should "pass unused media to the ToC writer" in :
+    val helper = new PersistenceMetaDataManagerActorTestHelper
+    val actor = helper.initMediaFiles(1, 2).createTestActor()
+    actor ! enhancedScanResult(2)
+    val expMedia = Map(mediumID(2) -> mediumChecksum(2))
+    val futToc = Future.successful(Some(TocPath))
+
+    helper.initTocWriter(futToc)
+      .sendScanComplete(Some(TocPath))
+
+    helper.verifyTocWriter(expMedia, Set(mediumChecksum(1)), Set.empty)
+
+  it should "pass modified media to the ToC writer" in :
+    val helper = new PersistenceMetaDataManagerActorTestHelper
+    val actor = helper.initMediaFiles(1).createTestActor()
+    actor ! enhancedScanResult(1, 2, 3)
+    expectMsgType[UnresolvedMetadataFiles]
+    expectMsgType[UnresolvedMetadataFiles]
+    val expMedia = Map(
+      mediumID(1) -> mediumChecksum(1),
+      mediumID(2) -> mediumChecksum(2),
+      mediumID(3) -> mediumChecksum(3)
+    )
+    val expModified = Set(mediumChecksum(2), mediumChecksum(3))
+    val futToc: Future[Option[Path]] = Future.failed(new IllegalStateException("Test exception: ToC writer failed."))
+
+    helper.sendScanComplete(Some(TocPath))
+      .initTocWriter(futToc)
+      .sendMetadataExtractionCompleted(actor, 2)
+      .sendMetadataExtractionCompleted(actor, 3)
+
+    helper.verifyTocWriter(expMedia, Set.empty, expModified)
+    verifyNoMoreInteractions(helper.tocWriter)
+
+  it should "reset the set of modified media when a new scan starts" in :
+    val helper = new PersistenceMetaDataManagerActorTestHelper
+    val actor = helper.initMediaFiles(1, 2).createTestActor()
+    actor ! enhancedScanResult(1, 2, 3, 4)
+    expectMsgType[UnresolvedMetadataFiles]
+    helper.sendMetadataExtractionCompleted(actor, 1)
+
+    actor ! ScanForMetadataFiles
+    actor ! enhancedScanResult(1, 2)
+    val expMedia = Map(
+      mediumID(1) -> mediumChecksum(1),
+      mediumID(2) -> mediumChecksum(2),
+    )
+    helper.initTocWriter()
+      .sendScanComplete(Some(TocPath))
+
+    helper.verifyTocWriter(expMedia, Set.empty, Set.empty)
 
   it should "not trigger a ToC write operation if no target path is defined" in :
     val helper = new PersistenceMetaDataManagerActorTestHelper
@@ -653,9 +718,7 @@ class PersistentMetadataManagerActorSpec(testSystem: ActorSystem) extends TestKi
     actor ! enhancedScanResult(1, 2, 3)
 
     helper.sendScanComplete(None)
-    val TestMsg = new Object
-    helper.tocWriterActor.ref ! TestMsg
-    helper.tocWriterActor.expectMsg(TestMsg)
+    verifyNoInteractions(helper.tocWriter)
 
   /**
     * A test helper class collecting all dependencies of the test actor.
@@ -673,8 +736,8 @@ class PersistentMetadataManagerActorSpec(testSystem: ActorSystem) extends TestKi
     /** Test probe for the metadata union actor. */
     val metadataUnionActor: TestProbe = TestProbe()
 
-    /** Test probe for the ToC writer actor. */
-    val tocWriterActor: TestProbe = TestProbe()
+    /** The mock for the ToC writer object. */
+    val tocWriter: ArchiveTocWriter = mock
 
     /** The test actor created by this helper. */
     var managerActor: TestActorRef[PersistentMetadataManagerActor] = _
@@ -781,7 +844,7 @@ class PersistentMetadataManagerActorSpec(testSystem: ActorSystem) extends TestKi
         testActor
       )
       this
-    
+
     /**
       * Sends a ScanComplete message to the test actor and optionally a request
       * to write the ToC.
@@ -793,7 +856,37 @@ class PersistentMetadataManagerActorSpec(testSystem: ActorSystem) extends TestKi
       when(config.contentFile).thenReturn(tocPath)
       managerActor receive PersistentMetadataManagerActor.ScanCompleted
       this
-    
+
+    /**
+      * Initializes the mock for the ToC writer to expect an invocation and
+      * sets the return value.
+      *
+      * @param futPath the future to return
+      * @return this test helper
+      */
+    def initTocWriter(futPath: Future[Option[Path]] = Future.successful(None)):
+    PersistenceMetaDataManagerActorTestHelper =
+      given ActorSystem = any[ActorSystem]()
+
+      when(tocWriter.writeToc(any(), any(), any(), any())).thenReturn(futPath)
+      this
+
+    /**
+      * Verifies that the ToC writer was called with the expected arguments.
+      *
+      * @param expectedMedia    the expected media data
+      * @param expectedUnused   the expected unused media
+      * @param expectedModified the expected modified media
+      * @return this test helper
+      */
+    def verifyTocWriter(expectedMedia: Map[MediumID, Checksums.MediumChecksum],
+                        expectedUnused: Set[Checksums.MediumChecksum],
+                        expectedModified: Set[Checksums.MediumChecksum]): PersistenceMetaDataManagerActorTestHelper =
+      given ActorSystem = argEq(system)
+
+      verify(tocWriter).writeToc(argEq(TocPath), argEq(expectedMedia), argEq(expectedUnused), argEq(expectedModified))
+      this
+
     /**
       * Creates a mock for the configuration.
       *
@@ -805,6 +898,7 @@ class PersistentMetadataManagerActorSpec(testSystem: ActorSystem) extends TestKi
       when(config.metadataPersistenceParallelCount).thenReturn(ParallelCount)
       when(config.metadataPersistenceChunkSize).thenReturn(ChunkSize)
       when(config.blockingDispatcherName).thenReturn(BlockingDispatcher)
+      when(config.contentFile).thenReturn(None)
       config
 
     /**
@@ -816,9 +910,9 @@ class PersistentMetadataManagerActorSpec(testSystem: ActorSystem) extends TestKi
       */
     private def createProps(): Props =
       Props(new PersistentMetadataManagerActor(config, metadataUnionActor.ref,
-        fileScanner, Converter) with ChildActorFactory {
-        override def createChildActor(p: Props): ActorRef = {
-          p.actorClass() match {
+        fileScanner, Converter, tocWriter) with ChildActorFactory:
+        override def createChildActor(p: Props): ActorRef =
+          p.actorClass() match
             case ClassReaderChildActor =>
               p.args should have length 2
               p.args.head should be(managerActor)
@@ -830,13 +924,7 @@ class PersistentMetadataManagerActorSpec(testSystem: ActorSystem) extends TestKi
             case ClassRemoveChildActor =>
               p.args should have length 0
               removeActor.ref
-
-            case ClassToCWriterActor =>
-              p.args should have length 0
-              tocWriterActor.ref
-          }
-        }
-      })
+      )
 
     /**
       * Creates test probes for reader actors. For some strange reasons, the
