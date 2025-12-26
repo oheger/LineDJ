@@ -69,32 +69,30 @@ class HttpMediumDescParserSpec(testSystem: ActorSystem) extends TestKit(testSyst
 
   "A HttpMediumDescParser" should "produce correct result objects" in :
     val inputData = Vector(
-      LenientHttpMediumDesc(Some("medium1/desc.settings"), Some("metadata/med1.mdt")),
-      LenientHttpMediumDesc(Some("medium2/playlist.settings"), Some("metadata/med2.mdt")),
-      LenientHttpMediumDesc(Some("medium3/desc.settings"), Some("metadata/45848481.mdt"))
+      LenientHttpMediumDesc(Some("medium1/desc.settings"), Some("med1")),
+      LenientHttpMediumDesc(Some("medium2/playlist.settings"), Some("med2")),
+      LenientHttpMediumDesc(Some("medium3/desc.settings"), Some("45848481"))
     )
     val expectedResult = Vector(
-      HttpMediumDesc("medium1/desc.settings", "metadata/med1.mdt"),
-      HttpMediumDesc("medium2/playlist.settings", "metadata/med2.mdt"),
-      HttpMediumDesc("medium3/desc.settings", "metadata/45848481.mdt")
+      HttpMediumDesc("medium1/desc.settings", "med1.mdt"),
+      HttpMediumDesc("medium2/playlist.settings", "med2.mdt"),
+      HttpMediumDesc("medium3/desc.settings", "45848481.mdt")
     )
 
-    runParserStream(inputData) map { result =>
+    runParserStream(inputData) map : result =>
       result should contain theSameElementsInOrderAs expectedResult
-    }
 
   it should "filter out incomplete medium descriptions" in :
     val inputData = Vector(
       LenientHttpMediumDesc(Some("someDescription"), None),
-      LenientHttpMediumDesc(Some("medium1/desc.settings"), Some("metadata/med1.mdt")),
+      LenientHttpMediumDesc(Some("medium1/desc.settings"), Some("med1")),
       LenientHttpMediumDesc(None, Some("somePath")),
-      LenientHttpMediumDesc(Some("medium3/desc.settings"), Some("metadata/45848481.mdt"))
+      LenientHttpMediumDesc(Some("medium3/desc.settings"), Some("45848481"))
     )
     val expectedResult = Vector(
-      HttpMediumDesc("medium1/desc.settings", "metadata/med1.mdt"),
-      HttpMediumDesc("medium3/desc.settings", "metadata/45848481.mdt")
+      HttpMediumDesc("medium1/desc.settings", "med1.mdt"),
+      HttpMediumDesc("medium3/desc.settings", "45848481.mdt")
     )
 
-    runParserStream(inputData) map { result =>
+    runParserStream(inputData) map : result =>
       result should contain theSameElementsInOrderAs expectedResult
-    }

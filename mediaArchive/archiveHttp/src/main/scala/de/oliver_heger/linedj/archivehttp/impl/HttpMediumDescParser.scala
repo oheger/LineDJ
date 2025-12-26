@@ -32,15 +32,21 @@ import spray.json.DefaultJsonProtocol.*
   */
 object HttpMediumDescParser:
   /**
+    * The extension for metadata files. This is appended to the checksum of a
+    * medium to construct the path to the corresponding metadata file.
+    */
+  private val MetadataExtension = ".mdt"
+
+  /**
     * An internal model class representing a medium description that can be
     * partially defined only. This is used for the parsing process. In a later
     * stage, incomplete items are filtered out.
     *
     * @param mediumDescriptionPath the optional medium description path
-    * @param metaDataPath          the optional metadata path
+    * @param checksum              the optional checksum of the medium
     */
   private[impl] case class LenientHttpMediumDesc(mediumDescriptionPath: Option[String],
-                                                 metaDataPath: Option[String]):
+                                                 checksum: Option[String]):
     /**
       * Tries to convert this object to an [[HttpMediumDesc]] if possible.
       * Result is ''None'' if not all properties are defined.
@@ -50,8 +56,8 @@ object HttpMediumDescParser:
     def convertToHttpMediumDesc(): Option[HttpMediumDesc] =
       for
         descPath <- mediumDescriptionPath
-        metaPath <- metaDataPath
-      yield HttpMediumDesc(descPath, metaPath)
+        metaPath <- checksum
+      yield HttpMediumDesc(descPath, metaPath + MetadataExtension)
 
   /** The JSON format for the internal model class. */
   private[impl] given RootJsonFormat[LenientHttpMediumDesc] = jsonFormat2(LenientHttpMediumDesc.apply)
