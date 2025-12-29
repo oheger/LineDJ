@@ -27,6 +27,26 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration.DurationInt
 
+object ArchiveServerConfigSpec:
+  /** The name of the test configuration file used by this test suite. */
+  private val TestConfigFile = "test-base-archive-server-config.xml"
+  
+  /**
+    * The name of a property that is loaded from the test configuration by the
+    * test config loader implementation.
+    */
+  private val CustomProperty = "test.value"
+
+  /**
+    * A function used as test config loader. The function extracts a test
+    * property of type ''Int''.
+    * @param config the input configuration
+    * @return the value extracted by the loader
+    */
+  def loadArchiveConfig(config: Configuration): Int =
+    config.getInt(CustomProperty)
+end ArchiveServerConfigSpec
+
 /**
   * Test class for [[ArchiveServerConfig]].
   */
@@ -37,6 +57,8 @@ class ArchiveServerConfigSpec(testSystem: ActorSystem) extends TestKit(testSyste
   override protected def afterAll(): Unit =
     TestKit.shutdownActorSystem(system)
     super.afterAll()
+    
+  import ArchiveServerConfigSpec.* 
 
   /**
     * Loads the test configuration file and parses it to a [[Configuration]]
@@ -46,21 +68,17 @@ class ArchiveServerConfigSpec(testSystem: ActorSystem) extends TestKit(testSyste
     */
   private def loadTestConfig(): Configuration =
     val configs = new Configurations
-    configs.xml("test-archive-server-config.xml")
+    configs.xml(TestConfigFile)
 
   "ArchiveServerConfig" should "successfully load the configuration" in :
-    ArchiveServerConfig("test-archive-server-config.xml") map : config =>
-      config.archiveConfigs.map(_.archiveName) should contain theSameElementsInOrderAs List("rock", "classic")
-      config.archiveConfigs.map(_.rootPath.toString) should contain theSameElementsInOrderAs List(
-        "/data/music/rock/media",
-        "/data/music/classic/media"
-      )
+    ArchiveServerConfig(TestConfigFile)(loadArchiveConfig) map : config =>
       config.serverPort should be(8085)
+      config.archiveConfig should be(42)
 
   it should "return a failed Future for a non-existing configuration file" in :
     val configFileName = "non-existing-config.xml"
     val futEx = recoverToExceptionIf[ConfigurationException]:
-      ArchiveServerConfig(configFileName)
+      ArchiveServerConfig(configFileName)(loadArchiveConfig)
 
     futEx map : ex =>
       ex.getMessage should include(configFileName)
@@ -69,7 +87,7 @@ class ArchiveServerConfigSpec(testSystem: ActorSystem) extends TestKit(testSyste
     val config = loadTestConfig()
     config.clearProperty(ArchiveServerConfig.PropServerPort)
 
-    val serverConfig = ArchiveServerConfig(config)
+    val serverConfig = ArchiveServerConfig(config)(loadArchiveConfig)
 
     serverConfig.serverPort should be(ArchiveServerConfig.DefaultServerPort)
     serverConfig.timeout should be(ArchiveServerConfig.DefaultServerTimeout)
@@ -79,7 +97,7 @@ class ArchiveServerConfigSpec(testSystem: ActorSystem) extends TestKit(testSyste
     val config = loadTestConfig()
     config.setProperty(ArchiveServerConfig.PropServerTimeout, TimeoutSecs)
 
-    val serverConfig = ArchiveServerConfig(config)
+    val serverConfig = ArchiveServerConfig(config)(loadArchiveConfig)
 
     serverConfig.timeout should be(TimeoutSecs.seconds)
 
@@ -87,6 +105,6 @@ class ArchiveServerConfigSpec(testSystem: ActorSystem) extends TestKit(testSyste
     val config = loadTestConfig()
     config.setProperty(ArchiveServerConfig.PropServerTimeout, "2min")
 
-    val serverConfig = ArchiveServerConfig(config)
+    val serverConfig = ArchiveServerConfig(config)(loadArchiveConfig)
 
     serverConfig.timeout should be(120.seconds)

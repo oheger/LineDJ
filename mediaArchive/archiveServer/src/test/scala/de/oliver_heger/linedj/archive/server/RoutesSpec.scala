@@ -38,12 +38,17 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.{BeforeAndAfterAll, OptionValues}
 
 import java.nio.file.{Files, Path, Paths, StandardCopyOption}
+import scala.collection.immutable.Seq
 import scala.concurrent.Promise
 import scala.concurrent.duration.DurationInt
 
 object RoutesSpec:
   /** The configuration used by tests per default. */
-  private val TestServerConfig = ArchiveServerConfig(0, ArchiveServerConfig.DefaultServerTimeout, Nil)
+  private val TestServerConfig = ArchiveServerConfig(
+    0,
+    ArchiveServerConfig.DefaultServerTimeout,
+    Seq.empty[MediaArchiveConfig]
+  )
 
   /** The ID of a test medium. */
   private val TestMediumID = Checksums.MediumChecksum("test-medium-id")
@@ -86,7 +91,7 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers with S
     * @return the [[Route]] for being tested
     */
   private def testRoute(contentActor: ActorRef[ArchiveCommands.ArchiveQueryCommand],
-                        config: ArchiveServerConfig = TestServerConfig): Route =
+                        config: ArchiveServerConfig[Seq[MediaArchiveConfig]] = TestServerConfig): Route =
     val controller = new Controller() with SystemPropertyAccess {}
     val context = Controller.ArchiveServerContext(
       serverConfig = config,
@@ -147,7 +152,7 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers with S
     val config = ArchiveServerConfig(
       serverPort = 8080,
       timeout = 10.millis,
-      archiveConfigs = Nil
+      archiveConfig = Seq.empty[MediaArchiveConfig]
     )
     val contentBehavior = Behaviors.receivePartial[ArchiveContentActor.ArchiveContentCommand]:
       case (context, ArchiveCommands.ReadArchiveContentCommand.GetMedia(replyTo)) =>
@@ -374,7 +379,7 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers with S
       fileUri = MediaFileUri("/test-medium/test-artist/test-album/test-song.mp3")
     )
     writeMediaFile(archiveConfig, Paths.get(downloadInfo.fileUri.path), FileTestHelper.TestData)
-    val serverConfig = TestServerConfig.copy(archiveConfigs = List(archiveConfig))
+    val serverConfig = TestServerConfig.copy(archiveConfig = Seq(archiveConfig))
     val contentBehavior = behaviorForDownloadRequest(downloadInfo)
 
     val contentActor = testKit.spawn(contentBehavior)
@@ -397,7 +402,7 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers with S
       archiveName = archiveConfig.archiveName,
       fileUri = MediaFileUri("/test-medium/test-artist/test-album/test-song.mp3")
     )
-    val serverConfig = TestServerConfig.copy(archiveConfigs = List(archiveConfig))
+    val serverConfig = TestServerConfig.copy(archiveConfig = Seq(archiveConfig))
     val contentBehavior = behaviorForDownloadRequest(downloadInfo)
 
     val contentActor = testKit.spawn(contentBehavior)
@@ -417,7 +422,7 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers with S
       archiveName = archiveConfig.archiveName,
       fileUri = TestMp3Uri
     )
-    val serverConfig = TestServerConfig.copy(archiveConfigs = List(archiveConfig))
+    val serverConfig = TestServerConfig.copy(archiveConfig = Seq(archiveConfig))
     val contentBehavior = behaviorForDownloadRequest(downloadInfo)
 
     val contentActor = testKit.spawn(contentBehavior)
@@ -440,7 +445,7 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers with S
       archiveName = archiveConfig.archiveName,
       fileUri = TestMp3Uri
     )
-    val serverConfig = TestServerConfig.copy(archiveConfigs = List(archiveConfig))
+    val serverConfig = TestServerConfig.copy(archiveConfig = Seq(archiveConfig))
     val contentBehavior = behaviorForDownloadRequest(downloadInfo)
 
     val contentActor = testKit.spawn(contentBehavior)

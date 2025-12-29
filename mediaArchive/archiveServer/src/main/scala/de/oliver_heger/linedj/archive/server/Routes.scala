@@ -33,6 +33,7 @@ import org.apache.pekko.util.{ByteString, Timeout}
 
 import java.nio.file.Paths
 import scala.concurrent.Future
+import scala.concurrent.duration.FiniteDuration
 
 /**
   * An object defining the routes supported by the archive server.
@@ -56,18 +57,18 @@ object Routes extends ArchiveModel.ArchiveJsonSupport:
   /**
     * Returns the top-level route of the archive server.
     *
-    * @param config       the configuration for the server
+    * @param actorTimeout the timeout when querying actors
     * @param contentActor the actor managing the content of the archive
     * @param resolver     the function to resolve media files in the archive
     * @return the top-level route of the server
     */
-  def route(config: ArchiveServerConfig,
+  def route(actorTimeout: FiniteDuration,
             contentActor: ActorRef[ArchiveCommands.ArchiveQueryCommand],
             resolver: MediaFileResolver.FileResolverFunc)
            (using system: classics.ActorSystem): Route =
     given ActorSystem[Nothing] = system.toTyped
 
-    given Timeout(config.timeout)
+    given Timeout(actorTimeout)
     import org.apache.pekko.actor.typed.scaladsl.AskPattern.schedulerFromActorSystem
     import system.dispatcher
 

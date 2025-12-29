@@ -182,7 +182,7 @@ class ControllerSpec(testSystem: classics.ActorSystem) extends TestKit(testSyste
     val config = ArchiveServerConfig(
       serverPort = 8765,
       timeout = ArchiveServerConfig.DefaultServerTimeout,
-      archiveConfigs = Nil
+      archiveConfig = Seq.empty[MediaArchiveConfig]
     )
     val context = Controller.ArchiveServerContext(
       serverConfig = config,

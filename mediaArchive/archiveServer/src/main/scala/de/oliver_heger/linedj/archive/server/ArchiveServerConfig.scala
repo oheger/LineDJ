@@ -16,16 +16,12 @@
 
 package de.oliver_heger.linedj.archive.server
 
-import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
-import de.oliver_heger.linedj.archive.server.MediaArchiveConfigLoaderCC2.given
-import de.oliver_heger.linedj.shared.config.ConfigExtensions
 import de.oliver_heger.linedj.shared.config.ConfigExtensions.toDuration
-import org.apache.commons.configuration2.{Configuration, XMLConfiguration}
 import org.apache.commons.configuration2.builder.FileBasedConfigurationBuilder
 import org.apache.commons.configuration2.builder.fluent.Parameters
 import org.apache.commons.configuration2.io.{ClasspathLocationStrategy, CombinedLocationStrategy, HomeDirectoryLocationStrategy, ProvidedURLLocationStrategy}
+import org.apache.commons.configuration2.{Configuration, XMLConfiguration}
 
-import scala.collection.immutable.Seq
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -61,6 +57,12 @@ object ArchiveServerConfig:
   final val DefaultServerTimeout = 3.seconds
 
   /**
+    * Alias for a function that can extract a concrete server configuration
+    * from a passed in [[Configuration]] instance.
+    */
+  type ConfigLoader[CONF] = Configuration => CONF
+
+  /**
     * Loads the configuration for the archive server from the given
     * configuration file.
     *
@@ -68,7 +70,9 @@ object ArchiveServerConfig:
     * @param ec             the execution context
     * @return a [[Future]] with the configuration
     */
-  def apply(configFileName: String)(using ec: ExecutionContext): Future[ArchiveServerConfig] = Future:
+  def apply[CONF](configFileName: String)
+                 (loader: ConfigLoader[CONF])
+                 (using ec: ExecutionContext): Future[ArchiveServerConfig[CONF]] = Future:
     import scala.jdk.CollectionConverters.*
     val params = new Parameters
     val locationStrategies = List(
@@ -83,20 +87,22 @@ object ArchiveServerConfig:
           .setLocationStrategy(new CombinedLocationStrategy(locationStrategies.asJava))
       )
 
-    apply(builder.getConfiguration)
+    apply(builder.getConfiguration)(loader)
 
   /**
     * Extracts the configuration for the archive server from the given
     * configuration object.
     *
     * @param config the configuration to process
+    * @param loader the object to load the archive configuration
+    * @tparam CONF the type of the concrete archive configuration
     * @return the extracted [[ArchiveServerConfig]]
     */
-  def apply(config: Configuration): ArchiveServerConfig =
+  def apply[CONF](config: Configuration)(loader: ConfigLoader[CONF]): ArchiveServerConfig[CONF] =
     new ArchiveServerConfig(
       serverPort = config.getInt(PropServerPort, DefaultServerPort),
       timeout = parseTimeout(config),
-      archiveConfigs = MediaArchiveConfig.loadMediaArchiveConfigs(config)
+      archiveConfig = loader(config)
     )
 
   /**
@@ -119,11 +125,12 @@ end ArchiveServerConfig
   * The class defines the settings of the server itself, but also the archives
   * to be loaded and served.
   *
-  * @param serverPort     the port on which the server is listening
-  * @param timeout        the timeout for queries of archive content
-  * @param archiveConfigs a collection with the configurations of the archives
-  *                       to make available via the server's REST API
+  * @param serverPort    the port on which the server is listening
+  * @param timeout       the timeout for queries of archive content
+  * @param archiveConfig the concrete configuration defining the content of the
+  *                      managed archive
+  * @tparam CONF the type of the archive configuration
   */
-case class ArchiveServerConfig(serverPort: Int,
-                               timeout: FiniteDuration,
-                               archiveConfigs: Seq[MediaArchiveConfig])
+case class ArchiveServerConfig[CONF](serverPort: Int,
+                                     timeout: FiniteDuration,
+                                     archiveConfig: CONF)

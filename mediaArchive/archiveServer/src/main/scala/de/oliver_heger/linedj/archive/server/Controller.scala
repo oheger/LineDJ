@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.archive.server
 
+import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.group.ArchiveGroupActor
 import de.oliver_heger.linedj.archive.server.content.{ArchiveContentActor, ArchiveContentMetadataProcessingListener}
 import de.oliver_heger.linedj.archive.server.model.ArchiveCommands
@@ -28,6 +29,7 @@ import org.apache.pekko.{Done, actor as classics}
 import org.apache.pekko.actor.typed.ActorRef
 import org.apache.pekko.http.scaladsl.server.Route
 
+import scala.collection.immutable.Seq
 import scala.concurrent.{Future, Promise}
 
 object Controller:
@@ -37,6 +39,12 @@ object Controller:
     * default file name as defined in [[ArchiveServerConfig]] is used.
     */
   final val PropConfigFileName = "configFile"
+
+  /**
+    * Type alias for the concrete configuration type used by the local archive
+    * server.
+    */
+  type ArchiveServerLocalConfig = ArchiveServerConfig[Seq[MediaArchiveConfig]]
 
   /** The logger. */
   private val log = LogManager.getLogger(classOf[Controller])
@@ -60,7 +68,7 @@ object Controller:
     * @param serverConfig the configuration of the server
     * @param contentActor the actor managing the content of the archive
     */
-  final case class ArchiveServerContext(serverConfig: ArchiveServerConfig,
+  final case class ArchiveServerContext(serverConfig: ArchiveServerLocalConfig,
                                         contentActor: ActorRef[ArchiveCommands.ArchiveQueryCommand])
 end Controller
 
@@ -76,6 +84,7 @@ class Controller(contentActorFactory: ArchiveContentActor.Factory = ArchiveConte
   this: SystemPropertyAccess =>
 
   import Controller.*
+  import MediaArchiveConfigLoaderCC2.given 
 
   override type Context = ArchiveServerContext
 
@@ -83,7 +92,7 @@ class Controller(contentActorFactory: ArchiveContentActor.Factory = ArchiveConte
     val configFileName = getSystemProperty(PropConfigFileName).getOrElse(ArchiveServerConfig.DefaultConfigFileName)
     log.info("Loading configuration file from '{}'.", configFileName)
 
-    ArchiveServerConfig(configFileName) map : config =>
+    ArchiveServerConfig(configFileName)(c => MediaArchiveConfig.loadMediaArchiveConfigs(c)) map : config =>
       val contentActor = services.managingActorFactory.createTypedActor(contentActorFactory(), "contentActor")
 
       val propsMetaUnionActor = classics.Props(classOf[MetadataUnionActor], DefaultUnionArchiveConfig)
@@ -97,7 +106,7 @@ class Controller(contentActorFactory: ArchiveContentActor.Factory = ArchiveConte
         mediaUnionActor = mediaUnionActor,
         metadataUnionActor = metadataUnionActor,
         metadataListenerBehavior = metadataListenerFactory(contentActor),
-        archiveConfigs = config.archiveConfigs
+        archiveConfigs = config.archiveConfig
       )
       services.managingActorFactory.createClassicActor(propsGroupActor, "archiveGroupActor")
 
@@ -114,7 +123,7 @@ class Controller(contentActorFactory: ArchiveContentActor.Factory = ArchiveConte
   override def route(context: ArchiveServerContext, shutdownPromise: Promise[Done])
                     (using services: ServerController.ServerServices): Route =
     Routes.route(
-      context.serverConfig,
+      context.serverConfig.timeout,
       context.contentActor,
-      MediaFileResolver.localFileResolverFunc(context.serverConfig.archiveConfigs)
+      MediaFileResolver.localFileResolverFunc(context.serverConfig.archiveConfig)
     )
