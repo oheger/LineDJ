@@ -115,5 +115,8 @@ trait ArchiveController extends ServerController:
 
   override def route(context: Context, shutdownPromise: Promise[Done])
                     (using services: ServerController.ServerServices): Route =
-    // TODO Implementation
-    throw new UnsupportedOperationException("Not yet implemented.")
+    Routes.route(
+      context.serverConfig.timeout,
+      context.contentActor,
+      fileResolverFunc(context)
+    )

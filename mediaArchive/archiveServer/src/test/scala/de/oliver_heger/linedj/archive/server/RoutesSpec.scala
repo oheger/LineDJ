@@ -17,7 +17,8 @@
 package de.oliver_heger.linedj.archive.server
 
 import de.oliver_heger.linedj.FileTestHelper
-import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
+import de.oliver_heger.linedj.archive.server.ArchiveServerConfig.ConfigLoader
+import de.oliver_heger.linedj.archive.server.MediaFileResolver.FileResolverFunc
 import de.oliver_heger.linedj.archive.server.content.ArchiveContentActor
 import de.oliver_heger.linedj.archive.server.model.{ArchiveCommands, ArchiveModel}
 import de.oliver_heger.linedj.server.common.ServerController
@@ -33,21 +34,21 @@ import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.model.headers.{ContentDispositionTypes, `Content-Disposition`}
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
+import org.apache.pekko.stream.scaladsl.FileIO
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.{BeforeAndAfterAll, OptionValues}
+import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, OptionValues}
 
-import java.nio.file.{Files, Path, Paths, StandardCopyOption}
-import scala.collection.immutable.Seq
-import scala.concurrent.Promise
+import java.nio.file.{Path, Paths}
 import scala.concurrent.duration.DurationInt
+import scala.concurrent.{Future, Promise}
 
 object RoutesSpec:
   /** The configuration used by tests per default. */
   private val TestServerConfig = ArchiveServerConfig(
     0,
     ArchiveServerConfig.DefaultServerTimeout,
-    Seq.empty[MediaArchiveConfig]
+    ()
   )
 
   /** The ID of a test medium. */
@@ -62,17 +63,30 @@ object RoutesSpec:
   /** The relative URI of the test MP3 file. */
   private val TestMp3Uri = MediaFileUri("/medium/artist/album/song.mp3")
 
+  /** The name of the test archive. */
+  private val TestArchiveName = "VeryCoolMusic"
+
+  /** A test download info object using the test properties. */
+  private val TestDownloadInfo = ArchiveModel.MediaFileDownloadInfo(
+    fileUri = TestMp3Uri,
+    archiveName = TestArchiveName
+  )
+
   /** The actual data content of the test MP3 file. */
   private val TestMp3Data = "Lorem ipsum dolor sit amet, consetetur sadipscing " +
     "elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore " +
     "magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo"
+
+  /** A default dummy file resolver function. */
+  private val DefaultFileResolverFunc: MediaFileResolver.FileResolverFunc = (_, _) =>
+    Future.failed(new UnsupportedOperationException("Unexpected call."))
 end RoutesSpec
 
 /**
   * Test class for the routes of the archive server.
   */
-class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers with ScalatestRouteTest
-  with OptionValues with MediaFileTestSupport with ArchiveModel.ArchiveJsonSupport:
+class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with BeforeAndAfterEach with Matchers
+  with ScalatestRouteTest with OptionValues with FileTestHelper with ArchiveModel.ArchiveJsonSupport:
   /** The test kit for typed actors. */
   private val testKit = ActorTestKit()
 
@@ -80,20 +94,35 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers with S
     testKit.shutdownTestKit()
     super.afterAll()
 
+  override protected def afterEach(): Unit =
+    tearDownTestFile()  
+    super.afterEach()
+
   import RoutesSpec.*
 
   /**
     * Returns a [[Route]] to be tested based on the given content actor. This
-    * function obtains the route from the [[Controller]], so that the 
+    * function obtains the route from the [[ArchiveController]], so that the
     * controller method creating the route is tested as well.
     *
     * @param contentActor the content actor to use
+    * @param config       the optional server configuration
+    * @param resolver     the optional function to resolve files
     * @return the [[Route]] for being tested
     */
-  private def testRoute(contentActor: ActorRef[ArchiveCommands.ArchiveQueryCommand],
-                        config: ArchiveServerConfig[Seq[MediaArchiveConfig]] = TestServerConfig): Route =
-    val controller = new Controller() with SystemPropertyAccess {}
-    val context = Controller.ArchiveServerContext(
+  private def testRoute(contentActor: ActorRef[ArchiveContentActor.ArchiveContentCommand],
+                        config: ArchiveServerConfig[Unit] = TestServerConfig,
+                        resolver: MediaFileResolver.FileResolverFunc = DefaultFileResolverFunc): Route =
+    val controller = new ArchiveController with SystemPropertyAccess:
+      override type ArchiveConfig = Unit
+
+      override def fileResolverFunc(context: Context): FileResolverFunc =
+        context.serverConfig should be(config)
+        resolver
+
+      override protected def configLoader: ConfigLoader[Unit] = _ => ()
+
+    val context = ArchiveController.ArchiveServerContext(
       serverConfig = config,
       contentActor = contentActor
     )
@@ -102,33 +131,42 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers with S
     controller.route(context, shutdownPromise)(using services)
 
   /**
-    * Copies the test MP3 file to the folder structure of the given media
-    * archive.
+    * Returns a functional file resolver function that resolves parameters
+    * pointing to the test media file. The function returns a source that is
+    * defined by the optional passed in path or - if undefined - is loaded from
+    * the resources.
     *
-    * @param archiveConfig the config of the target media archive
-    * @return the path of the test file in this archive
+    * @return the effective resolver function
     */
-  private def copyMp3TestFile(archiveConfig: MediaArchiveConfig): Path =
+  private def resolverFunc(optPath: Option[Path] = None): MediaFileResolver.FileResolverFunc = (fileID, info) =>
+    fileID should be(TestMediaFileID)
+    info should be(TestDownloadInfo)
+    Future:
+      val filePath = optPath.getOrElse(resolveTestMp3File)
+      FileIO.fromPath(filePath)
+
+  /**
+    * Returns a [[Path]] to the test MP3 file from the test resources.
+    *
+    * @return the path to the test MP3 file
+    */
+  private def resolveTestMp3File: Path =
     val fileUrl = getClass.getResource(TestMp3File)
     fileUrl should not be null
-    val filePath = Paths.get(fileUrl.toURI)
-    val targetPath = writeMediaFile(archiveConfig, Paths.get(TestMp3Uri.path), "")
-    Files.copy(filePath, targetPath, StandardCopyOption.REPLACE_EXISTING)
+    Paths.get(fileUrl.toURI)
 
   /**
     * Returns a behavior for a stub content actor that expects and handles a
     * request for download information for the test media file. The request is
-    * answered with the specified download information.
+    * answered with the test download information.
     *
-    * @param downloadInfo the download information
     * @return the behavior of the stub actor
     */
-  private def behaviorForDownloadRequest(downloadInfo: ArchiveModel.MediaFileDownloadInfo):
-  Behavior[ArchiveContentActor.ArchiveContentCommand] =
+  private def behaviorForDownloadRequest(): Behavior[ArchiveContentActor.ArchiveContentCommand] =
     Behaviors.receiveMessagePartial[ArchiveContentActor.ArchiveContentCommand]:
       case ArchiveCommands.ReadArchiveContentCommand.GetFileDownloadInfo(fileID, replyTo)
         if fileID == TestMediaFileID =>
-        replyTo ! ArchiveCommands.GetFileResponse(fileID = fileID, optResult = Some(downloadInfo))
+        replyTo ! ArchiveCommands.GetFileResponse(fileID = fileID, optResult = Some(TestDownloadInfo))
         Behaviors.stopped
 
   "Routes" should "define a route for obtaining an overview over all media" in :
@@ -137,7 +175,7 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers with S
       ArchiveModel.MediumOverview(Checksums.MediumChecksum("c2"), "testMedium2"),
       ArchiveModel.MediumOverview(Checksums.MediumChecksum("c3"), "testMedium3")
     )
-    val contentBehavior = Behaviors.receiveMessagePartial[ArchiveCommands.ArchiveQueryCommand]:
+    val contentBehavior = Behaviors.receiveMessagePartial[ArchiveContentActor.ArchiveContentCommand]:
       case ArchiveCommands.ReadArchiveContentCommand.GetMedia(replyTo) =>
         replyTo ! ArchiveCommands.GetMediaResponse(mediaOverview)
         Behaviors.same
@@ -152,7 +190,7 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers with S
     val config = ArchiveServerConfig(
       serverPort = 8080,
       timeout = 10.millis,
-      archiveConfig = Seq.empty[MediaArchiveConfig]
+      archiveConfig = ()
     )
     val contentBehavior = Behaviors.receivePartial[ArchiveContentActor.ArchiveContentCommand]:
       case (context, ArchiveCommands.ReadArchiveContentCommand.GetMedia(replyTo)) =>
@@ -373,23 +411,18 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers with S
       status should be(StatusCodes.NotFound)
 
   it should "define a route to download a media file" in :
-    val archiveConfig = createArchiveConfigWithRootPath("myMusic")
-    val downloadInfo = ArchiveModel.MediaFileDownloadInfo(
-      archiveName = archiveConfig.archiveName,
-      fileUri = MediaFileUri("/test-medium/test-artist/test-album/test-song.mp3")
-    )
-    writeMediaFile(archiveConfig, Paths.get(downloadInfo.fileUri.path), FileTestHelper.TestData)
-    val serverConfig = TestServerConfig.copy(archiveConfig = Seq(archiveConfig))
-    val contentBehavior = behaviorForDownloadRequest(downloadInfo)
+    val testPath = writeFileContent(createPathInDirectory("test.mp3"), FileTestHelper.TestData)
+    val resolver = resolverFunc(Some(testPath))
+    val contentBehavior = behaviorForDownloadRequest()
 
     val contentActor = testKit.spawn(contentBehavior)
-    Get(s"/api/archive/files/$TestMediaFileID/download") ~> testRoute(contentActor, serverConfig) ~> check:
+    Get(s"/api/archive/files/$TestMediaFileID/download") ~> testRoute(contentActor, resolver = resolver) ~> check:
       status should be(StatusCodes.OK)
       val fileData = responseAs[String]
       fileData should be(FileTestHelper.TestData)
       val contentDispoHeader = header[`Content-Disposition`].value
       contentDispoHeader.dispositionType should be(ContentDispositionTypes.attachment)
-      contentDispoHeader.params("filename") should be(Paths.get(downloadInfo.fileUri.path).getFileName.toString)
+      contentDispoHeader.params("filename") should be(Paths.get(TestDownloadInfo.fileUri.path).getFileName.toString)
 
   it should "handle a download request for a non-existing media file" in :
     val contentActor = testKit.spawn(ArchiveContentActor.behavior())
@@ -397,16 +430,12 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers with S
       status should be(StatusCodes.NotFound)
 
   it should "handle a download request for a non-resolvable media file" in :
-    val archiveConfig = createArchiveConfigWithRootPath("myMusic")
-    val downloadInfo = ArchiveModel.MediaFileDownloadInfo(
-      archiveName = archiveConfig.archiveName,
-      fileUri = MediaFileUri("/test-medium/test-artist/test-album/test-song.mp3")
-    )
-    val serverConfig = TestServerConfig.copy(archiveConfig = Seq(archiveConfig))
-    val contentBehavior = behaviorForDownloadRequest(downloadInfo)
+    val contentBehavior = behaviorForDownloadRequest()
+    val resolver: MediaFileResolver.FileResolverFunc = (_, _) =>
+      Future.failed(new MediaFileResolver.UnresolvableFileException(TestMediaFileID))
 
     val contentActor = testKit.spawn(contentBehavior)
-    Get(s"/api/archive/files/$TestMediaFileID/download") ~> testRoute(contentActor, serverConfig) ~> check:
+    Get(s"/api/archive/files/$TestMediaFileID/download") ~> testRoute(contentActor, resolver = resolver) ~> check:
       status should be(StatusCodes.NotFound)
 
   /**
@@ -416,18 +445,11 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers with S
     * @param skipParameter the value of the skip parameter
     */
   private def checkDownloadWithoutMetadata(skipParameter: String): Unit =
-    val archiveConfig = createArchiveConfigWithRootPath("myMusicAndMeta")
-    copyMp3TestFile(archiveConfig)
-    val downloadInfo = ArchiveModel.MediaFileDownloadInfo(
-      archiveName = archiveConfig.archiveName,
-      fileUri = TestMp3Uri
-    )
-    val serverConfig = TestServerConfig.copy(archiveConfig = Seq(archiveConfig))
-    val contentBehavior = behaviorForDownloadRequest(downloadInfo)
+    val contentBehavior = behaviorForDownloadRequest()
 
     val contentActor = testKit.spawn(contentBehavior)
     val requestUri = s"/api/archive/files/$TestMediaFileID/download?stripMetadata=$skipParameter"
-    Get(requestUri) ~> testRoute(contentActor, serverConfig) ~> check:
+    Get(requestUri) ~> testRoute(contentActor, resolver = resolverFunc()) ~> check:
       status should be(StatusCodes.OK)
       val fileData = responseAs[String]
       fileData should be(TestMp3Data)
@@ -439,17 +461,10 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers with S
     * @param requestUri the request URI to send to the archive
     */
   private def checkDownloadWithMetadata(requestUri: String): Unit =
-    val archiveConfig = createArchiveConfigWithRootPath("myMusicAndMeta")
-    copyMp3TestFile(archiveConfig)
-    val downloadInfo = ArchiveModel.MediaFileDownloadInfo(
-      archiveName = archiveConfig.archiveName,
-      fileUri = TestMp3Uri
-    )
-    val serverConfig = TestServerConfig.copy(archiveConfig = Seq(archiveConfig))
-    val contentBehavior = behaviorForDownloadRequest(downloadInfo)
+    val contentBehavior = behaviorForDownloadRequest()
 
     val contentActor = testKit.spawn(contentBehavior)
-    Get(requestUri) ~> testRoute(contentActor, serverConfig) ~> check:
+    Get(requestUri) ~> testRoute(contentActor, resolver = resolverFunc()) ~> check:
       status should be(StatusCodes.OK)
       val fileData = responseAs[String]
       fileData should have size 3273
