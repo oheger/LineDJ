@@ -16,23 +16,22 @@
 
 package de.oliver_heger.linedj.archive.server
 
-import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.server.model.ArchiveModel
-import org.apache.pekko.stream.scaladsl.{FileIO, Source}
+import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.util.ByteString
 
-import java.nio.file.Files
 import scala.concurrent.{ExecutionContext, Future}
 
 /**
-  * An object providing functionality to resolve media files stored in a media
-  * archive.
+  * An object providing functionality related to resolving media files in a
+  * media archive.
   *
-  * The members of this object play an important role for downloading media
-  * files. For a download operation, the archive must obtain a ''Source'' to
-  * the content of the media file based on information about the file's
-  * location. Depending on the archive type, this has to be done differently.
-  * This object contains such resolver functions for different archive types.
+  * When downloading files from a media archive, the archive must be able to
+  * map a URL of a file to the file's content, so that it can provide a
+  * corresponding data source. The way how this is done depends on the type of
+  * the archive. This module contains some basic type definitions and helper
+  * functionality that is needed for all kinds of media archives. There will
+  * be additional concrete resolver functions for specific types of archives.
   */
 object MediaFileResolver:
   /**
@@ -82,35 +81,3 @@ object MediaFileResolver:
     futSource.map(src => Some(src))
       .recover:
         case _: UnresolvableFileException => None
-
-  /**
-    * Returns a [[FileResolverFunc]] that can resolve media files from archives
-    * described by the given list of archive configurations. Based on the
-    * passed in [[ArchiveModel.MediaFileDownloadInfo]], the function looks up
-    * the owning archive and resolves the files URI against the archive's root
-    * path.
-    *
-    * @param archiveConfigs a collection with configurations for local media
-    *                       archives
-    * @return the [[FileResolverFunc]] for files from these archives
-    */
-  def localFileResolverFunc(archiveConfigs: Iterable[MediaArchiveConfig]): FileResolverFunc =
-    val archivePaths = archiveConfigs.map: archiveConfig =>
-      archiveConfig.archiveName -> archiveConfig.rootPath
-    .toMap
-
-    (fileID, downloadInfo) =>
-      archivePaths.get(downloadInfo.archiveName) match
-        case Some(rootPath) =>
-          val filePath = rootPath.resolve(downloadInfo.fileUri.path)
-          if Files.isReadable(filePath) then
-            Future.successful(FileIO.fromPath(filePath))
-          else
-            Future.failed(new UnresolvableFileException(fileID))
-        case None =>
-          Future.failed(
-            new UnresolvableFileException(
-              fileID,
-              s"Could not resolve file '$fileID' in unknown archive '${downloadInfo.archiveName}'."
-            )
-          )
