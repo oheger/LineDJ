@@ -16,24 +16,29 @@
 
 package de.oliver_heger.linedj.archive.server
 
+import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.group.ArchiveGroupActor
 import de.oliver_heger.linedj.archive.server.content.{ArchiveContentActor, ArchiveContentMetadataProcessingListener}
+import de.oliver_heger.linedj.archive.server.model.ArchiveModel
 import de.oliver_heger.linedj.archiveunion.{MediaUnionActor, MetadataUnionActor}
 import de.oliver_heger.linedj.server.common.ServerController
 import de.oliver_heger.linedj.shared.actors.{ActorManagement, ManagingActorFactory}
+import de.oliver_heger.linedj.shared.archive.media.MediaFileUri
 import de.oliver_heger.linedj.shared.archive.metadata.MetadataProcessingEvent
 import de.oliver_heger.linedj.utils.SystemPropertyAccess
 import org.apache.pekko.actor as classics
 import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
 import org.apache.pekko.actor.typed.{ActorRef, Behavior, Props}
 import org.apache.pekko.testkit.{TestKit, TestProbe}
+import org.apache.pekko.util.ByteString
 import org.mockito.Mockito.*
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
+import java.nio.file.Paths
 import java.util.concurrent.atomic.AtomicBoolean
 import scala.collection.immutable.Seq
 
@@ -41,7 +46,7 @@ import scala.collection.immutable.Seq
   * Test class for [[Controller]].
   */
 class ControllerSpec(testSystem: classics.ActorSystem) extends TestKit(testSystem) with AsyncFlatSpecLike
-  with BeforeAndAfterAll with Matchers with MockitoSugar:
+  with BeforeAndAfterAll with Matchers with MockitoSugar with MediaFileTestSupport:
   def this() = this(classics.ActorSystem("ControllerSpec"))
 
   /** The test kit for typed actors. */
@@ -125,17 +130,16 @@ class ControllerSpec(testSystem: classics.ActorSystem) extends TestKit(testSyste
             optStopCommand shouldBe empty
             contentActor.ref.asInstanceOf[ActorRef[T]]
 
-
   "Controller" should "create a correct context" in :
     val contentBehavior = mock[Behavior[ArchiveContentActor.ArchiveContentCommand]]
-    val contentActorFactory = mock[ArchiveContentActor.Factory]
+    val mockContentActorFactory = mock[ArchiveContentActor.Factory]
     val contentActor = typedTestKit.createTestProbe[ArchiveContentActor.ArchiveContentCommand]()
     val listenerFactory = mock[ArchiveContentMetadataProcessingListener.Factory]
     val refGroupActorCreated = new AtomicBoolean
 
     val actorFactory = createActorFactory(
       List("pop"),
-      contentActorFactory,
+      mockContentActorFactory,
       contentActor.ref,
       listenerFactory,
       contentBehavior,
@@ -143,55 +147,34 @@ class ControllerSpec(testSystem: classics.ActorSystem) extends TestKit(testSyste
     )
     val services = ServerController.ServerServices(system, actorFactory)
     val controller = new Controller(
-      contentActorFactory = contentActorFactory,
       metadataListenerFactory = listenerFactory
-    ) with SystemPropertyAccess {}
+    ) with SystemPropertyAccess:
+      override protected val contentActorFactory: ArchiveContentActor.Factory = mockContentActorFactory
     controller.createContext(using services) map : context =>
       refGroupActorCreated.get() shouldBe true
       context.contentActor should be(contentActor.ref)
       context.serverConfig.serverPort should be(8080)
 
-  it should "load the configuration from an alternative location" in :
-    val ConfigFileName = "test-archive-server-config.xml"
-    val contentBehavior = mock[Behavior[ArchiveContentActor.ArchiveContentCommand]]
-    val contentActorFactory = mock[ArchiveContentActor.Factory]
-    val contentActor = typedTestKit.createTestProbe[ArchiveContentActor.ArchiveContentCommand]()
-    val listenerFactory = mock[ArchiveContentMetadataProcessingListener.Factory]
-
-    val actorFactory = createActorFactory(
-      List("rock", "classic"),
-      contentActorFactory,
-      contentActor.ref,
-      listenerFactory,
-      contentBehavior
+  it should "provide a correct media file resolver" in :
+    val archiveConfig = createArchiveConfigWithRootPath("testArchive")
+    val downloadInfo = ArchiveModel.MediaFileDownloadInfo(
+      archiveName = archiveConfig.archiveName,
+      fileUri = MediaFileUri("/test-medium/test-artist/test-album/test-song.mp3")
     )
-    val services = ServerController.ServerServices(system, actorFactory)
-    val controller = new Controller(
-      contentActorFactory = contentActorFactory,
-      metadataListenerFactory = listenerFactory
-    ) with SystemPropertyAccess:
-      override def getSystemProperty(key: String): Option[String] =
-        key should be(Controller.PropConfigFileName)
-        Some(ConfigFileName)
-
-    controller.createContext(using services) map : context =>
-      context.contentActor should be(contentActor.ref)
-      context.serverConfig.serverPort should be(8085)
-
-  it should "return correct server parameters" in :
-    val config = ArchiveServerConfig(
-      serverPort = 8765,
+    writeMediaFile(archiveConfig, Paths.get(downloadInfo.fileUri.path), FileTestHelper.TestData)
+    val serverConfig = ArchiveServerConfig(
+      serverPort = 8000,
       timeout = ArchiveServerConfig.DefaultServerTimeout,
-      archiveConfig = Seq.empty[MediaArchiveConfig]
+      archiveConfig = Seq(archiveConfig)
     )
-    val context = Controller.ArchiveServerContext(
-      serverConfig = config,
-      contentActor = typedTestKit.createTestProbe[ArchiveContentActor.ArchiveContentCommand]().ref
+    val context = ArchiveController.ArchiveServerContext(
+      serverConfig = serverConfig,
+      contentActor = typedTestKit.spawn(ArchiveContentActor.behavior())
     )
-    val services = ServerController.ServerServices(system, ManagingActorFactory.newDefaultManagingActorFactory)
-
     val controller = new Controller() with SystemPropertyAccess {}
-    controller.serverParameters(context)(using services) map : params =>
-      params.optLocatorParams shouldBe empty
-      params.bindingParameters should be(ServerController.BindingParameters("0.0.0.0", config.serverPort))
-      
+
+    val resolver = controller.fileResolverFunc(context)
+    for
+      source <- resolver("some-media-file-id", downloadInfo)
+      content <- source.runFold(ByteString.empty)(_ ++ _)
+    yield content.utf8String should be(FileTestHelper.TestData)
