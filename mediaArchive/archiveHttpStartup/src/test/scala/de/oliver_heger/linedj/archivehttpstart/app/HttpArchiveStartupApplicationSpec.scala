@@ -18,12 +18,12 @@ package de.oliver_heger.linedj.archivehttpstart.app
 
 import com.github.cloudfiles.core.http.Secret
 import com.github.cloudfiles.core.http.factory.HttpRequestSenderFactoryImpl
+import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystemFactory
 import de.oliver_heger.linedj.archivehttp.{HttpArchiveStateConnected, HttpArchiveStateDisconnected, HttpArchiveStateFailedRequest, HttpArchiveStateResponse, HttpArchiveStateServerError}
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
 import de.oliver_heger.linedj.archivehttp.io.MediaDownloader
 import de.oliver_heger.linedj.archivehttp.io.oauth.OAuthStorageServiceImpl
 import de.oliver_heger.linedj.archivehttpstart.app.HttpArchiveStates.*
-import de.oliver_heger.linedj.archivehttpstart.spi.HttpArchiveProtocolSpec
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.app.{AppWithTestPlatform, ApplicationSyncStartup, ApplicationTestSupport, ClientApplicationContext, ClientApplicationContextImpl}
 import de.oliver_heger.linedj.platform.bus.MessageBusRegistration
@@ -313,8 +313,8 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
     * @param name the protocol name
     * @return the mock for the protocol spec
     */
-  private def createProtocolSpecMock(name: String): HttpArchiveProtocolSpec =
-    val protocol = mock[HttpArchiveProtocolSpec]
+  private def createProtocolSpecMock(name: String): CloudArchiveFileSystemFactory =
+    val protocol = mock[CloudArchiveFileSystemFactory]
     when(protocol.name).thenReturn(name)
     protocol
 
@@ -928,7 +928,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       * @param spec the protocol spec
       * @return this test helper
       */
-    def addProtocol(spec: HttpArchiveProtocolSpec): StartupTestHelper =
+    def addProtocol(spec: CloudArchiveFileSystemFactory): StartupTestHelper =
       app addProtocolSpec spec
       messageBus.processNextMessage[AnyRef]()
       this
@@ -941,7 +941,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       * @param spec the protocol spec
       * @return this test helper
       */
-    def removeProtocol(spec: HttpArchiveProtocolSpec): StartupTestHelper =
+    def removeProtocol(spec: CloudArchiveFileSystemFactory): StartupTestHelper =
       app removeProtocolSpec spec
       messageBus.processNextMessage[AnyRef]()
       this
@@ -959,7 +959,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       * @return this test helper
       */
     def initArchiveStartupResult(resources: HttpArchiveStarter.ArchiveResources, archiveIdx: Int,
-                                 realmIdx: Int, optProtocol: Option[HttpArchiveProtocolSpec] = None,
+                                 realmIdx: Int, optProtocol: Option[CloudArchiveFileSystemFactory] = None,
                                  optKey: Option[Key] = None): StartupTestHelper =
       initArchiveStartupResultFuture(archiveIdx, realmIdx, optProtocol, optKey) { invocation =>
         Future.successful(adaptActorNames(resources, invocation.getArguments()(7).asInstanceOf[Int]))
@@ -978,7 +978,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       * @return this test helper
       */
     def initArchiveStartupResultFuture(archiveIdx: Int, realmIdx: Int,
-                                       optProtocol: Option[HttpArchiveProtocolSpec] = None,
+                                       optProtocol: Option[CloudArchiveFileSystemFactory] = None,
                                        optKey: Option[Key] = None)
                                       (fResult: InvocationOnMock => Future[HttpArchiveStarter.ArchiveResources]):
     StartupTestHelper =
@@ -997,7 +997,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       * @return this test helper
       */
     def initFailedArchiveStartupResult(exception: Throwable): StartupTestHelper =
-      when(archiveStarter.startup(any(), any(), any(), any(classOf[HttpArchiveProtocolSpec]), any(), any(),
+      when(archiveStarter.startup(any(), any(), any(), any(classOf[CloudArchiveFileSystemFactory]), any(), any(),
         any(), anyInt(), anyBoolean())(any(), any())).thenReturn(Future.failed(exception))
       this
 
@@ -1043,7 +1043,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       verify(archiveStarter, times(expectedInvocations))
         .startup(argEq(MediaFacadeActors(probeUnionMediaManager.ref,
           probeUnionMetaManager.ref)), any(classOf[HttpArchiveData]), argEq(archiveConfig),
-          any(classOf[HttpArchiveProtocolSpec]),
+          any(classOf[CloudArchiveFileSystemFactory]),
           any(classOf[UserCredentials]), any(), argEq(actorFactory), captorIdx.capture(),
           captorClear.capture())(any(), any())
       (captorIdx.getAllValues.asScala.toSeq, captorClear.getAllValues.asScala.toSeq)
@@ -1100,7 +1100,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       * @return the stubbing object to define the behavior of the startup
       *         method
       */
-    private def expectStarterInvocation(archiveIdx: Int, spec: HttpArchiveProtocolSpec, realmIdx: Int,
+    private def expectStarterInvocation(archiveIdx: Int, spec: CloudArchiveFileSystemFactory, realmIdx: Int,
                                         optKey: Option[Key]):
     OngoingStubbing[Future[HttpArchiveStarter.ArchiveResources]] =
       val archiveData = archiveConfigManager.archives(

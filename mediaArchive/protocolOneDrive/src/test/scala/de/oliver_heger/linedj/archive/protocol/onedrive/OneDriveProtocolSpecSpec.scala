@@ -31,12 +31,12 @@ import scala.util.{Failure, Success}
   */
 class OneDriveProtocolSpecSpec extends AnyFlatSpec with Matchers:
   "OneDriveProtocolSpec" should "return the correct protocol name" in:
-    val spec = new OneDriveProtocolSpec
+    val spec = new OneDriveFileSystemFactory
 
     spec.name should be("onedrive")
 
   it should "return the correct multi-host flag" in:
-    val spec = new OneDriveProtocolSpec
+    val spec = new OneDriveFileSystemFactory
 
     spec.requiresMultiHostSupport shouldBe true
 
@@ -44,9 +44,9 @@ class OneDriveProtocolSpecSpec extends AnyFlatSpec with Matchers:
     val DriveID = "myOneDriveID"
     val RootPath = "/the/archive/path"
     val TestTimeout = Timeout(11.seconds)
-    val spec = new OneDriveProtocolSpec
+    val spec = new OneDriveFileSystemFactory
 
-    spec.createFileSystemFromConfig(DriveID + RootPath, TestTimeout) match
+    spec.createFileSystem(DriveID + RootPath, TestTimeout) match
       case Success(fs) =>
         fs.rootPath should be(Uri.Path(RootPath))
         fs.fileSystem match
@@ -60,9 +60,9 @@ class OneDriveProtocolSpecSpec extends AnyFlatSpec with Matchers:
 
   it should "handle an archive URI does not contain a slash" in:
     val ArchiveUri = "justTheDriveID"
-    val spec = new OneDriveProtocolSpec
+    val spec = new OneDriveFileSystemFactory
 
-    spec.createFileSystemFromConfig(ArchiveUri, Timeout(1.minute)) match
+    spec.createFileSystem(ArchiveUri, Timeout(1.minute)) match
       case Success(fs) =>
         fs.rootPath should be(Uri.Path.Empty)
         fs.fileSystem match
@@ -74,9 +74,9 @@ class OneDriveProtocolSpecSpec extends AnyFlatSpec with Matchers:
 
   it should "handle an archive URI that contains only a slash at the end" in:
     val ArchiveUri = "justTheDriveID"
-    val spec = new OneDriveProtocolSpec
+    val spec = new OneDriveFileSystemFactory
 
-    spec.createFileSystemFromConfig(ArchiveUri + UriEncodingHelper.UriSeparator, Timeout(1.minute)) match
+    spec.createFileSystem(ArchiveUri + UriEncodingHelper.UriSeparator, Timeout(1.minute)) match
       case Success(fs) =>
         fs.rootPath should be(Uri.Path.Empty)
         fs.fileSystem match
@@ -88,9 +88,9 @@ class OneDriveProtocolSpecSpec extends AnyFlatSpec with Matchers:
 
   it should "return a failure if the archive URI starts with a slash" in:
     val ArchiveUri = "/no/drive/ID"
-    val spec = new OneDriveProtocolSpec
+    val spec = new OneDriveFileSystemFactory
 
-    spec.createFileSystemFromConfig(ArchiveUri, Timeout(10.minutes)) match
+    spec.createFileSystem(ArchiveUri, Timeout(10.minutes)) match
       case Failure(exception) =>
         exception.getMessage should include(ArchiveUri)
       case r => fail("Unexpected result: " + r)

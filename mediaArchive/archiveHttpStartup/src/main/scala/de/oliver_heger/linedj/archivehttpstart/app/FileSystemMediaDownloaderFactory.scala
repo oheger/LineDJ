@@ -24,8 +24,8 @@ import com.github.cloudfiles.crypt.alg.aes.Aes
 import com.github.cloudfiles.crypt.fs.resolver.CachePathComponentsResolver
 import com.github.cloudfiles.crypt.fs.{CryptConfig, CryptContentFileSystem, CryptNamesConfig, CryptNamesFileSystem}
 import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystem
+import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystemFactory
 import de.oliver_heger.linedj.archivehttp.io.{CookieManagementExtension, FileSystemMediaDownloader, MediaDownloader}
-import de.oliver_heger.linedj.archivehttpstart.spi.HttpArchiveProtocolSpec
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.actor.{ActorSystem, typed}
 import org.apache.pekko.util.Timeout
@@ -38,7 +38,7 @@ import scala.util.Try
   * An implementation of the [[MediaDownloaderFactory]] trait that creates
   * downloader objects based on CloudFiles ''FileSystem'' objects.
   *
-  * While the ''FileSystem'' is provided by the [[HttpArchiveProtocolSpec]],
+  * While the ''FileSystem'' is provided by the [[CloudArchiveFileSystemFactory]],
   * a correctly configured request sender actor is constructing using an
   * ''HttpRequestSenderFactory''.
   *
@@ -46,13 +46,13 @@ import scala.util.Try
   */
 class FileSystemMediaDownloaderFactory(val requestSenderFactory: HttpRequestSenderFactory)
   extends MediaDownloaderFactory:
-  override def createDownloader(protocolSpec: HttpArchiveProtocolSpec,
+  override def createDownloader(protocolSpec: CloudArchiveFileSystemFactory,
                                 startupConfig: HttpArchiveStartupConfig,
                                 authConfig: AuthConfig,
                                 actorBaseName: String,
                                 optCryptKey: Option[Key])
                                (implicit system: ActorSystem): Try[MediaDownloader] =
-    protocolSpec.createFileSystemFromConfig(startupConfig.archiveConfig.archiveBaseUri.toString(),
+    protocolSpec.createFileSystem(startupConfig.archiveConfig.archiveBaseUri.toString(),
       startupConfig.archiveConfig.processorTimeout) map { fs =>
       val fsCrypt = optCryptKey.fold(fs)(wrapWithCryptFileSystem(fs, startupConfig, _))
 

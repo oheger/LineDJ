@@ -29,9 +29,9 @@ import com.github.cloudfiles.crypt.fs.{CryptContentFileSystem, CryptNamesFileSys
 import com.github.cloudfiles.crypt.service.CryptService
 import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystem
+import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystemFactory
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.io.{FileSystemMediaDownloader, MediaDownloader}
-import de.oliver_heger.linedj.archivehttpstart.spi.HttpArchiveProtocolSpec
 import org.apache.pekko.actor.testkit.typed.scaladsl.{ActorTestKit, TestProbe}
 import org.apache.pekko.actor.{ActorSystem, typed}
 import org.apache.pekko.http.scaladsl.model.headers.{HttpCookie, `Set-Cookie`}
@@ -103,14 +103,14 @@ object FileSystemMediaDownloaderFactorySpec:
   type FolderContentType = Model.FolderContent[String, Model.File[String], Model.Folder[String]]
 
   /**
-    * A stub implementation of [[HttpArchiveProtocolSpec]] that can be
+    * A stub implementation of [[CloudArchiveFileSystemFactory]] that can be
     * configured to return a specific file system and other properties that can
     * be customize.
     *
     * @param fileSystem the file system to be returned
     */
-  class HttpArchiveTestProtocolSpec(fileSystem: ExtensibleFileSystem[String, FileType, FolderType, FolderContentType])
-    extends HttpArchiveProtocolSpec:
+  class CloudArchiveTestFileSystemFactory(fileSystem: ExtensibleFileSystem[String, FileType, FolderType, FolderContentType])
+    extends CloudArchiveFileSystemFactory:
     override type ID = String
     override type File = FileType
     override type Folder = FolderType
@@ -125,7 +125,7 @@ object FileSystemMediaDownloaderFactorySpec:
     /** An exception to be raised when creating the file system. */
     var creationException: Option[Throwable] = None
 
-    override def createFileSystemFromConfig(sourceUri: String, timeout: Timeout):
+    override def createFileSystem(sourceUri: String, timeout: Timeout):
     Try[CloudArchiveFileSystem[ID, File, Folder]] =
       creationException.fold[Try[CloudArchiveFileSystem[ID, File, Folder]]](Try {
         if sourceUri != ArchiveUri then throw new AssertionError("Unexpected sourceUri: " + sourceUri)
@@ -320,7 +320,7 @@ class FileSystemMediaDownloaderFactorySpec(testSystem: ActorSystem) extends Test
       * @param f the initialization function
       * @return this test helper
       */
-    def prepareProtocolSpec(f: HttpArchiveTestProtocolSpec => Unit): FactoryTestHelper =
+    def prepareProtocolSpec(f: CloudArchiveTestFileSystemFactory => Unit): FactoryTestHelper =
       f(protocolSpec)
       this
 
@@ -366,5 +366,5 @@ class FileSystemMediaDownloaderFactorySpec(testSystem: ActorSystem) extends Test
       *
       * @return the mock protocol spec
       */
-    private def createProtocolSpec(): HttpArchiveTestProtocolSpec =
-      new HttpArchiveTestProtocolSpec(fileSystem)
+    private def createProtocolSpec(): CloudArchiveTestFileSystemFactory =
+      new CloudArchiveTestFileSystemFactory(fileSystem)

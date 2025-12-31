@@ -16,10 +16,10 @@
 
 package de.oliver_heger.linedj.archivehttpstart.app
 
+import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystemFactory
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
 import de.oliver_heger.linedj.archivehttp.{HttpArchiveStateConnected, HttpArchiveStateResponse, HttpArchiveStateServerError}
 import de.oliver_heger.linedj.archivehttpstart.app.HttpArchiveStates._
-import de.oliver_heger.linedj.archivehttpstart.spi.HttpArchiveProtocolSpec
 import de.oliver_heger.linedj.platform.app.support.{ActorClientSupport, ActorManagementComponent}
 import de.oliver_heger.linedj.platform.app.{ApplicationAsyncStartup, ClientApplication, ClientApplicationContext}
 import de.oliver_heger.linedj.platform.bus.Identifiable
@@ -130,7 +130,7 @@ object HttpArchiveStartupApplication:
     *
     * @param spec the protocol spec affected
     */
-  private case class ProtocolSpecAdded(spec: HttpArchiveProtocolSpec)
+  private case class ProtocolSpecAdded(spec: CloudArchiveFileSystemFactory)
 
   /**
     * A message classed used internally to report that a protocol spec service
@@ -140,7 +140,7 @@ object HttpArchiveStartupApplication:
     *
     * @param spec the protocol affected
     */
-  private case class ProtocolSpecRemoved(spec: HttpArchiveProtocolSpec)
+  private case class ProtocolSpecRemoved(spec: CloudArchiveFileSystemFactory)
 
   /**
     * Maps an archive state returned by the management actor of an archive to
@@ -211,7 +211,7 @@ class HttpArchiveStartupApplication extends ClientApplication("httpArchiveStartu
     * A map storing the HTTP protocol specs currently available using the
     * protocol name as key.
     */
-  private var protocols = Map.empty[String, HttpArchiveProtocolSpec]
+  private var protocols = Map.empty[String, CloudArchiveFileSystemFactory]
 
   /** The object managing configuration data about HTTP archives. */
   private var configManager: HttpArchiveConfigManager = _
@@ -240,7 +240,7 @@ class HttpArchiveStartupApplication extends ClientApplication("httpArchiveStartu
     *
     * @param protocolSpec the protocol service
     */
-  def addProtocolSpec(protocolSpec: HttpArchiveProtocolSpec): Unit =
+  def addProtocolSpec(protocolSpec: CloudArchiveFileSystemFactory): Unit =
     publish(ProtocolSpecAdded(protocolSpec))
 
   /**
@@ -248,7 +248,7 @@ class HttpArchiveStartupApplication extends ClientApplication("httpArchiveStartu
     * All archives that use this protocol must be stopped. This method is
     * called by the declarative services runtime.
     */
-  def removeProtocolSpec(protocolSpec: HttpArchiveProtocolSpec): Unit =
+  def removeProtocolSpec(protocolSpec: CloudArchiveFileSystemFactory): Unit =
     publish(ProtocolSpecRemoved(protocolSpec))
 
   /**

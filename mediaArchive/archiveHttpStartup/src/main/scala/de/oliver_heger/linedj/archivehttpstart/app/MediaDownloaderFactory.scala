@@ -18,8 +18,8 @@ package de.oliver_heger.linedj.archivehttpstart.app
 
 import com.github.cloudfiles.core.Model
 import com.github.cloudfiles.core.http.auth.AuthConfig
+import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystemFactory
 import de.oliver_heger.linedj.archivehttp.io.MediaDownloader
-import de.oliver_heger.linedj.archivehttpstart.spi.HttpArchiveProtocolSpec
 import org.apache.pekko.actor.ActorSystem
 
 import java.security.Key
@@ -30,7 +30,7 @@ import scala.util.Try
   * a specific protocol.
   *
   * A concrete implementation has to construct such a downloader object based
-  * on the properties of a [[HttpArchiveProtocolSpec]] and the current
+  * on the properties of a [[CloudArchiveFileSystemFactory]] and the current
   * configuration of the application.
   */
 trait MediaDownloaderFactory:
@@ -46,7 +46,7 @@ trait MediaDownloaderFactory:
     * @param actorBaseName a base name for naming actors
     * @return a ''Try'' with the ''MediaDownloader'' for this archive
     */
-  def createDownloader(protocolSpec: HttpArchiveProtocolSpec,
+  def createDownloader(protocolSpec: CloudArchiveFileSystemFactory,
                        startupConfig: HttpArchiveStartupConfig,
                        authConfig: AuthConfig,
                        actorBaseName: String,

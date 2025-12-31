@@ -19,13 +19,13 @@ package de.oliver_heger.linedj.archive.protocol.onedrive
 import com.github.cloudfiles.core.http.UriEncodingHelper
 import com.github.cloudfiles.onedrive.{OneDriveConfig, OneDriveFileSystem, OneDriveModel}
 import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystem
-import de.oliver_heger.linedj.archivehttpstart.spi.HttpArchiveProtocolSpec
+import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystemFactory
 import org.apache.pekko.http.scaladsl.model.Uri
 import org.apache.pekko.util.Timeout
 
 import scala.util.{Failure, Success, Try}
 
-object OneDriveProtocolSpec:
+object OneDriveFileSystemFactory:
   /** The name used for this protocol. */
   final val ProtocolName = "onedrive"
 
@@ -41,16 +41,16 @@ object OneDriveProtocolSpec:
   * ''path'' is the root path in this account (without the document with the
   * archive's content).
   */
-class OneDriveProtocolSpec extends HttpArchiveProtocolSpec:
+class OneDriveFileSystemFactory extends CloudArchiveFileSystemFactory:
   override type ID = String
   override type File = OneDriveModel.OneDriveFile
   override type Folder = OneDriveModel.OneDriveFolder
 
-  override val name: String = OneDriveProtocolSpec.ProtocolName
+  override val name: String = OneDriveFileSystemFactory.ProtocolName
 
   override val requiresMultiHostSupport: Boolean = true
 
-  override def createFileSystemFromConfig(sourceUri: String, timeout: Timeout):
+  override def createFileSystem(sourceUri: String, timeout: Timeout):
   Try[CloudArchiveFileSystem[String, OneDriveModel.OneDriveFile, OneDriveModel.OneDriveFolder]] =
     if UriEncodingHelper.hasLeadingSeparator(sourceUri) then
       Failure(new IllegalArgumentException(s"Invalid archive URL '$sourceUri'. The URI must be of the form " +

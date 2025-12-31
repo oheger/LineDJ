@@ -14,30 +14,31 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archivehttpstart.spi
+package de.oliver_heger.linedj.archive.cloud.spi
 
 import com.github.cloudfiles.core.Model
-import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystem
 import org.apache.pekko.util.Timeout
 
 import scala.util.Try
 
 /**
-  * A trait defining an SPI to plug in different HTTP-based protocols to be
+  * A trait defining an SPI to plug in different cloud-based protocols to be
   * used for media archives.
   *
-  * The actual access to media files is done via the API of the ''CloudFiles''
-  * project. This trait provides the information for creating a ''FileSystem''
-  * required for loading media files. This makes it possible to load media
-  * files from all server types supported by the ''CloudFiles'' project.
+  * For cloud archives, the actual access to media files is done via the API of
+  * the ''CloudFiles'' project. This trait defines a factory interface for
+  * creating a ''FileSystem'', which is the component from ''CloudFiles''
+  * granting access to files stored in the cloud. This makes it possible to
+  * load media files from all server types supported by the ''CloudFiles''
+  * project.
   *
   * Concrete implementations of this trait need to depend on the ''CloudFiles''
   * module supporting the desired protocol. Then they have to deliver some
   * metadata and construct a properly initialized ''FileSystem'' object. To
-  * achieve the latter, they have to parse the URI defined in the configuration
-  * of the associated HTTP archive.
+  * achieve the latter, they have to parse the URI that is provided to the
+  * factory method to create the ''FileSystem''.
   */
-trait HttpArchiveProtocolSpec:
+trait CloudArchiveFileSystemFactory:
   /** The type of IDs in the file system. */
   type ID
 
@@ -67,7 +68,7 @@ trait HttpArchiveProtocolSpec:
   def requiresMultiHostSupport: Boolean
 
   /**
-    * Creates a ''HttpArchiveFileSystem'' object specific for the represented
+    * Creates a [[CloudArchiveFileSystem]] object specific for the represented
     * protocol that allows access to the files stored in a location defined by
     * the passed in URI. It is up to a concrete implementation how this URI is
     * interpreted and transformed into a configuration suitable for the
@@ -79,6 +80,6 @@ trait HttpArchiveProtocolSpec:
     *
     * @param sourceUri the source URI of the archive from the configuration
     * @param timeout   a timeout for requests
-    * @return a ''Try'' with an ''HttpArchiveFileSystem'' object
+    * @return a ''Try'' with an [[CloudArchiveFileSystem]] object
     */
-  def createFileSystemFromConfig(sourceUri: String, timeout: Timeout): Try[CloudArchiveFileSystem[ID, File, Folder]]
+  def createFileSystem(sourceUri: String, timeout: Timeout): Try[CloudArchiveFileSystem[ID, File, Folder]]

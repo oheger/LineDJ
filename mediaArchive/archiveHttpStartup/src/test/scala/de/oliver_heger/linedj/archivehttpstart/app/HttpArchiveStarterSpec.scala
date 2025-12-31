@@ -20,11 +20,11 @@ import com.github.cloudfiles.core.http.Secret
 import com.github.cloudfiles.core.http.auth.AuthConfig
 import com.github.cloudfiles.crypt.alg.aes.Aes
 import de.oliver_heger.linedj.AsyncTestHelper
+import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystemFactory
 import de.oliver_heger.linedj.archivehttp.HttpArchiveManagementActor
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
 import de.oliver_heger.linedj.archivehttp.io.MediaDownloader
 import de.oliver_heger.linedj.archivehttp.temp.{RemoveTempFilesActor, TempPathGenerator}
-import de.oliver_heger.linedj.archivehttpstart.spi.HttpArchiveProtocolSpec
 import de.oliver_heger.linedj.platform.app.ClientApplication
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
 import de.oliver_heger.linedj.shared.actors.{ActorFactory, ChildActorFactory, SchedulerSupport}
@@ -207,7 +207,7 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
     private val sourceConfig = createArchiveSourceConfig()
 
     /** Mock for the protocol to be used. */
-    private val protocolSpec = mock[HttpArchiveProtocolSpec]
+    private val protocolSpec = mock[CloudArchiveFileSystemFactory]
 
     /** The data object for the archive to be started. */
     private val archiveData = createArchiveData()

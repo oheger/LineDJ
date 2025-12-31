@@ -27,21 +27,21 @@ import scala.util.Success
 
 class WebDavProtocolSpecSpec extends AnyFlatSpec with Matchers:
   "WebDavProtocolSpec" should "return the correct name" in:
-    val spec = new WebDavProtocolSpec
+    val spec = new WebDavFileSystemFactory
 
     spec.name should be("webdav")
 
   it should "return the correct multi host flag" in:
-    val spec = new WebDavProtocolSpec
+    val spec = new WebDavFileSystemFactory
 
     spec.requiresMultiHostSupport shouldBe false
 
   it should "create a correct file system" in:
     val RootPath = "https://my-archive.example.org/music"
     val timeout = Timeout(30.seconds)
-    val spec = new WebDavProtocolSpec
+    val spec = new WebDavFileSystemFactory
 
-    spec.createFileSystemFromConfig(RootPath, timeout) match
+    spec.createFileSystem(RootPath, timeout) match
       case Success(fs) =>
         fs.rootPath should be(Uri.Path("/music"))
         fs.fileSystem match

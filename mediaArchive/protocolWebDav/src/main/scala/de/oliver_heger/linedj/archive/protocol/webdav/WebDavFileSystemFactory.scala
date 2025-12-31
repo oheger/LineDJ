@@ -18,14 +18,14 @@ package de.oliver_heger.linedj.archive.protocol.webdav
 
 import com.github.cloudfiles.webdav.{DavConfig, DavFileSystem, DavModel}
 import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystem
-import de.oliver_heger.linedj.archive.protocol.webdav.WebDavProtocolSpec.WebDavProtocolName
-import de.oliver_heger.linedj.archivehttpstart.spi.HttpArchiveProtocolSpec
+import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystemFactory
+import de.oliver_heger.linedj.archive.protocol.webdav.WebDavFileSystemFactory.WebDavProtocolName
 import org.apache.pekko.http.scaladsl.model.Uri
 import org.apache.pekko.util.Timeout
 
 import scala.util.{Success, Try}
 
-object WebDavProtocolSpec:
+object WebDavFileSystemFactory:
   /** The name to be returned for this protocol. */
   final val WebDavProtocolName = "webdav"
 
@@ -38,7 +38,7 @@ object WebDavProtocolSpec:
   * pointing to the archive's root folder. All URIs for media files, metadata
   * files, or the content file are resolved relative to this folder.
   */
-class WebDavProtocolSpec extends HttpArchiveProtocolSpec:
+class WebDavFileSystemFactory extends CloudArchiveFileSystemFactory:
   override type ID = Uri
   override type File = DavModel.DavFile
   override type Folder = DavModel.DavFolder
@@ -51,7 +51,7 @@ class WebDavProtocolSpec extends HttpArchiveProtocolSpec:
     */
   override def requiresMultiHostSupport: Boolean = false
 
-  override def createFileSystemFromConfig(sourceUri: String, timeout: Timeout):
+  override def createFileSystem(sourceUri: String, timeout: Timeout):
   Try[CloudArchiveFileSystem[Uri, DavModel.DavFile, DavModel.DavFolder]] =
     val rootUri = Uri(sourceUri)
     val davConfig = DavConfig(rootUri = rootUri, timeout = timeout)
