@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archive.server
+package de.oliver_heger.linedj.archive.server.local
 
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import org.apache.commons.configuration2.{BaseHierarchicalConfiguration, Configuration}
@@ -151,8 +151,8 @@ end MediaArchiveConfigLoaderCC2Spec
   */
 class MediaArchiveConfigLoaderCC2Spec extends AnyFlatSpec with Matchers:
 
-  import MediaArchiveConfigLoaderCC2Spec.*
   import MediaArchiveConfigLoaderCC2.given
+  import MediaArchiveConfigLoaderCC2Spec.*
 
   /**
     * Convenience function to create a configuration for a media archive from

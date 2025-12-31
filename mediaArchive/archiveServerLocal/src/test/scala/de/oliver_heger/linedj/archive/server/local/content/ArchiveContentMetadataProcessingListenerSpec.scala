@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archive.server.content
+package de.oliver_heger.linedj.archive.server.local.content
 
 import de.oliver_heger.linedj.archive.server.model.{ArchiveCommands, ArchiveModel}
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumDescription, MediumID}

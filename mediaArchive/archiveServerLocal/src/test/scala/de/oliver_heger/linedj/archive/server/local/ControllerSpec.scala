@@ -14,13 +14,15 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archive.server
+package de.oliver_heger.linedj.archive.server.local
 
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.group.ArchiveGroupActor
-import de.oliver_heger.linedj.archive.server.content.{ArchiveContentActor, ArchiveContentMetadataProcessingListener}
+import de.oliver_heger.linedj.archive.server.content.ArchiveContentActor
+import de.oliver_heger.linedj.archive.server.local.content.ArchiveContentMetadataProcessingListener
 import de.oliver_heger.linedj.archive.server.model.ArchiveModel
+import de.oliver_heger.linedj.archive.server.{ArchiveController, ArchiveServerConfig}
 import de.oliver_heger.linedj.archiveunion.{MediaUnionActor, MetadataUnionActor}
 import de.oliver_heger.linedj.server.common.ServerController
 import de.oliver_heger.linedj.shared.actors.{ActorManagement, ManagingActorFactory}

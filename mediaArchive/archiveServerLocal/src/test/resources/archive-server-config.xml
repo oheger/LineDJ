@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<configuration>
+    <test>
+        <value>42</value>
+    </test>
+    <server>
+    </server>
+    <media>
+        <localArchives>
+            <processorCount>1</processorCount>
+            <readerTimeout>3600</readerTimeout>
+            <readerCheckInterval>600</readerCheckInterval>
+            <readerCheckInitialDelay>480</readerCheckInitialDelay>
+            <downloadChunkSize>16384</downloadChunkSize>
+            <infoSizeLimit>32768</infoSizeLimit>
+            <includedExtensions>MP3</includedExtensions>
+            <scan>
+                <parseInfoTimeout>10</parseInfoTimeout>
+                <mediaBufferSize>3</mediaBufferSize>
+            </scan>
+            <metaDataExtraction>
+                <readChunkSize>32768</readChunkSize>
+                <tagSizeLimit>4096</tagSizeLimit>
+                <metaDataUpdateChunkSize>8</metaDataUpdateChunkSize>
+                <metaDataMaxMessageSize>160</metaDataMaxMessageSize>
+                <processingTimeout>60</processingTimeout>
+            </metaDataExtraction>
+            <metaDataPersistence>
+                <chunkSize>4096</chunkSize>
+                <parallelCount>2</parallelCount>
+                <writeBlockSize>40</writeBlockSize>
+            </metaDataPersistence>
+            <localArchive>
+                <rootPath>/data/music/pop/media</rootPath>
+                <archiveName>pop</archiveName>
+                <metaDataPersistence>
+                    <path>/data/music/pop/mdt</path>
+                    <tocFile>/data/music/pop/content.json</tocFile>
+                </metaDataPersistence>
+            </localArchive>
+        </localArchives>
+    </media>
+</configuration>

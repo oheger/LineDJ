@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archive.server
+package de.oliver_heger.linedj.archive.server.local
 
 import de.oliver_heger.linedj.server.common.ServerRunner
-import org.mockito.ArgumentMatchers.{any, eq => eqArg}
+import org.mockito.ArgumentMatchers.{any, eq as eqArg}
 import org.mockito.Mockito.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers

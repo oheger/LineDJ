@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archive.server
+package de.oliver_heger.linedj.archive.server.local
 
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig.MediaArchiveConfigLoader

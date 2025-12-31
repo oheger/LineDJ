@@ -1,7 +1,8 @@
-package de.oliver_heger.linedj.archive.server
+package de.oliver_heger.linedj.archive.server.local
 
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
+import de.oliver_heger.linedj.archive.server.ArchiveServerConfig
 import de.oliver_heger.linedj.archivecommon.download.DownloadConfig
 import org.apache.pekko.util.Timeout
 import org.scalatest.{BeforeAndAfterEach, Suite}

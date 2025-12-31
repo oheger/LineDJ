@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archive.server.content
+package de.oliver_heger.linedj.archive.server.local.content
 
 import de.oliver_heger.linedj.archive.server.model.{ArchiveCommands, ArchiveModel}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
@@ -29,7 +29,7 @@ import scala.util.{Failure, Try}
   * An object providing an actor implementation to process 
   * [[MetadataProcessingEvent]] events.
   *
-  * This actor is used to populate an [[ArchiveContentActor]] with the content
+  * This actor is used to populate an ''ArchiveContentActor'' with the content
   * of a local media archive while it is scanned for media.
   */
 object ArchiveContentMetadataProcessingListener:

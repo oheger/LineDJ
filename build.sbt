@@ -191,6 +191,7 @@ lazy val LineDJ = (project in file("."))
   archiveHttpStartup,
   archiveLocalStartup,
   archiveServer,
+  archiveServerLocal,
   archiveStartup,
   archiveUnion,
   audioPlatform,
@@ -347,8 +348,9 @@ lazy val archiveHttp = (project in file("mediaArchive/archiveHttp"))
   ) dependsOn(shared % "compile->compile;test->test", archiveCommon, id3Extract)
 
 /**
-  * The archive server project. This is an HTTP server application allowing
-  * access to the content of a media archive.
+  * The archive server project. This project provides basic functionality for
+  * archive server applications. There are concrete projects implementing
+  * specific archive servers.
   */
 lazy val archiveServer = (project in file("mediaArchive/archiveServer"))
   .settings(defaultSettings)
@@ -358,8 +360,22 @@ lazy val archiveServer = (project in file("mediaArchive/archiveServer"))
     libraryDependencies ++= pekkoHttpDependencies,
     libraryDependencies += beanUtilsDependency,
     libraryDependencies += commonsConfig2Dependency,
-    Compile / mainClass := Some("de.oliver_heger.linedj.archive.server.Server"),
-  ) dependsOn(shared % "compile->compile;test->test", archive, archiveUnion, serverCommon)
+  ) dependsOn(shared % "compile->compile;test->test", archive, serverCommon)
+
+/**
+  * The archive server local project. This is an HTTP server application that
+  * exposes media files stored locally via a REST API.
+  */
+lazy val archiveServerLocal = (project in file("mediaArchive/archiveServerLocal"))
+  .settings(defaultSettings)
+  .settings(
+    name := "linedj-archive-server-local",
+    libraryDependencies ++= logDependencies,
+    libraryDependencies ++= pekkoHttpDependencies,
+    libraryDependencies += beanUtilsDependency,
+    libraryDependencies += commonsConfig2Dependency,
+    Compile / mainClass := Some("de.oliver_heger.linedj.archive.server.local.Server"),
+  ) dependsOn(shared % "compile->compile;test->test", archiveUnion, archiveServer)
 
 /**
   * The WebDav protocol project. This is a module adding support for WebDav
