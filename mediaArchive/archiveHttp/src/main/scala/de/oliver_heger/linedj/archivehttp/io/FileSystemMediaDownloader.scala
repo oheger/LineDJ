@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.archivehttp.io
 
 import com.github.cloudfiles.core.http.HttpRequestSender
+import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystem
 import org.apache.pekko.actor.typed.{ActorRef, ActorSystem}
 import org.apache.pekko.http.scaladsl.model.Uri
 import org.apache.pekko.stream.scaladsl.Source
@@ -39,7 +40,7 @@ import scala.concurrent.{ExecutionContext, Future}
   * @param system            the actor system
   * @tparam ID the type of IDs in the ''FileSystem''
   */
-class FileSystemMediaDownloader[ID](val archiveFileSystem: HttpArchiveFileSystem[ID, _, _],
+class FileSystemMediaDownloader[ID](val archiveFileSystem: CloudArchiveFileSystem[ID, _, _],
                                     val httpSender: ActorRef[HttpRequestSender.HttpCommand])
                                    (implicit system: ActorSystem[_]) extends MediaDownloader:
   override def downloadMediaFile(path: Uri.Path): Future[Source[ByteString, Any]] =

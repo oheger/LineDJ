@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.archivehttpstart.spi
 
 import com.github.cloudfiles.core.Model
-import de.oliver_heger.linedj.archivehttp.io.HttpArchiveFileSystem
+import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystem
 import org.apache.pekko.util.Timeout
 
 import scala.util.Try
@@ -81,4 +81,4 @@ trait HttpArchiveProtocolSpec:
     * @param timeout   a timeout for requests
     * @return a ''Try'' with an ''HttpArchiveFileSystem'' object
     */
-  def createFileSystemFromConfig(sourceUri: String, timeout: Timeout): Try[HttpArchiveFileSystem[ID, File, Folder]]
+  def createFileSystemFromConfig(sourceUri: String, timeout: Timeout): Try[CloudArchiveFileSystem[ID, File, Folder]]

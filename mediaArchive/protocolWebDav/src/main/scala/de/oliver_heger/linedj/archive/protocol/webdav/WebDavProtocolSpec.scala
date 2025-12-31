@@ -17,8 +17,8 @@
 package de.oliver_heger.linedj.archive.protocol.webdav
 
 import com.github.cloudfiles.webdav.{DavConfig, DavFileSystem, DavModel}
+import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystem
 import de.oliver_heger.linedj.archive.protocol.webdav.WebDavProtocolSpec.WebDavProtocolName
-import de.oliver_heger.linedj.archivehttp.io.HttpArchiveFileSystem
 import de.oliver_heger.linedj.archivehttpstart.spi.HttpArchiveProtocolSpec
 import org.apache.pekko.http.scaladsl.model.Uri
 import org.apache.pekko.util.Timeout
@@ -52,8 +52,8 @@ class WebDavProtocolSpec extends HttpArchiveProtocolSpec:
   override def requiresMultiHostSupport: Boolean = false
 
   override def createFileSystemFromConfig(sourceUri: String, timeout: Timeout):
-  Try[HttpArchiveFileSystem[Uri, DavModel.DavFile, DavModel.DavFolder]] =
+  Try[CloudArchiveFileSystem[Uri, DavModel.DavFile, DavModel.DavFolder]] =
     val rootUri = Uri(sourceUri)
     val davConfig = DavConfig(rootUri = rootUri, timeout = timeout)
     val fs = new DavFileSystem(davConfig)
-    Success(HttpArchiveFileSystem(fs, rootUri.path))
+    Success(CloudArchiveFileSystem(fs, rootUri.path))

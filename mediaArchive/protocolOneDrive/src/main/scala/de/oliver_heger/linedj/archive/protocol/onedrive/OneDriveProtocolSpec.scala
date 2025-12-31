@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.archive.protocol.onedrive
 
 import com.github.cloudfiles.core.http.UriEncodingHelper
 import com.github.cloudfiles.onedrive.{OneDriveConfig, OneDriveFileSystem, OneDriveModel}
-import de.oliver_heger.linedj.archivehttp.io.HttpArchiveFileSystem
+import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystem
 import de.oliver_heger.linedj.archivehttpstart.spi.HttpArchiveProtocolSpec
 import org.apache.pekko.http.scaladsl.model.Uri
 import org.apache.pekko.util.Timeout
@@ -51,7 +51,7 @@ class OneDriveProtocolSpec extends HttpArchiveProtocolSpec:
   override val requiresMultiHostSupport: Boolean = true
 
   override def createFileSystemFromConfig(sourceUri: String, timeout: Timeout):
-  Try[HttpArchiveFileSystem[String, OneDriveModel.OneDriveFile, OneDriveModel.OneDriveFolder]] =
+  Try[CloudArchiveFileSystem[String, OneDriveModel.OneDriveFile, OneDriveModel.OneDriveFolder]] =
     if UriEncodingHelper.hasLeadingSeparator(sourceUri) then
       Failure(new IllegalArgumentException(s"Invalid archive URL '$sourceUri'. The URI must be of the form " +
         "<driveID>/<content root path>"))
@@ -67,4 +67,4 @@ class OneDriveProtocolSpec extends HttpArchiveProtocolSpec:
       val optRootPath = if rootPath.isEmpty then None else Some(rootPath.toString())
       val config = OneDriveConfig(driveID = driveID, optRootPath = optRootPath, timeout = timeout)
       val fileSystem = new OneDriveFileSystem(config)
-      Success(HttpArchiveFileSystem(fileSystem, rootPath))
+      Success(CloudArchiveFileSystem(fileSystem, rootPath))

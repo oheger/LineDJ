@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archivehttp.io
+package de.oliver_heger.linedj.archive.cloud.spi
 
 import com.github.cloudfiles.core.Model
 import com.github.cloudfiles.core.delegate.ExtensibleFileSystem
@@ -22,19 +22,19 @@ import org.apache.pekko.http.scaladsl.model.Uri
 
 /**
   * A data class storing all the relevant information for using a ''FileSystem''
-  * to access the data of an HTTP archive.
+  * to access the media files contained in a cloud archive.
   *
-  * The class combines an ''ExtensibleFileSystem'' with some metadata that is
+  * The class combines an [[ExtensibleFileSystem]] with some metadata that is
   * required to process HTTP archives, especially the root path.
   *
-  * @param fileSystem  the file system to access media files in this archive
-  * @param rootPath    the root path of this archive; this is needed to
-  *                    correctly deal with relative and absolute URIs to media
-  *                    files
+  * @param fileSystem the file system to access media files in this archive
+  * @param rootPath   the root path of this archive; this is needed to
+  *                   correctly deal with relative and absolute URIs to media
+  *                   files
   * @tparam ID     the type of IDs in the file system
   * @tparam FILE   the type of files in the file system
   * @tparam FOLDER the type of folders in the file system
   */
-case class HttpArchiveFileSystem[ID, FILE <: Model.File[ID],
+case class CloudArchiveFileSystem[ID, FILE <: Model.File[ID],
   FOLDER <: Model.Folder[ID]](fileSystem: ExtensibleFileSystem[ID, FILE, FOLDER, Model.FolderContent[ID, FILE, FOLDER]],
                               rootPath: Uri.Path)

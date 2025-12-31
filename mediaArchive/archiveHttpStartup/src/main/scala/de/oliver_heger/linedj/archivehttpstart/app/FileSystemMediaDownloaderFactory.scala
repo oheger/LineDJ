@@ -23,7 +23,8 @@ import com.github.cloudfiles.core.http.factory.{HttpRequestSenderConfig, HttpReq
 import com.github.cloudfiles.crypt.alg.aes.Aes
 import com.github.cloudfiles.crypt.fs.resolver.CachePathComponentsResolver
 import com.github.cloudfiles.crypt.fs.{CryptConfig, CryptContentFileSystem, CryptNamesConfig, CryptNamesFileSystem}
-import de.oliver_heger.linedj.archivehttp.io.{CookieManagementExtension, FileSystemMediaDownloader, HttpArchiveFileSystem, MediaDownloader}
+import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystem
+import de.oliver_heger.linedj.archivehttp.io.{CookieManagementExtension, FileSystemMediaDownloader, MediaDownloader}
 import de.oliver_heger.linedj.archivehttpstart.spi.HttpArchiveProtocolSpec
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.actor.{ActorSystem, typed}
@@ -81,8 +82,8 @@ class FileSystemMediaDownloaderFactory(val requestSenderFactory: HttpRequestSend
     * @return the extended file system
     */
   private def wrapWithCryptFileSystem[ID, FILE <: Model.File[ID], FOLDER <: Model.Folder[ID]]
-  (fs: HttpArchiveFileSystem[ID, FILE, FOLDER], startupConfig: HttpArchiveStartupConfig, cryptKey: Key)
-  (implicit system: ActorSystem): HttpArchiveFileSystem[ID, FILE, FOLDER] =
+  (fs: CloudArchiveFileSystem[ID, FILE, FOLDER], startupConfig: HttpArchiveStartupConfig, cryptKey: Key)
+  (implicit system: ActorSystem): CloudArchiveFileSystem[ID, FILE, FOLDER] =
     val cryptConfig = CryptConfig(Aes, cryptKey, cryptKey, new SecureRandom)
     val namesConfig = CryptNamesConfig(cryptConfig = cryptConfig, ignoreUnencrypted = true)
     implicit val timeout: Timeout = startupConfig.archiveConfig.processorTimeout

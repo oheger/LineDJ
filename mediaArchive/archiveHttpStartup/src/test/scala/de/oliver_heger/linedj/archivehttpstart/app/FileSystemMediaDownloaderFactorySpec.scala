@@ -28,8 +28,9 @@ import com.github.cloudfiles.crypt.alg.aes.Aes
 import com.github.cloudfiles.crypt.fs.{CryptContentFileSystem, CryptNamesFileSystem}
 import com.github.cloudfiles.crypt.service.CryptService
 import de.oliver_heger.linedj.AsyncTestHelper
+import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystem
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
-import de.oliver_heger.linedj.archivehttp.io.{FileSystemMediaDownloader, HttpArchiveFileSystem, MediaDownloader}
+import de.oliver_heger.linedj.archivehttp.io.{FileSystemMediaDownloader, MediaDownloader}
 import de.oliver_heger.linedj.archivehttpstart.spi.HttpArchiveProtocolSpec
 import org.apache.pekko.actor.testkit.typed.scaladsl.{ActorTestKit, TestProbe}
 import org.apache.pekko.actor.{ActorSystem, typed}
@@ -125,12 +126,12 @@ object FileSystemMediaDownloaderFactorySpec:
     var creationException: Option[Throwable] = None
 
     override def createFileSystemFromConfig(sourceUri: String, timeout: Timeout):
-    Try[HttpArchiveFileSystem[ID, File, Folder]] =
-      creationException.fold[Try[HttpArchiveFileSystem[ID, File, Folder]]](Try {
+    Try[CloudArchiveFileSystem[ID, File, Folder]] =
+      creationException.fold[Try[CloudArchiveFileSystem[ID, File, Folder]]](Try {
         if sourceUri != ArchiveUri then throw new AssertionError("Unexpected sourceUri: " + sourceUri)
         if timeout != ArchiveConfig.processorTimeout then
           throw new AssertionError("Unexpected timeout: " + timeout)
-        HttpArchiveFileSystem[String, FileType, FolderType](fileSystem, Uri.Path(RootPath))
+        CloudArchiveFileSystem[String, FileType, FolderType](fileSystem, Uri.Path(RootPath))
       }) { exception => Failure(exception) }
 
 /**

@@ -197,6 +197,7 @@ lazy val LineDJ = (project in file("."))
   audioPlatform,
   audioPlayerShell,
   audioPlayerUI,
+  cloudAccess,
   id3Extract,
   log4jApiFragment,
   log4jConfFragment,
@@ -325,6 +326,26 @@ lazy val archiveUnion = (project in file("mediaArchive/archiveUnion"))
   ) dependsOn (shared % "compile->compile;test->test")
 
 /**
+  * A project providing functionality to easily integrate file systems of the
+  * ''CloudFiles'' library with media archives.
+  */
+lazy val cloudAccess = (project in file("mediaArchive/cloudAccess"))
+  .enablePlugins(SbtOsgi)
+  .settings(defaultSettings)
+  .settings(OSGi.osgiSettings)
+  .settings(
+    name := "linedj-archive-cloud-access",
+    libraryDependencies ++= logDependencies,
+    libraryDependencies ++= pekkoHttpDependencies,
+    libraryDependencies += ("com.github.oheger" %% "cloud-files-core" % VersionCloudFiles),
+    libraryDependencies += ("com.github.oheger" %% "cloud-files-crypt" % VersionCloudFiles),
+    libraryDependencies += ("com.github.oheger" %% "cloud-files-cryptalg-aes" % VersionCloudFiles),
+    libraryDependencies += ("org.apache.pekko" %% "pekko-actor-testkit-typed" % VersionPekko % Test),
+    OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archive.cloud.*"),
+    OsgiKeys.privatePackage := Seq.empty
+  ) dependsOn(shared % "compile->compile;test->test")
+
+/**
   * The HTTP archive project. Via this project media files can be managed that
   * are stored on a remote host that can be accessed via HTTP requests.
   */
@@ -345,7 +366,7 @@ lazy val archiveHttp = (project in file("mediaArchive/archiveHttp"))
       "de.oliver_heger.linedj.archivehttp.config", "de.oliver_heger.linedj.archivehttp.temp",
       "de.oliver_heger.linedj.archivehttp.io.*", "de.oliver_heger.linedj.archivehttp.http"),
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archivehttp.impl.*")
-  ) dependsOn(shared % "compile->compile;test->test", archiveCommon, id3Extract)
+  ) dependsOn(shared % "compile->compile;test->test", archiveCommon, id3Extract, cloudAccess)
 
 /**
   * The archive server project. This project provides basic functionality for
