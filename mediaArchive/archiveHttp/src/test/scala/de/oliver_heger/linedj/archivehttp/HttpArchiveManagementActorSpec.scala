@@ -117,7 +117,7 @@ object HttpArchiveManagementActorSpec:
     * @return the list with test descriptions
     */
   private def createMediumDescriptions(): List[HttpMediumDesc] =
-    (1 to 4).map(i => HttpMediumDesc("descPath" + i, "metaDataPath" + i)).toList
+    (1 to 4).map(i => HttpMediumDesc("descPath" + i, s"metaDataPath$i.mdt")).toList
 
   /**
     * Returns a JSON representation for a medium description.
@@ -127,7 +127,7 @@ object HttpArchiveManagementActorSpec:
     */
   private def createMediumDescriptionJson(md: HttpMediumDesc): String =
     s"""{ "mediumDescriptionPath": "${md.mediumDescriptionPath}",
-       |"metaDataPath": "${md.metaDataPath}"}
+       |"checksum": "${md.metaDataPath.stripSuffix(".mdt")}"}
    """.stripMargin
 
   /**
