@@ -18,6 +18,7 @@ package de.oliver_heger.linedj.archivehttp.io
 
 import com.github.cloudfiles.core.Model
 import com.github.cloudfiles.core.http.HttpRequestSender
+import de.oliver_heger.linedj.archive.cloud.CloudFileDownloader
 import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystemFactory.CloudArchiveFileSystem
 import org.apache.pekko.actor.typed.{ActorRef, ActorSystem}
 import org.apache.pekko.http.scaladsl.model.Uri
@@ -27,7 +28,7 @@ import org.apache.pekko.util.ByteString
 import scala.concurrent.{ExecutionContext, Future}
 
 /**
-  * An implementation of the [[MediaDownloader]] trait that is based on a
+  * An implementation of the [[CloudFileDownloader]] trait that is based on a
   * ''FileSystem''.
   *
   * This implementation uses the ''FileSystem'' and the HTTP request sender
@@ -41,11 +42,11 @@ import scala.concurrent.{ExecutionContext, Future}
   * @param system            the actor system
   * @tparam ID the type of IDs in the ''FileSystem''
   */
-class FileSystemMediaDownloader[ID, FILE <: Model.File[ID],
+class FileSystemCloudFileDownloader[ID, FILE <: Model.File[ID],
   FOLDER <: Model.Folder[ID]](val archiveFileSystem: CloudArchiveFileSystem[ID, FILE, FOLDER],
                                     val httpSender: ActorRef[HttpRequestSender.HttpCommand])
-                                   (implicit system: ActorSystem[_]) extends MediaDownloader:
-  override def downloadMediaFile(path: Uri.Path): Future[Source[ByteString, Any]] =
+                                   (implicit system: ActorSystem[_]) extends CloudFileDownloader:
+  override def downloadFile(path: Uri.Path): Future[Source[ByteString, Any]] =
     implicit val ec: ExecutionContext = system.executionContext
 
     val op = for

@@ -23,9 +23,10 @@ import com.github.cloudfiles.core.http.factory.{HttpRequestSenderConfig, HttpReq
 import com.github.cloudfiles.crypt.alg.aes.Aes
 import com.github.cloudfiles.crypt.fs.resolver.CachePathComponentsResolver
 import com.github.cloudfiles.crypt.fs.{CryptConfig, CryptContentFileSystem, CryptNamesConfig, CryptNamesFileSystem}
+import de.oliver_heger.linedj.archive.cloud.CloudFileDownloader
 import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystemFactory
 import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystemFactory.CloudArchiveFileSystem
-import de.oliver_heger.linedj.archivehttp.io.{CookieManagementExtension, FileSystemMediaDownloader, MediaDownloader}
+import de.oliver_heger.linedj.archivehttp.io.{CookieManagementExtension, FileSystemCloudFileDownloader}
 import org.apache.pekko.actor.typed.scaladsl.adapter.*
 import org.apache.pekko.actor.{ActorSystem, typed}
 import org.apache.pekko.util.Timeout
@@ -51,7 +52,7 @@ class FileSystemMediaDownloaderFactory(val requestSenderFactory: HttpRequestSend
                                 authConfig: AuthConfig,
                                 actorBaseName: String,
                                 optCryptKey: Option[Key])
-                               (implicit system: ActorSystem): Try[MediaDownloader] =
+                               (implicit system: ActorSystem): Try[CloudFileDownloader] =
     protocolSpec.createFileSystem(startupConfig.archiveConfig.archiveBaseUri.toString(),
       startupConfig.archiveConfig.processorTimeout) map { fs =>
       val fsCrypt = optCryptKey.fold(fs)(wrapWithCryptFileSystem(fs, startupConfig, _))
@@ -66,7 +67,7 @@ class FileSystemMediaDownloaderFactory(val requestSenderFactory: HttpRequestSend
       else sender
 
       implicit val typedSystem: typed.ActorSystem[Nothing] = system.toTyped
-      new FileSystemMediaDownloader(fsCrypt, cookieSender)
+      new FileSystemCloudFileDownloader(fsCrypt, cookieSender)
     }
 
   /**

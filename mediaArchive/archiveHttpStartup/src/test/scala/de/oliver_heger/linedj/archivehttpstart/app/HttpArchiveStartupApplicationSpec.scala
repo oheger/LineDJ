@@ -18,10 +18,10 @@ package de.oliver_heger.linedj.archivehttpstart.app
 
 import com.github.cloudfiles.core.http.Secret
 import com.github.cloudfiles.core.http.factory.HttpRequestSenderFactoryImpl
+import de.oliver_heger.linedj.archive.cloud.CloudFileDownloader
 import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystemFactory
 import de.oliver_heger.linedj.archivehttp.{HttpArchiveStateConnected, HttpArchiveStateDisconnected, HttpArchiveStateFailedRequest, HttpArchiveStateResponse, HttpArchiveStateServerError}
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
-import de.oliver_heger.linedj.archivehttp.io.MediaDownloader
 import de.oliver_heger.linedj.archivehttp.io.oauth.OAuthStorageServiceImpl
 import de.oliver_heger.linedj.archivehttpstart.app.HttpArchiveStates.*
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
@@ -259,7 +259,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
     * @return the ''ArchiveResources'' based on these parameters
     */
   private def createArchiveResources(idx: Int, manager: Option[ActorRef] = None): HttpArchiveStarter.ArchiveResources =
-    HttpArchiveStarter.ArchiveResources(createActorsMap(idx, manager), mock[MediaDownloader], HttpActorName + idx)
+    HttpArchiveStarter.ArchiveResources(createActorsMap(idx, manager), mock[CloudFileDownloader], HttpActorName + idx)
 
   /**
     * Helper method which sends all data and messages required to create the

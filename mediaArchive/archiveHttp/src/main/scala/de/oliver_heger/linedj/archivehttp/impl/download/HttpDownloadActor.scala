@@ -102,7 +102,7 @@ private class HttpDownloadActor(config: HttpArchiveConfig,
       val client = sender()
       context.become(waitForResponse)
       log.info("Sending download request for {}.", downloadRequest.fileID)
-      config.downloader.downloadMediaFile(config.mediaPath, downloadRequest.fileID.uri) onComplete { result =>
+      config.downloader.downloadFile(config.mediaPath, downloadRequest.fileID.uri) onComplete { result =>
         self ! DownloadRequestCompleted(result, request, client)
       }
 

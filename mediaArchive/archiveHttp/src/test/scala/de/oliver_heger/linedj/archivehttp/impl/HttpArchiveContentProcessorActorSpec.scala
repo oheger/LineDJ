@@ -16,8 +16,8 @@
 
 package de.oliver_heger.linedj.archivehttp.impl
 
+import de.oliver_heger.linedj.archive.cloud.CloudFileDownloader
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
-import de.oliver_heger.linedj.archivehttp.io.MediaDownloader
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumDescription, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
@@ -83,7 +83,7 @@ object HttpArchiveContentProcessorActorSpec:
 
   /**
     * A data class identifying a file to be downloaded using a
-    * [[MediaDownloader]]. An instance collects the parameters expected by the
+    * [[CloudFileDownloader]]. An instance collects the parameters expected by the
     * download function.
     *
     * @param path   the path prefix of the file in question
@@ -93,7 +93,7 @@ object HttpArchiveContentProcessorActorSpec:
 
   /**
     * Type alias for a mapping defining download requests and responses to be
-    * served by a test [[MediaDownloader]]. The mapping basically contains a
+    * served by a test [[CloudFileDownloader]]. The mapping basically contains a
     * string result for a file to be downloaded. The download may fail;
     * therefore, the result is a ''Try''.
     */
@@ -496,9 +496,9 @@ class HttpArchiveContentProcessorActorSpec(testSystem: ActorSystem) extends Test
       * @param mapping the mapping
       * @return the test downloader
       */
-    private def createDownloader(mapping: DownloadMapping): MediaDownloader =
-      val downloader = mock[MediaDownloader]
-      when(downloader.downloadMediaFile(any(), any())).thenAnswer((invocation: InvocationOnMock) => {
+    private def createDownloader(mapping: DownloadMapping): CloudFileDownloader =
+      val downloader = mock[CloudFileDownloader]
+      when(downloader.downloadFile(any(), any())).thenAnswer((invocation: InvocationOnMock) => {
         val prefixPath = invocation.getArguments.head.asInstanceOf[Uri.Path]
         val suffix = invocation.getArgument(1, classOf[String])
         val key = DownloadKey(prefixPath, suffix)

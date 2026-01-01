@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archivehttp.io
+package de.oliver_heger.linedj.archive.cloud
 
-import de.oliver_heger.linedj.archivehttp.io.MediaDownloader.appendPaths
+import de.oliver_heger.linedj.archive.cloud.CloudFileDownloader.appendPaths
 import org.apache.pekko.http.scaladsl.model.Uri
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.util.ByteString
 
 import scala.concurrent.Future
 
-object MediaDownloader:
+object CloudFileDownloader:
   /**
     * Safely appends a suffix path to another path of a URI. This function
     * handles the cases that the path might or might not end with a separator,
@@ -33,7 +33,7 @@ object MediaDownloader:
     * @param suffix the path to be appended
     * @return the path with the suffix path appended
     */
-  private[io] def appendPaths(path: Uri.Path, suffix: Uri.Path): Uri.Path =
+  private def appendPaths(path: Uri.Path, suffix: Uri.Path): Uri.Path =
     if path.endsWithSlash && suffix.startsWithSlash then path ++ suffix.tail
     else if path.endsWithSlash && !suffix.startsWithSlash || !path.endsWithSlash && suffix.startsWithSlash then
       path ++ suffix
@@ -48,44 +48,45 @@ object MediaDownloader:
     * @param suffixStr the path to be appended
     * @return the path with the segment appended
     */
-  private[io] def appendPaths(path: Uri.Path, suffixStr: String): Uri.Path =
+  private def appendPaths(path: Uri.Path, suffixStr: String): Uri.Path =
     appendPaths(path, Uri.Path(suffixStr))
+end CloudFileDownloader
 
 /**
-  * A trait to abstract downloading of files from an HTTP archive.
+  * A trait to abstract downloading of files from a cloud archive.
   *
-  * This trait is used by all actors managing an HTTP archive to load files
-  * from the archive. It provides a function that expects the URI to the file
-  * to be loaded and returns a ''Future'' with a source of its content.
+  * This trait is used by all components accessing a cloud archive to load
+  * files from the archive. It provides a function that expects the URI to the
+  * file to be loaded and returns a ''Future'' with a source of its content.
   */
-trait MediaDownloader:
+trait CloudFileDownloader:
   /**
-    * The central function to download files from an HTTP media archive. The
-    * passed in ''Path'' is resolved against the archive's root path and
-    * accessed asynchronously. If this is successful, a ''Source'' with the
-    * content of the file is returned, which can then be consumed by the
-    * caller. Implementations are responsible of cleaning up all resources in
-    * case of failure.
+    * The central function to download files from a cloud archive. The passed
+    * in ''Path'' is resolved against the archive's root path and accessed
+    * asynchronously. If this is successful, the function returns a [[Source]]
+    * with the content of the file, which can then be consumed by the caller.
+    * Implementations are responsible for cleaning up all resources in case of
+    * failure.
     *
     * @param path the relative path of the file to be resolved against the base
     *             path of the archive
-    * @return a ''Future'' with a ''Source'' of the file's content
+    * @return a [[Future]] with a [[Source]] of the file's content
     */
-  def downloadMediaFile(path: Uri.Path): Future[Source[ByteString, Any]]
+  def downloadFile(path: Uri.Path): Future[Source[ByteString, Any]]
 
   /**
-    * An overloaded function to download files from an HTTP media archive that
-    * is optimized for relative URIs. This variant expects a path prefix and a
+    * An overloaded function to download a file from a cloud archive that is
+    * optimized for relative URIs. This variant expects a path prefix and a
     * relative path segment to be appended to the prefix. This fits well with
-    * the configuration of HTTP archives that define a number of root paths for
-    * different kinds of files (media, metadata).
+    * the configuration of cloud archives that define a number of root paths
+    * for different kinds of files (media, metadata).
     *
     * @param pathPrefix the root path
     * @param filePath   the relative path of the file to download
-    * @return a ''Future'' with a ''Source'' of the file's content
+    * @return a [[Future]] with a [[Source]] of the file's content
     */
-  def downloadMediaFile(pathPrefix: Uri.Path, filePath: String): Future[Source[ByteString, Any]] =
-    downloadMediaFile(appendPaths(pathPrefix, filePath))
+  def downloadFile(pathPrefix: Uri.Path, filePath: String): Future[Source[ByteString, Any]] =
+    downloadFile(appendPaths(pathPrefix, filePath))
 
   /**
     * Shuts down this downloader when it is no longer needed. This function

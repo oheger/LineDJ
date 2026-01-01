@@ -28,10 +28,11 @@ import com.github.cloudfiles.crypt.alg.aes.Aes
 import com.github.cloudfiles.crypt.fs.{CryptContentFileSystem, CryptNamesFileSystem}
 import com.github.cloudfiles.crypt.service.CryptService
 import de.oliver_heger.linedj.AsyncTestHelper
+import de.oliver_heger.linedj.archive.cloud.CloudFileDownloader
 import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystemFactory
 import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystemFactory.CloudArchiveFileSystem
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
-import de.oliver_heger.linedj.archivehttp.io.{FileSystemMediaDownloader, MediaDownloader}
+import de.oliver_heger.linedj.archivehttp.io.FileSystemCloudFileDownloader
 import org.apache.pekko.actor.testkit.typed.scaladsl.{ActorTestKit, TestProbe}
 import org.apache.pekko.actor.{ActorSystem, typed}
 import org.apache.pekko.http.scaladsl.model.headers.{HttpCookie, `Set-Cookie`}
@@ -51,7 +52,7 @@ import scala.concurrent.duration.*
 import scala.language.existentials
 import scala.util.{Failure, Success, Try}
 
-object FileSystemMediaDownloaderFactorySpec:
+object FileSystemCloudFileDownloaderFactorySpec:
   /** The URI for the test archive. */
   private val ArchiveUri = "https://test.archive.example.org/test"
 
@@ -133,11 +134,11 @@ object FileSystemMediaDownloaderFactorySpec:
       ) { exception => Failure(exception) }
 
 /**
-  * Test class for ''FileSystemMediaDownloaderFactory''.
+  * Test class for [[FileSystemCloudFileDownloaderFactorySpec]].
   */
-class FileSystemMediaDownloaderFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
+class FileSystemCloudFileDownloaderFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
   with BeforeAndAfterAll with Matchers with MockitoSugar with AsyncTestHelper:
-  def this() = this(ActorSystem("FileSystemMediaDownloaderFactorySpec"))
+  def this() = this(ActorSystem("FileSystemCloudFileDownloaderFactorySpec"))
 
   /** The test kit for typed actors. */
   private val testKit = ActorTestKit()
@@ -147,9 +148,9 @@ class FileSystemMediaDownloaderFactorySpec(testSystem: ActorSystem) extends Test
     testKit.shutdownTestKit()
     super.afterAll()
 
-  import FileSystemMediaDownloaderFactorySpec._
+  import FileSystemCloudFileDownloaderFactorySpec.*
 
-  "FileSystemMediaDownloaderFactory" should "create a downloader with basic properties" in:
+  "FileSystemCloudFileDownloaderFactory" should "create a downloader with basic properties" in:
     val helper = new FactoryTestHelper
 
     val downloader = helper.expectSenderCreation(createSenderConfig())
@@ -330,7 +331,7 @@ class FileSystemMediaDownloaderFactorySpec(testSystem: ActorSystem) extends Test
       * @return the result from the factory
       */
     def createDownloader(startupConfig: HttpArchiveStartupConfig = ArchiveStartupConfig, optKey: Option[Key] = None):
-    Try[MediaDownloader] =
+    Try[CloudFileDownloader] =
       downloaderFactory.createDownloader(protocolSpec, startupConfig, TestAuthConfig, ActorName, optKey)
 
     /**
@@ -342,9 +343,9 @@ class FileSystemMediaDownloaderFactorySpec(testSystem: ActorSystem) extends Test
       * @return the downloader created by the factory
       */
     def createDownloaderSuccess(startupConfig: HttpArchiveStartupConfig = ArchiveStartupConfig,
-                                optKey: Option[Key] = None): FileSystemMediaDownloader[?, ?, ?] =
+                                optKey: Option[Key] = None): FileSystemCloudFileDownloader[?, ?, ?] =
       createDownloader(startupConfig, optKey) match
-        case Success(downloader: FileSystemMediaDownloader[?, ?, ?]) =>
+        case Success(downloader: FileSystemCloudFileDownloader[?, ?, ?]) =>
           downloader
         case r => fail("Unexpected result: " + r)
 

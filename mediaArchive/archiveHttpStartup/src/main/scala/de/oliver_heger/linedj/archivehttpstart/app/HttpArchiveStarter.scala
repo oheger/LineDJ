@@ -16,11 +16,11 @@
 
 package de.oliver_heger.linedj.archivehttpstart.app
 
+import de.oliver_heger.linedj.archive.cloud.CloudFileDownloader
 import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystemFactory
 import de.oliver_heger.linedj.archivecommon.download.DownloadMonitoringActor
 import de.oliver_heger.linedj.archivehttp.HttpArchiveManagementActor
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
-import de.oliver_heger.linedj.archivehttp.io.MediaDownloader
 import de.oliver_heger.linedj.archivehttp.temp.{RemoveTempFilesActor, TempPathGenerator}
 import de.oliver_heger.linedj.platform.app.ClientApplication
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
@@ -70,7 +70,7 @@ object HttpArchiveStarter:
     * @param httpActorName the name of the HTTP request actor
     */
   case class ArchiveResources(actors: Map[String, ActorRef],
-                              downloader: MediaDownloader,
+                              downloader: CloudFileDownloader,
                               httpActorName: String)
 
   /**

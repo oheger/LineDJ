@@ -18,10 +18,10 @@ package de.oliver_heger.linedj.archivehttp
 
 import com.github.cloudfiles.core.http.HttpRequestSender.FailedResponseException
 import de.oliver_heger.linedj.ForwardTestActor.ForwardedMessage
+import de.oliver_heger.linedj.archive.cloud.CloudFileDownloader
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.impl.*
 import de.oliver_heger.linedj.archivehttp.impl.download.HttpDownloadManagementActor
-import de.oliver_heger.linedj.archivehttp.io.MediaDownloader
 import de.oliver_heger.linedj.archivehttp.temp.TempPathGenerator
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
@@ -457,7 +457,7 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
     private val downloadManagementActor = ForwardTestActor()
 
     /** The mock for the media downloader. */
-    private val downloader = mock[MediaDownloader]
+    private val downloader = mock[CloudFileDownloader]
 
     /** A queue for recording the child actors that have been created. */
     private val childCreationQueue = new LinkedBlockingQueue[ChildActorCreation]
@@ -585,7 +585,7 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
       */
     private def initArchiveContentResponse(result: Future[Source[ByteString, Any]]):
     HttpArchiveManagementActorTestHelper =
-      when(downloader.downloadMediaFile(ArchiveConfig.contentPath)).thenReturn(result)
+      when(downloader.downloadFile(ArchiveConfig.contentPath)).thenReturn(result)
       this
 
     /**

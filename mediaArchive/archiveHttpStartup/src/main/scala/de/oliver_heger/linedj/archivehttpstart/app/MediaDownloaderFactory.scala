@@ -18,15 +18,15 @@ package de.oliver_heger.linedj.archivehttpstart.app
 
 import com.github.cloudfiles.core.Model
 import com.github.cloudfiles.core.http.auth.AuthConfig
+import de.oliver_heger.linedj.archive.cloud.CloudFileDownloader
 import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystemFactory
-import de.oliver_heger.linedj.archivehttp.io.MediaDownloader
 import org.apache.pekko.actor.ActorSystem
 
 import java.security.Key
 import scala.util.Try
 
 /**
-  * A trait defining a factory interface for creating a [[MediaDownloader]] for
+  * A trait defining a factory interface for creating a [[CloudFileDownloader]] for
   * a specific protocol.
   *
   * A concrete implementation has to construct such a downloader object based
@@ -51,4 +51,4 @@ trait MediaDownloaderFactory:
                        authConfig: AuthConfig,
                        actorBaseName: String,
                        optCryptKey: Option[Key])
-                      (implicit system: ActorSystem): Try[MediaDownloader]
+                      (implicit system: ActorSystem): Try[CloudFileDownloader]

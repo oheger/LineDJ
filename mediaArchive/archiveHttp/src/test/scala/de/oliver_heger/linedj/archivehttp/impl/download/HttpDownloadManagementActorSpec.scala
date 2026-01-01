@@ -16,11 +16,11 @@
 
 package de.oliver_heger.linedj.archivehttp.impl.download
 
+import de.oliver_heger.linedj.archive.cloud.CloudFileDownloader
 import de.oliver_heger.linedj.archivecommon.download.DownloadMonitoringActor.DownloadOperationStarted
 import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor
 import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor.DownloadTransformFunc
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
-import de.oliver_heger.linedj.archivehttp.io.MediaDownloader
 import de.oliver_heger.linedj.archivehttp.temp.TempPathGenerator
 import de.oliver_heger.linedj.extract.id3.stream.ID3SkipStage
 import de.oliver_heger.linedj.shared.actors.ChildActorFactory
@@ -221,7 +221,7 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
       HttpArchiveConfig(archiveBaseUri = "https://some.archive.org" + "/data" + "/" + "archiveContent.json",
         archiveName = "test", processorCount = 1, processorTimeout = Timeout(1.minute), propagationBufSize = 100,
         maxContentSize = 1024, downloadBufferSize = 1000, downloadMaxInactivity = 10.seconds,
-        downloadReadChunkSize = 8192, timeoutReadSize = 111, downloadConfig = null, downloader = mock[MediaDownloader],
+        downloadReadChunkSize = 8192, timeoutReadSize = 111, downloadConfig = null, downloader = mock[CloudFileDownloader],
         contentPath = Uri.Path("archiveContent.json"), mediaPath = Uri.Path("media"), metadataPath = Uri.Path("meta"))
 
     /**

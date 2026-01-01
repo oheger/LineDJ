@@ -17,10 +17,10 @@
 package de.oliver_heger.linedj.archivehttp.impl.download
 
 import de.oliver_heger.linedj.RecordingSchedulerSupport.SchedulerInvocation
+import de.oliver_heger.linedj.archive.cloud.CloudFileDownloader
 import de.oliver_heger.linedj.{RecordingSchedulerSupport, StoppableTestProbe}
 import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
-import de.oliver_heger.linedj.archivehttp.io.MediaDownloader
 import de.oliver_heger.linedj.archivehttp.temp.{RemoveTempFilesActor, TempPathGenerator}
 import de.oliver_heger.linedj.shared.actors.{ChildActorFactory, SchedulerSupport}
 import de.oliver_heger.linedj.shared.archive.media.*
@@ -156,7 +156,7 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
     when(config.downloadBufferSize).thenReturn(BufferSize)
     when(config.archiveName).thenReturn(ArchiveName)
     when(config.mediaPath).thenReturn(MediaPath)
-    val downloader = mock[MediaDownloader]
+    val downloader = mock[CloudFileDownloader]
     when(config.downloader).thenReturn(downloader)
     config
 

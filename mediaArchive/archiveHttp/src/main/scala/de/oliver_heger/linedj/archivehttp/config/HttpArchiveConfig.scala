@@ -17,8 +17,8 @@
 package de.oliver_heger.linedj.archivehttp.config
 
 import com.github.cloudfiles.core.http.Secret
+import de.oliver_heger.linedj.archive.cloud.CloudFileDownloader
 import de.oliver_heger.linedj.archivecommon.download.DownloadConfig
-import de.oliver_heger.linedj.archivehttp.io.MediaDownloader
 import org.apache.pekko.http.scaladsl.model.Uri
 import org.apache.pekko.util.Timeout
 
@@ -113,4 +113,4 @@ case class HttpArchiveConfig(archiveBaseUri: Uri,
                              downloadReadChunkSize: Int,
                              timeoutReadSize: Int,
                              downloadConfig: DownloadConfig,
-                             downloader: MediaDownloader)
+                             downloader: CloudFileDownloader)

@@ -31,7 +31,7 @@ import org.scalatestplus.mockito.MockitoSugar
 
 import scala.concurrent.Future
 
-object FileSystemMediaDownloaderSpec:
+object FileSystemCloudFileDownloaderSpec:
   /** The ID of the test file to be loaded. */
   private val FileID = "fileToDownload"
 
@@ -59,10 +59,10 @@ object FileSystemMediaDownloaderSpec:
 /**
   * Test class for ''FileSystemMediaDownloader''.
   */
-class FileSystemMediaDownloaderSpec extends AnyFlatSpec with Matchers with MockitoSugar with ActorTestKitSupport
+class FileSystemCloudFileDownloaderSpec extends AnyFlatSpec with Matchers with MockitoSugar with ActorTestKitSupport
   with AsyncTestHelper:
 
-  import FileSystemMediaDownloaderSpec.*
+  import FileSystemCloudFileDownloaderSpec.*
 
   "FileSystemMediaDownloader" should "download a media file specified by a path" in:
     val RelativePath = Uri.Path("path/to/file.mp3")
@@ -193,8 +193,8 @@ class FileSystemMediaDownloaderSpec extends AnyFlatSpec with Matchers with Mocki
     def invokeDownloader(path: Uri.Path, optSegment: Option[String], expResult: Source[ByteString, Any]):
     DownloaderTestHelper =
       val futResult = optSegment match
-        case Some(segment) => downloader.downloadMediaFile(path, segment)
-        case None => downloader.downloadMediaFile(path)
+        case Some(segment) => downloader.downloadFile(path, segment)
+        case None => downloader.downloadFile(path)
       futureResult(futResult) should be(expResult)
       this
 
@@ -221,5 +221,5 @@ class FileSystemMediaDownloaderSpec extends AnyFlatSpec with Matchers with Mocki
       *
       * @return the test downloader
       */
-    private def createDownloader(): FileSystemMediaDownloader[String, Model.File[String], Model.Folder[String]] =
-      new FileSystemMediaDownloader(mockFileSystem, probeHttpSender.ref)
+    private def createDownloader(): FileSystemCloudFileDownloader[String, Model.File[String], Model.Folder[String]] =
+      new FileSystemCloudFileDownloader(mockFileSystem, probeHttpSender.ref)

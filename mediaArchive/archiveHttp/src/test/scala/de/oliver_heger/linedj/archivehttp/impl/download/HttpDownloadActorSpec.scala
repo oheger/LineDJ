@@ -16,10 +16,10 @@
 
 package de.oliver_heger.linedj.archivehttp.impl.download
 
+import de.oliver_heger.linedj.archive.cloud.CloudFileDownloader
 import de.oliver_heger.linedj.{FileTestHelper, StoppableTestProbe}
 import de.oliver_heger.linedj.archivecommon.download.{DownloadConfig, MediaFileDownloadActor}
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
-import de.oliver_heger.linedj.archivehttp.io.MediaDownloader
 import de.oliver_heger.linedj.shared.actors.ChildActorFactory
 import de.oliver_heger.linedj.shared.archive.media.*
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props}
@@ -191,7 +191,7 @@ class HttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     */
   private class DownloadActorTestHelper(bytesToSkip: Long = 0):
     /** Mock for the downloader. */
-    private val downloader = mock[MediaDownloader]
+    private val downloader = mock[CloudFileDownloader]
 
     /** A test probe to represent the wrapped file download actor. */
     private val probeFileDownloadActor = StoppableTestProbe()
@@ -239,7 +239,7 @@ class HttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       * @return this test helper
       */
     def prepareDownloader(result: Future[Source[ByteString, Any]]): DownloadActorTestHelper =
-      when(downloader.downloadMediaFile(MediaPath, TestMediaFileRequest.fileID.uri)).thenReturn(result)
+      when(downloader.downloadFile(MediaPath, TestMediaFileRequest.fileID.uri)).thenReturn(result)
       this
 
     /**

@@ -20,10 +20,10 @@ import com.github.cloudfiles.core.http.Secret
 import com.github.cloudfiles.core.http.auth.AuthConfig
 import com.github.cloudfiles.crypt.alg.aes.Aes
 import de.oliver_heger.linedj.AsyncTestHelper
+import de.oliver_heger.linedj.archive.cloud.CloudFileDownloader
 import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystemFactory
 import de.oliver_heger.linedj.archivehttp.HttpArchiveManagementActor
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
-import de.oliver_heger.linedj.archivehttp.io.MediaDownloader
 import de.oliver_heger.linedj.archivehttp.temp.{RemoveTempFilesActor, TempPathGenerator}
 import de.oliver_heger.linedj.platform.app.ClientApplication
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
@@ -222,7 +222,7 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
       * The mock for the media downloader. This mock is also returned by the
       * mock for the downloader factory.
       */
-    private val mediaDownloader = mock[MediaDownloader]
+    private val mediaDownloader = mock[CloudFileDownloader]
 
     /** The object to be tested. */
     private val starter = new HttpArchiveStarter(createMediaDownloaderFactory(), createAuthFactory())

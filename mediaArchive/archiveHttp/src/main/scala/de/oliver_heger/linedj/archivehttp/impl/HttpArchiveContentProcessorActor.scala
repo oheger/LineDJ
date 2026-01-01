@@ -186,7 +186,7 @@ class HttpArchiveContentProcessorActor extends AbstractStreamProcessingActor wit
                             (implicit tag: ClassTag[T])
   : Flow[(Uri.Path, String, RequestData), T, NotUsed] =
     Flow[(Uri.Path, String, RequestData)].mapAsync(parallelism) { t =>
-      (for data <- req.archiveConfig.downloader.downloadMediaFile(t._1, t._2)
+      (for data <- req.archiveConfig.downloader.downloadFile(t._1, t._2)
             procResp <- processHttpResponse(req, (data, t._3)).mapTo[T]
             yield procResp) fallbackTo Future:
         val mid = createMediumID(req, t._3.mediumDesc)
