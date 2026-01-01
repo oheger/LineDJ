@@ -28,13 +28,14 @@ import scala.util.{Failure, Success, Try}
 object OneDriveFileSystemFactory:
   /** The name used for this protocol. */
   final val ProtocolName = "onedrive"
+end OneDriveFileSystemFactory
 
 /**
-  * Implementation of the OneDrive protocol to be used by HTTP archives.
+  * Implementation of the OneDrive protocol to be used by cloud archives.
   *
   * This class provides information required for accessing media files from a
-  * OneDrive account. The actual access is done via a ''DavFileSystem'' from
-  * the CloudFiles project.
+  * OneDrive account. The actual access is done via a [[OneDriveFileSystem]]
+  * from the CloudFiles project.
   *
   * The OneDrive account to be accessed is configured using the archive URL,
   * which must be of the form ''driveID/path''. ''driveID'' is the account ID,
@@ -56,7 +57,6 @@ class OneDriveFileSystemFactory extends CloudArchiveFileSystemFactory:
       Failure(new IllegalArgumentException(s"Invalid archive URL '$sourceUri'. The URI must be of the form " +
         "<driveID>/<content root path>"))
     else
-
       val archiveUri = UriEncodingHelper.removeTrailingSeparator(sourceUri)
       val posPath = archiveUri.indexOf(UriEncodingHelper.UriSeparator)
       val (driveID, rootPath) = if posPath <= 0 then
