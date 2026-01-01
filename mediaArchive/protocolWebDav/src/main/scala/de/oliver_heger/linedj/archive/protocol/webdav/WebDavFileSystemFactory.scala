@@ -28,12 +28,13 @@ import scala.util.{Success, Try}
 object WebDavFileSystemFactory:
   /** The name to be returned for this protocol. */
   final val WebDavProtocolName = "webdav"
+end WebDavFileSystemFactory
 
 /**
-  * Implementation of the WebDav protocol to be used by HTTP archives.
+  * Implementation of the WebDav protocol to be used by cloud archives.
   *
   * This class provides information required for accessing media files from a
-  * WebDav server. The actual access is done via a ''DavFileSystem'' from the
+  * WebDav server. The actual access is done via a [[DavFileSystem]] from the
   * CloudFiles project. The source URI passed to this class is a plain URI
   * pointing to the archive's root folder. All URIs for media files, metadata
   * files, or the content file are resolved relative to this folder.

@@ -25,23 +25,26 @@ import org.scalatest.matchers.should.Matchers
 import scala.concurrent.duration._
 import scala.util.Success
 
-class WebDavProtocolSpecSpec extends AnyFlatSpec with Matchers:
+/**
+  * Test class for [[WebDavFileSystemFactory]].
+  */
+class WebDavFileSystemFactorySpec extends AnyFlatSpec with Matchers:
   "WebDavProtocolSpec" should "return the correct name" in:
-    val spec = new WebDavFileSystemFactory
+    val factory = new WebDavFileSystemFactory
 
-    spec.name should be("webdav")
+    factory.name should be("webdav")
 
   it should "return the correct multi host flag" in:
-    val spec = new WebDavFileSystemFactory
+    val factory = new WebDavFileSystemFactory
 
-    spec.requiresMultiHostSupport shouldBe false
+    factory.requiresMultiHostSupport shouldBe false
 
   it should "create a correct file system" in:
     val RootPath = "https://my-archive.example.org/music"
     val timeout = Timeout(30.seconds)
-    val spec = new WebDavFileSystemFactory
+    val factory = new WebDavFileSystemFactory
 
-    spec.createFileSystem(RootPath, timeout) match
+    factory.createFileSystem(RootPath, timeout) match
       case Success(fs) =>
         fs.rootPath should be(Uri.Path("/music"))
         fs.fileSystem match
