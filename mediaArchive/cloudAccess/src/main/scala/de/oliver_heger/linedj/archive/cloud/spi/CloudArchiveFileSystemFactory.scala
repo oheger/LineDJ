@@ -17,9 +17,20 @@
 package de.oliver_heger.linedj.archive.cloud.spi
 
 import com.github.cloudfiles.core.Model
+import com.github.cloudfiles.core.delegate.ExtensibleFileSystem
+import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystemFactory.CloudArchiveFileSystem
 import org.apache.pekko.util.Timeout
 
 import scala.util.Try
+
+object CloudArchiveFileSystemFactory:
+  /**
+    * A type alias to define a file system from ''CloudFiles'' in the flavor as
+    * it is used for accessing media files from cloud archives.
+    */
+  type CloudArchiveFileSystem[ID, FILE <: Model.File[ID], FOLDER <: Model.Folder[ID]] =
+    ExtensibleFileSystem[ID, FILE, FOLDER, Model.FolderContent[ID, FILE, FOLDER]]
+end CloudArchiveFileSystemFactory
 
 /**
   * A trait defining an SPI to plug in different cloud-based protocols to be

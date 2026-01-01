@@ -28,8 +28,8 @@ import com.github.cloudfiles.crypt.alg.aes.Aes
 import com.github.cloudfiles.crypt.fs.{CryptContentFileSystem, CryptNamesFileSystem}
 import com.github.cloudfiles.crypt.service.CryptService
 import de.oliver_heger.linedj.AsyncTestHelper
-import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystem
 import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystemFactory
+import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystemFactory.CloudArchiveFileSystem
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.io.{FileSystemMediaDownloader, MediaDownloader}
 import org.apache.pekko.actor.testkit.typed.scaladsl.{ActorTestKit, TestProbe}
@@ -104,12 +104,11 @@ object FileSystemMediaDownloaderFactorySpec:
 
   /**
     * A stub implementation of [[CloudArchiveFileSystemFactory]] that can be
-    * configured to return a specific file system and other properties that can
-    * be customize.
+    * configured to return a specific file system.
     *
     * @param fileSystem the file system to be returned
     */
-  class CloudArchiveTestFileSystemFactory(fileSystem: ExtensibleFileSystem[String, FileType, FolderType, FolderContentType])
+  class CloudArchiveTestFileSystemFactory(fileSystem: CloudArchiveFileSystem[String, FileType, FolderType])
     extends CloudArchiveFileSystemFactory:
     override type ID = String
     override type File = FileType
@@ -125,14 +124,13 @@ object FileSystemMediaDownloaderFactorySpec:
     /** An exception to be raised when creating the file system. */
     var creationException: Option[Throwable] = None
 
-    override def createFileSystem(sourceUri: String, timeout: Timeout):
-    Try[CloudArchiveFileSystem[ID, File, Folder]] =
-      creationException.fold[Try[CloudArchiveFileSystem[ID, File, Folder]]](Try {
+    override def createFileSystem(sourceUri: String, timeout: Timeout): Try[CloudArchiveFileSystem[ID, File, Folder]] =
+      creationException.fold[Try[CloudArchiveFileSystem[ID, File, Folder]]](Try:
         if sourceUri != ArchiveUri then throw new AssertionError("Unexpected sourceUri: " + sourceUri)
         if timeout != ArchiveConfig.processorTimeout then
           throw new AssertionError("Unexpected timeout: " + timeout)
-        CloudArchiveFileSystem[String, FileType, FolderType](fileSystem, Uri.Path(RootPath))
-      }) { exception => Failure(exception) }
+        fileSystem
+      ) { exception => Failure(exception) }
 
 /**
   * Test class for ''FileSystemMediaDownloaderFactory''.
@@ -157,7 +155,7 @@ class FileSystemMediaDownloaderFactorySpec(testSystem: ActorSystem) extends Test
     val downloader = helper.expectSenderCreation(createSenderConfig())
       .createDownloaderSuccess()
     downloader.httpSender should be(helper.probeRequestActor.ref)
-    helper.checkFileSystem(downloader.archiveFileSystem.fileSystem)
+    helper.checkFileSystem(downloader.archiveFileSystem)
 
   it should "create a downloader using an encrypted file system" in:
     val Password = "#SecretKey*"
@@ -166,13 +164,13 @@ class FileSystemMediaDownloaderFactorySpec(testSystem: ActorSystem) extends Test
 
     val downloader = helper.expectSenderCreation(createSenderConfig())
       .createDownloaderSuccess(optKey = Some(key))
-    downloader.archiveFileSystem.fileSystem match
-      case fs: CryptContentFileSystem[_, _, _] =>
+    downloader.archiveFileSystem match
+      case fs: CryptContentFileSystem[?, ?, ?] =>
         fs.config.keyEncrypt should be(key)
         fs.config.keyDecrypt should be(key)
         fs.config.algorithm should be(Aes)
         fs.delegate match
-          case fsn: CryptNamesFileSystem[_, _, _] =>
+          case fsn: CryptNamesFileSystem[?, ?, ?] =>
             fsn.namesConfig.ignoreUnencrypted shouldBe true
             fsn.namesConfig.cryptConfig.keyEncrypt should be(key)
             fsn.namesConfig.cryptConfig.keyDecrypt should be(key)
@@ -212,7 +210,7 @@ class FileSystemMediaDownloaderFactorySpec(testSystem: ActorSystem) extends Test
     val helper = new FactoryTestHelper
     val downloader = helper.expectSenderCreation(createSenderConfig())
       .createDownloaderSuccess(optKey = Some(key))
-    val fileSystem = downloader.archiveFileSystem.fileSystem
+    val fileSystem = downloader.archiveFileSystem
     when(helper.fileSystem.rootID).thenReturn(stubOperation(RootID))
     doReturn(stubOperation(content)).when(helper.fileSystem).folderContent(RootID)
 
@@ -229,7 +227,7 @@ class FileSystemMediaDownloaderFactorySpec(testSystem: ActorSystem) extends Test
         spec.multiHostSupportFlag = true
       }.createDownloaderSuccess()
     downloader.httpSender should be(helper.probeRequestActor.ref)
-    helper.checkFileSystem(downloader.archiveFileSystem.fileSystem)
+    helper.checkFileSystem(downloader.archiveFileSystem)
 
   it should "create a downloader with retry support" in:
     val startupConfig = ArchiveStartupConfig.copy(needsRetrySupport = true)
@@ -344,10 +342,9 @@ class FileSystemMediaDownloaderFactorySpec(testSystem: ActorSystem) extends Test
       * @return the downloader created by the factory
       */
     def createDownloaderSuccess(startupConfig: HttpArchiveStartupConfig = ArchiveStartupConfig,
-                                optKey: Option[Key] = None): FileSystemMediaDownloader[_] =
+                                optKey: Option[Key] = None): FileSystemMediaDownloader[?, ?, ?] =
       createDownloader(startupConfig, optKey) match
-        case Success(downloader: FileSystemMediaDownloader[_]) =>
-          downloader.archiveFileSystem.rootPath should be(Uri.Path(RootPath))
+        case Success(downloader: FileSystemMediaDownloader[?, ?, ?]) =>
           downloader
         case r => fail("Unexpected result: " + r)
 

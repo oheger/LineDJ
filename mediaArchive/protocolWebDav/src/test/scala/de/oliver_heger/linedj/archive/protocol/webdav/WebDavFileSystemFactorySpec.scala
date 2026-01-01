@@ -46,8 +46,7 @@ class WebDavFileSystemFactorySpec extends AnyFlatSpec with Matchers:
 
     factory.createFileSystem(RootPath, timeout) match
       case Success(fs) =>
-        fs.rootPath should be(Uri.Path("/music"))
-        fs.fileSystem match
+        fs match
           case dav: DavFileSystem =>
             dav.config.timeout should be(timeout)
             dav.config.rootUri should be(Uri(RootPath))

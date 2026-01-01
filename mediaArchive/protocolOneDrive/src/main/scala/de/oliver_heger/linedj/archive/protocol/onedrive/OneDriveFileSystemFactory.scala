@@ -18,8 +18,8 @@ package de.oliver_heger.linedj.archive.protocol.onedrive
 
 import com.github.cloudfiles.core.http.UriEncodingHelper
 import com.github.cloudfiles.onedrive.{OneDriveConfig, OneDriveFileSystem, OneDriveModel}
-import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystem
 import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystemFactory
+import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystemFactory.CloudArchiveFileSystem
 import org.apache.pekko.http.scaladsl.model.Uri
 import org.apache.pekko.util.Timeout
 
@@ -66,5 +66,4 @@ class OneDriveFileSystemFactory extends CloudArchiveFileSystemFactory:
 
       val optRootPath = if rootPath.isEmpty then None else Some(rootPath.toString())
       val config = OneDriveConfig(driveID = driveID, optRootPath = optRootPath, timeout = timeout)
-      val fileSystem = new OneDriveFileSystem(config)
-      Success(CloudArchiveFileSystem(fileSystem, rootPath))
+      Success(new OneDriveFileSystem(config))

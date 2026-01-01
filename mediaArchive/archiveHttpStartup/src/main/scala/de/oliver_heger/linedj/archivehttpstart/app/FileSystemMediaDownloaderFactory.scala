@@ -23,10 +23,10 @@ import com.github.cloudfiles.core.http.factory.{HttpRequestSenderConfig, HttpReq
 import com.github.cloudfiles.crypt.alg.aes.Aes
 import com.github.cloudfiles.crypt.fs.resolver.CachePathComponentsResolver
 import com.github.cloudfiles.crypt.fs.{CryptConfig, CryptContentFileSystem, CryptNamesConfig, CryptNamesFileSystem}
-import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystem
 import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystemFactory
+import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystemFactory.CloudArchiveFileSystem
 import de.oliver_heger.linedj.archivehttp.io.{CookieManagementExtension, FileSystemMediaDownloader, MediaDownloader}
-import org.apache.pekko.actor.typed.scaladsl.adapter._
+import org.apache.pekko.actor.typed.scaladsl.adapter.*
 import org.apache.pekko.actor.{ActorSystem, typed}
 import org.apache.pekko.util.Timeout
 
@@ -82,16 +82,17 @@ class FileSystemMediaDownloaderFactory(val requestSenderFactory: HttpRequestSend
     * @return the extended file system
     */
   private def wrapWithCryptFileSystem[ID, FILE <: Model.File[ID], FOLDER <: Model.Folder[ID]]
-  (fs: CloudArchiveFileSystem[ID, FILE, FOLDER], startupConfig: HttpArchiveStartupConfig, cryptKey: Key)
+  (fs: CloudArchiveFileSystem[ID, FILE, FOLDER], 
+   startupConfig: HttpArchiveStartupConfig,
+   cryptKey: Key)
   (implicit system: ActorSystem): CloudArchiveFileSystem[ID, FILE, FOLDER] =
     val cryptConfig = CryptConfig(Aes, cryptKey, cryptKey, new SecureRandom)
     val namesConfig = CryptNamesConfig(cryptConfig = cryptConfig, ignoreUnencrypted = true)
     implicit val timeout: Timeout = startupConfig.archiveConfig.processorTimeout
     val resolver = CachePathComponentsResolver[ID, FILE, FOLDER](system, startupConfig.cryptCacheSize,
       startupConfig.cryptChunkSize)
-    val cryptNamesFs = new CryptNamesFileSystem(fs.fileSystem, namesConfig, resolver)
-    val cryptContentFs = new CryptContentFileSystem(cryptNamesFs, cryptConfig)
-    fs.copy(fileSystem = cryptContentFs)
+    val cryptNamesFs = new CryptNamesFileSystem(fs, namesConfig, resolver)
+    new CryptContentFileSystem(cryptNamesFs, cryptConfig)
 
   /**
     * Creates the configuration for the HTTP sender actor to be passed to the

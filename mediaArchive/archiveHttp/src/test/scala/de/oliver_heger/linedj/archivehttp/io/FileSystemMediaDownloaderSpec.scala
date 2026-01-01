@@ -19,7 +19,6 @@ package de.oliver_heger.linedj.archivehttp.io
 import com.github.cloudfiles.core.delegate.ExtensibleFileSystem
 import com.github.cloudfiles.core.http.HttpRequestSender
 import com.github.cloudfiles.core.{FileSystem, Model}
-import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystem
 import de.oliver_heger.linedj.{ActorTestKitSupport, AsyncTestHelper, FileTestHelper}
 import org.apache.pekko.actor.testkit.typed.scaladsl.TestProbe
 import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, Uri}
@@ -71,10 +70,10 @@ class FileSystemMediaDownloaderSpec extends AnyFlatSpec with Matchers with Mocki
     val entity = downloadEntity(FileSource)
     val helper = new DownloaderTestHelper
 
-    helper.prepareFileSystem { fs =>
+    helper.prepareFileSystem: fs =>
       when(fs.resolvePath(RelativePath.toString())).thenReturn(helper.stubOperation(FileID))
       doReturn(helper.stubOperation(entity)).when(fs).downloadFile(FileID)
-    }.invokeDownloader(RelativePath, None, FileSource)
+    .invokeDownloader(RelativePath, None, FileSource)
 
   it should "download a media file specified by a path and a segment" in:
     val PathPrefix = Uri.Path("media")
@@ -83,10 +82,10 @@ class FileSystemMediaDownloaderSpec extends AnyFlatSpec with Matchers with Mocki
     val entity = downloadEntity(FileSource)
     val helper = new DownloaderTestHelper
 
-    helper.prepareFileSystem { fs =>
+    helper.prepareFileSystem: fs =>
       when(fs.resolvePath(s"$PathPrefix$Segment")).thenReturn(helper.stubOperation(FileID))
       doReturn(helper.stubOperation(entity)).when(fs).downloadFile(FileID)
-    }.invokeDownloader(PathPrefix, Some(Segment), FileSource)
+    .invokeDownloader(PathPrefix, Some(Segment), FileSource)
 
   it should "download a media file specified by a path and a segment if the path ends with a slash" in:
     val PathPrefix = Uri.Path("media/")
@@ -95,10 +94,10 @@ class FileSystemMediaDownloaderSpec extends AnyFlatSpec with Matchers with Mocki
     val entity = downloadEntity(FileSource)
     val helper = new DownloaderTestHelper
 
-    helper.prepareFileSystem { fs =>
+    helper.prepareFileSystem: fs =>
       when(fs.resolvePath(s"$PathPrefix$Segment")).thenReturn(helper.stubOperation(FileID))
       doReturn(helper.stubOperation(entity)).when(fs).downloadFile(FileID)
-    }.invokeDownloader(PathPrefix, Some(Segment), FileSource)
+    .invokeDownloader(PathPrefix, Some(Segment), FileSource)
 
   it should "download a media file specified by a path and a segment if there are trailing and leading slashes" in:
     val PathPrefix = Uri.Path("media/")
@@ -107,10 +106,10 @@ class FileSystemMediaDownloaderSpec extends AnyFlatSpec with Matchers with Mocki
     val entity = downloadEntity(FileSource)
     val helper = new DownloaderTestHelper
 
-    helper.prepareFileSystem { fs =>
+    helper.prepareFileSystem: fs =>
       when(fs.resolvePath(s"$PathPrefix${Segment.drop(1)}")).thenReturn(helper.stubOperation(FileID))
       doReturn(helper.stubOperation(entity)).when(fs).downloadFile(FileID)
-    }.invokeDownloader(PathPrefix, Some(Segment), FileSource)
+    .invokeDownloader(PathPrefix, Some(Segment), FileSource)
 
   it should "download a media file specified by a path and a segment if there are no slashes as separators" in:
     val PathPrefix = Uri.Path("media")
@@ -119,10 +118,10 @@ class FileSystemMediaDownloaderSpec extends AnyFlatSpec with Matchers with Mocki
     val entity = downloadEntity(FileSource)
     val helper = new DownloaderTestHelper(rootPath = RootPath + "/")
 
-    helper.prepareFileSystem { fs =>
+    helper.prepareFileSystem: fs =>
       when(fs.resolvePath(s"$PathPrefix/$Segment")).thenReturn(helper.stubOperation(FileID))
       doReturn(helper.stubOperation(entity)).when(fs).downloadFile(FileID)
-    }.invokeDownloader(PathPrefix, Some(Segment), FileSource)
+    .invokeDownloader(PathPrefix, Some(Segment), FileSource)
 
   it should "stop the request actor on shutdown" in:
     val helper = new DownloaderTestHelper
@@ -166,7 +165,7 @@ class FileSystemMediaDownloaderSpec extends AnyFlatSpec with Matchers with Mocki
       * @param init the init function
       * @return this test helper
       */
-    def prepareFileSystem(init: FileSystem[String, _, _, _] => Unit): DownloaderTestHelper =
+    def prepareFileSystem(init: FileSystem[String, ?, ?, ?] => Unit): DownloaderTestHelper =
       init(mockFileSystem)
       this
 
@@ -222,7 +221,5 @@ class FileSystemMediaDownloaderSpec extends AnyFlatSpec with Matchers with Mocki
       *
       * @return the test downloader
       */
-    private def createDownloader(): FileSystemMediaDownloader[String] =
-      val httpArchiveFileSystem = CloudArchiveFileSystem(mockFileSystem, Uri.Path(rootPath))
-      new FileSystemMediaDownloader(httpArchiveFileSystem, probeHttpSender.ref)
-
+    private def createDownloader(): FileSystemMediaDownloader[String, Model.File[String], Model.Folder[String]] =
+      new FileSystemMediaDownloader(mockFileSystem, probeHttpSender.ref)

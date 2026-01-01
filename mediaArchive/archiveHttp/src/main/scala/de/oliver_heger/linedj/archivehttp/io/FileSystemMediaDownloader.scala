@@ -16,8 +16,9 @@
 
 package de.oliver_heger.linedj.archivehttp.io
 
+import com.github.cloudfiles.core.Model
 import com.github.cloudfiles.core.http.HttpRequestSender
-import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystem
+import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystemFactory.CloudArchiveFileSystem
 import org.apache.pekko.actor.typed.{ActorRef, ActorSystem}
 import org.apache.pekko.http.scaladsl.model.Uri
 import org.apache.pekko.stream.scaladsl.Source
@@ -40,15 +41,16 @@ import scala.concurrent.{ExecutionContext, Future}
   * @param system            the actor system
   * @tparam ID the type of IDs in the ''FileSystem''
   */
-class FileSystemMediaDownloader[ID](val archiveFileSystem: CloudArchiveFileSystem[ID, _, _],
+class FileSystemMediaDownloader[ID, FILE <: Model.File[ID],
+  FOLDER <: Model.Folder[ID]](val archiveFileSystem: CloudArchiveFileSystem[ID, FILE, FOLDER],
                                     val httpSender: ActorRef[HttpRequestSender.HttpCommand])
                                    (implicit system: ActorSystem[_]) extends MediaDownloader:
   override def downloadMediaFile(path: Uri.Path): Future[Source[ByteString, Any]] =
     implicit val ec: ExecutionContext = system.executionContext
 
     val op = for
-      id <- archiveFileSystem.fileSystem.resolvePath(path.toString())
-      entity <- archiveFileSystem.fileSystem.downloadFile(id)
+      id <- archiveFileSystem.resolvePath(path.toString())
+      entity <- archiveFileSystem.downloadFile(id)
     yield entity.dataBytes
 
     op.run(httpSender)
@@ -59,4 +61,4 @@ class FileSystemMediaDownloader[ID](val archiveFileSystem: CloudArchiveFileSyste
     */
   override def shutdown(): Unit =
     httpSender ! HttpRequestSender.Stop
-    archiveFileSystem.fileSystem.close()
+    archiveFileSystem.close()

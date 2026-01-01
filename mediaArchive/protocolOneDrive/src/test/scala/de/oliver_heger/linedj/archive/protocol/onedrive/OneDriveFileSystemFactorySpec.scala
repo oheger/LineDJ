@@ -18,12 +18,11 @@ package de.oliver_heger.linedj.archive.protocol.onedrive
 
 import com.github.cloudfiles.core.http.UriEncodingHelper
 import com.github.cloudfiles.onedrive.{OneDriveConfig, OneDriveFileSystem}
-import org.apache.pekko.http.scaladsl.model.Uri
 import org.apache.pekko.util.Timeout
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.util.{Failure, Success}
 
 /**
@@ -48,8 +47,7 @@ class OneDriveFileSystemFactorySpec extends AnyFlatSpec with Matchers:
 
     factory.createFileSystem(DriveID + RootPath, TestTimeout) match
       case Success(fs) =>
-        fs.rootPath should be(Uri.Path(RootPath))
-        fs.fileSystem match
+        fs match
           case oneDrive: OneDriveFileSystem =>
             oneDrive.config.driveID should be(DriveID)
             oneDrive.config.serverUri should be(OneDriveConfig.OneDriveServerUri)
@@ -64,8 +62,7 @@ class OneDriveFileSystemFactorySpec extends AnyFlatSpec with Matchers:
 
     factory.createFileSystem(ArchiveUri, Timeout(1.minute)) match
       case Success(fs) =>
-        fs.rootPath should be(Uri.Path.Empty)
-        fs.fileSystem match
+        fs match
           case oneDrive: OneDriveFileSystem =>
             oneDrive.config.driveID should be(ArchiveUri)
             oneDrive.config.optRootPath should be(None)
@@ -78,8 +75,7 @@ class OneDriveFileSystemFactorySpec extends AnyFlatSpec with Matchers:
 
     factory.createFileSystem(ArchiveUri + UriEncodingHelper.UriSeparator, Timeout(1.minute)) match
       case Success(fs) =>
-        fs.rootPath should be(Uri.Path.Empty)
-        fs.fileSystem match
+        fs match
           case oneDrive: OneDriveFileSystem =>
             oneDrive.config.driveID should be(ArchiveUri)
             oneDrive.config.optRootPath should be(None)
