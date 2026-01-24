@@ -19,10 +19,10 @@ package de.oliver_heger.linedj.archivehttpstart.app
 import com.github.cloudfiles.core.http.Secret
 import com.github.cloudfiles.core.http.factory.HttpRequestSenderFactoryImpl
 import de.oliver_heger.linedj.archive.cloud.CloudFileDownloader
+import de.oliver_heger.linedj.archive.cloud.auth.oauth.OAuthStorageServiceImpl
 import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystemFactory
 import de.oliver_heger.linedj.archivehttp.{HttpArchiveStateConnected, HttpArchiveStateDisconnected, HttpArchiveStateFailedRequest, HttpArchiveStateResponse, HttpArchiveStateServerError}
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
-import de.oliver_heger.linedj.archivehttp.io.oauth.OAuthStorageServiceImpl
 import de.oliver_heger.linedj.archivehttpstart.app.HttpArchiveStates.*
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.app.{AppWithTestPlatform, ApplicationSyncStartup, ApplicationTestSupport, ClientApplicationContext, ClientApplicationContextImpl}

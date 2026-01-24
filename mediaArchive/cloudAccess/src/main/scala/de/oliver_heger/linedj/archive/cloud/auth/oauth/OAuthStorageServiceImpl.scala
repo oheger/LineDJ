@@ -14,13 +14,12 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archivehttp.io.oauth
+package de.oliver_heger.linedj.archive.cloud.auth.oauth
 
 import com.github.cloudfiles.core.http.Secret
 import com.github.cloudfiles.core.http.auth.OAuthTokenData
 import com.github.cloudfiles.crypt.alg.aes.Aes
 import com.github.cloudfiles.crypt.service.CryptService
-import de.oliver_heger.linedj.archivehttp.config.OAuthStorageConfig
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.IOResult
 import org.apache.pekko.stream.scaladsl.{FileIO, Sink, Source}

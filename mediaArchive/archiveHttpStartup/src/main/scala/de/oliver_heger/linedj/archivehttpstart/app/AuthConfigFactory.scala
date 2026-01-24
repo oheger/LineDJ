@@ -17,9 +17,9 @@
 package de.oliver_heger.linedj.archivehttpstart.app
 
 import com.github.cloudfiles.core.http.Secret
-import com.github.cloudfiles.core.http.auth.{AuthConfig, BasicAuthConfig, OAuthTokenData, OAuthConfig => CloudOAuthConfig}
-import de.oliver_heger.linedj.archivehttp.config.{OAuthStorageConfig, UserCredentials}
-import de.oliver_heger.linedj.archivehttp.io.oauth.{OAuthConfig, OAuthStorageService}
+import com.github.cloudfiles.core.http.auth.{AuthConfig, BasicAuthConfig, OAuthTokenData, OAuthConfig as CloudOAuthConfig}
+import de.oliver_heger.linedj.archive.cloud.auth.oauth.{OAuthConfig, OAuthStorageConfig, OAuthStorageService}
+import de.oliver_heger.linedj.archivehttp.config.UserCredentials
 import org.apache.pekko.actor.ActorSystem
 
 import scala.concurrent.{ExecutionContext, Future}

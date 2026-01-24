@@ -14,16 +14,15 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archivehttp.io.oauth
+package de.oliver_heger.linedj.archive.cloud.auth.oauth
 
 import com.github.cloudfiles.core.http.Secret
 import com.github.cloudfiles.core.http.auth.OAuthTokenData
-import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
-import de.oliver_heger.linedj.archivehttp.config.OAuthStorageConfig
-import org.apache.commons.configuration.ConfigurationException
+import de.oliver_heger.linedj.FileTestHelper
+import de.oliver_heger.linedj.archive.cloud.auth.oauth.{OAuthConfig, OAuthStorageConfig, OAuthStorageServiceImpl}
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.testkit.TestKit
-import org.scalatest.flatspec.{AnyFlatSpecLike, AsyncFlatSpecLike}
+import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
 import spray.json.{DeserializationException, JsonParser}
@@ -58,7 +57,7 @@ class OAuthStorageServiceImplSpec(testSystem: ActorSystem) extends TestKit(testS
     tearDownTestFile()
     super.afterEach()
 
-  import OAuthStorageServiceImplSpec._
+  import OAuthStorageServiceImplSpec.*
   import system.dispatcher
 
   /**

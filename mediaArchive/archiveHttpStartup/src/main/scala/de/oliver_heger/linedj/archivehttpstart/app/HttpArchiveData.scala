@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.archivehttpstart.app
 
 import com.github.cloudfiles.core.http.Secret
-import de.oliver_heger.linedj.archivehttp.config.OAuthStorageConfig
+import de.oliver_heger.linedj.archive.cloud.auth.oauth.OAuthStorageConfig
 
 import java.nio.file.Path
 

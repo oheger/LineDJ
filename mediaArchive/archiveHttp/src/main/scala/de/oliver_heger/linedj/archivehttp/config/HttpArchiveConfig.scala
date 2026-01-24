@@ -37,37 +37,6 @@ import scala.concurrent.duration._
 case class UserCredentials(userName: String, password: Secret)
 
 /**
-  * A data class with information required to access the persistent information
-  * related to an OAuth identity provider.
-  *
-  * When loading or storing an OAuth configuration an instance of this class
-  * must be provided. It specifies the storage location of the configuration
-  * and also determines some other properties like the encryption status.
-  *
-  * The whole OAuth configuration for a specific identity provider (IDP) is
-  * stored in multiple files in a directory. All files belonging to the same
-  * configuration share the same base name. Sensitive information like tokens
-  * or client secrets are encrypted using the password provided.
-  *
-  * @param rootDir     the root directory where all files are stored
-  * @param baseName    the base name of the files of this configuration
-  * @param encPassword the password to encrypt sensitive files
-  */
-case class OAuthStorageConfig(rootDir: Path,
-                              baseName: String,
-                              encPassword: Secret):
-  /**
-    * Returns a path in the root directory that is derived from the base name
-    * with the given suffix. This is useful to locate concrete files related to
-    * a specific IDP configuration.
-    *
-    * @param suffix the suffix to append to the base name
-    * @return the path pointing to the file with the given suffix
-    */
-  def resolveFileName(suffix: String): Path =
-    rootDir.resolve(baseName + suffix)
-
-/**
   * A class defining the configuration settings to be applied for an HTTP
   * archive.
   *

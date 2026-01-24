@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archivehttp.io.oauth
+package de.oliver_heger.linedj.archive.cloud.auth.oauth
 
 import org.apache.pekko.actor.ActorSystem
 
