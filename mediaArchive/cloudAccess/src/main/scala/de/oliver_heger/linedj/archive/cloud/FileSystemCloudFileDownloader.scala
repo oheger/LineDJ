@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archivehttp.io
+package de.oliver_heger.linedj.archive.cloud
 
 import com.github.cloudfiles.core.Model
 import com.github.cloudfiles.core.http.HttpRequestSender

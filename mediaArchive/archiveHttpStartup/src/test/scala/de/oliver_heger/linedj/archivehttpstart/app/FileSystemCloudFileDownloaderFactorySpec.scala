@@ -28,11 +28,10 @@ import com.github.cloudfiles.crypt.alg.aes.Aes
 import com.github.cloudfiles.crypt.fs.{CryptContentFileSystem, CryptNamesFileSystem}
 import com.github.cloudfiles.crypt.service.CryptService
 import de.oliver_heger.linedj.AsyncTestHelper
-import de.oliver_heger.linedj.archive.cloud.CloudFileDownloader
+import de.oliver_heger.linedj.archive.cloud.{CloudFileDownloader, FileSystemCloudFileDownloader}
 import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystemFactory
 import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystemFactory.CloudArchiveFileSystem
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
-import de.oliver_heger.linedj.archivehttp.io.FileSystemCloudFileDownloader
 import org.apache.pekko.actor.testkit.typed.scaladsl.{ActorTestKit, TestProbe}
 import org.apache.pekko.actor.{ActorSystem, typed}
 import org.apache.pekko.http.scaladsl.model.headers.{HttpCookie, `Set-Cookie`}

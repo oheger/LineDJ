@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archivehttp.io
+package de.oliver_heger.linedj.archive.cloud
 
 import com.github.cloudfiles.core.delegate.ExtensibleFileSystem
 import com.github.cloudfiles.core.http.HttpRequestSender
 import com.github.cloudfiles.core.{FileSystem, Model}
+import de.oliver_heger.linedj.archive.cloud.FileSystemCloudFileDownloader
 import de.oliver_heger.linedj.{ActorTestKitSupport, AsyncTestHelper, FileTestHelper}
 import org.apache.pekko.actor.testkit.typed.scaladsl.TestProbe
 import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, Uri}

@@ -23,10 +23,10 @@ import com.github.cloudfiles.core.http.factory.{HttpRequestSenderConfig, HttpReq
 import com.github.cloudfiles.crypt.alg.aes.Aes
 import com.github.cloudfiles.crypt.fs.resolver.CachePathComponentsResolver
 import com.github.cloudfiles.crypt.fs.{CryptConfig, CryptContentFileSystem, CryptNamesConfig, CryptNamesFileSystem}
-import de.oliver_heger.linedj.archive.cloud.CloudFileDownloader
+import de.oliver_heger.linedj.archive.cloud.{CloudFileDownloader, FileSystemCloudFileDownloader}
 import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystemFactory
 import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystemFactory.CloudArchiveFileSystem
-import de.oliver_heger.linedj.archivehttp.io.{CookieManagementExtension, FileSystemCloudFileDownloader}
+import de.oliver_heger.linedj.archivehttp.io.CookieManagementExtension
 import org.apache.pekko.actor.typed.scaladsl.adapter.*
 import org.apache.pekko.actor.{ActorSystem, typed}
 import org.apache.pekko.util.Timeout
