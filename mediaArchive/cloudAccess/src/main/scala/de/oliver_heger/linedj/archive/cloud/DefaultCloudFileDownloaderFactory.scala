@@ -23,10 +23,10 @@ import com.github.cloudfiles.core.http.factory.{HttpRequestSenderConfig, HttpReq
 import com.github.cloudfiles.crypt.alg.aes.Aes
 import com.github.cloudfiles.crypt.fs.resolver.CachePathComponentsResolver
 import com.github.cloudfiles.crypt.fs.{CryptConfig, CryptContentFileSystem, CryptNamesConfig, CryptNamesFileSystem}
-import de.oliver_heger.linedj.archive.cloud.auth.{AuthConfigFactory, DefaultAuthConfigFactory}
+import de.oliver_heger.linedj.archive.cloud.auth.{AuthConfigFactory, Credentials}
 import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystemFactory.CloudArchiveFileSystem
-import org.apache.pekko.actor.{ActorSystem, typed}
 import org.apache.pekko.actor.typed.scaladsl.adapter.*
+import org.apache.pekko.actor.{ActorSystem, typed}
 
 import java.security.SecureRandom
 import scala.concurrent.{ExecutionContext, Future}
@@ -48,7 +48,7 @@ object DefaultCloudFileDownloaderFactory:
   private def wrapWithCryptFileSystem[ID, FILE <: Model.File[ID], FOLDER <: Model.Folder[ID]]
   (fs: CloudArchiveFileSystem[ID, FILE, FOLDER],
    config: CloudArchiveConfig)
-  (resolverFunc: DefaultAuthConfigFactory.CredentialResolverFunc)
+  (resolverFunc: Credentials.ResolverFunc)
   (using ec: ExecutionContext, system: ActorSystem): Future[CloudArchiveFileSystem[ID, FILE, FOLDER]] =
     config.optCryptConfig match
       case Some(archiveCryptConfig) =>
@@ -94,7 +94,7 @@ end DefaultCloudFileDownloaderFactory
   * If the archive configuration references an [[ArchiveCryptConfig]], this
   * class creates a corresponding encrypted file system (using AES as
   * encryption algorithm). It queries the encryption password from the given
-  * [[DefaultAuthConfigFactory.CredentialResolverFunc]] using the archive name
+  * [[Credentials.ResolverFunc]] using the archive name
   * as credentials key.
   *
   * @param authConfigFactory    the factory for the authentication config
@@ -105,7 +105,7 @@ end DefaultCloudFileDownloaderFactory
   */
 class DefaultCloudFileDownloaderFactory(val authConfigFactory: AuthConfigFactory,
                                         val requestSenderFactory: HttpRequestSenderFactory)
-                                       (resolver: DefaultAuthConfigFactory.CredentialResolverFunc)
+                                       (resolver: Credentials.ResolverFunc)
                                        (using ec: ExecutionContext, system: ActorSystem)
   extends CloudFileDownloaderFactory:
 

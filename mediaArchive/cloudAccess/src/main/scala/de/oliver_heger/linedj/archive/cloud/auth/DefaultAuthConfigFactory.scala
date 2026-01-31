@@ -19,7 +19,6 @@ package de.oliver_heger.linedj.archive.cloud.auth
 import com.github.cloudfiles.core.http.Secret
 import com.github.cloudfiles.core.http.auth.{AuthConfig, BasicAuthConfig, OAuthTokenData, OAuthConfig as CloudOAuthConfig}
 import de.oliver_heger.linedj.archive.cloud.CloudArchiveConfig
-import de.oliver_heger.linedj.archive.cloud.auth.DefaultAuthConfigFactory.CredentialResolverFunc
 import de.oliver_heger.linedj.archive.cloud.auth.oauth.{OAuthConfig, OAuthStorageConfig, OAuthStorageService}
 import org.apache.pekko.actor.ActorSystem
 
@@ -27,14 +26,6 @@ import java.nio.file.Path
 import scala.concurrent.{ExecutionContext, Future}
 
 object DefaultAuthConfigFactory:
-  /**
-    * An alias for a function that can resolve credentials (for cloud archives)
-    * based on keys. It is used by [[DefaultAuthConfigFactory]] to obtain the
-    * concrete secrets for constructing an [[AuthConfig]]. The function expects
-    * a string key and returns a [[Future]] with the resolved [[Secret]].
-    */
-  type CredentialResolverFunc = String => Future[Secret]
-
   /** The property to request the username for a basic auth config. */
   final val UsernameProperty = "username"
 
@@ -78,7 +69,7 @@ end DefaultAuthConfigFactory
 class DefaultAuthConfigFactory(storageService:
                                OAuthStorageService[OAuthStorageConfig, OAuthConfig, Secret, OAuthTokenData],
                                storagePath: Path)
-                              (resolverFunc: CredentialResolverFunc)
+                              (resolverFunc: Credentials.ResolverFunc)
                               (using ec: ExecutionContext, system: ActorSystem) extends AuthConfigFactory:
 
   import DefaultAuthConfigFactory.*

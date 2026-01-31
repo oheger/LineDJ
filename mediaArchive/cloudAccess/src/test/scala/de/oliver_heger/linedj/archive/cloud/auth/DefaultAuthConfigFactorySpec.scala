@@ -54,7 +54,7 @@ object DefaultAuthConfigFactorySpec:
     * @param credentials the map with credentials
     * @return the resolver function
     */
-  private def resolverFunc(credentials: Map[String, Secret]): DefaultAuthConfigFactory.CredentialResolverFunc =
+  private def resolverFunc(credentials: Map[String, Secret]): Credentials.ResolverFunc =
     key =>
       credentials.get(key) match
         case Some(value) => Future.successful(value)
@@ -113,7 +113,7 @@ class DefaultAuthConfigFactorySpec(testSystem: ActorSystem) extends TestKit(test
     val Username = Secret("Scott")
     val Password = Secret("Tiger")
     val requestedCredentials = new LinkedBlockingQueue[String]
-    val resolver: DefaultAuthConfigFactory.CredentialResolverFunc = key =>
+    val resolver: Credentials.ResolverFunc = key =>
       requestedCredentials.offer(key)
       Promise().future
 

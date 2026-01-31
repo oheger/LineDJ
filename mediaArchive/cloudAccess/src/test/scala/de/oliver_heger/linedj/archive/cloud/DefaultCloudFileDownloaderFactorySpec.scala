@@ -26,7 +26,7 @@ import com.github.cloudfiles.core.http.factory.{HttpRequestSenderConfig, HttpReq
 import com.github.cloudfiles.crypt.alg.aes.Aes
 import com.github.cloudfiles.crypt.fs.{CryptContentFileSystem, CryptNamesFileSystem}
 import com.github.cloudfiles.crypt.service.CryptService
-import de.oliver_heger.linedj.archive.cloud.auth.{AuthConfigFactory, BasicAuthMethod, DefaultAuthConfigFactory}
+import de.oliver_heger.linedj.archive.cloud.auth.{AuthConfigFactory, BasicAuthMethod, Credentials, DefaultAuthConfigFactory}
 import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystemFactory
 import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystemFactory.CloudArchiveFileSystem
 import org.apache.pekko.actor.ActorSystem
@@ -415,7 +415,7 @@ class DefaultCloudFileDownloaderFactorySpec(testSystem: ActorSystem) extends Tes
       *
       * @return the credentials resolver function
       */
-    private def createResolverFunc(): DefaultAuthConfigFactory.CredentialResolverFunc =
+    private def createResolverFunc(): Credentials.ResolverFunc =
       credential =>
         Option(credentials.get(credential)) match
           case Some(value) => Future.successful(value)
