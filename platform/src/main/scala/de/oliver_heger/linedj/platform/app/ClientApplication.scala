@@ -30,6 +30,9 @@ object ClientApplication:
   /** The bean for the client-side actor system. */
   final val BeanActorSystem: String = BeanPrefix + "ActorSystem"
 
+  /** The bean for the execution context. */
+  final val BeanExecutionContext: String = BeanPrefix + "ExecutionContext"
+
   /** The bean for the actor factory. */
   final val BeanActorFactory: String = BeanPrefix + "ActorFactory"
 
@@ -225,6 +228,7 @@ class ClientApplication(val appName: String) extends Application with ClientCont
   override def createApplicationContext(): ApplicationContext =
     val appCtx = super.createApplicationContext()
     addBeanDuringApplicationStartup(BeanActorSystem, clientApplicationContext.actorSystem)
+    addBeanDuringApplicationStartup(BeanExecutionContext, clientApplicationContext.actorSystem.dispatcher)
     addBeanDuringApplicationStartup(BeanActorFactory, clientApplicationContext.actorFactory)
     addBeanDuringApplicationStartup(BeanMessageBus, clientApplicationContext.messageBus)
     addBeanDuringApplicationStartup(BeanMediaFacade, clientApplicationContext.mediaFacade)

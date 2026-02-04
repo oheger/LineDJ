@@ -23,7 +23,24 @@ import de.oliver_heger.linedj.shared.actors.ActorFactory
 import net.sf.jguiraffe.gui.builder.window.{WindowManager, WindowManagerImpl}
 import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
 import org.apache.pekko.actor.ActorSystem
+import org.mockito.Mockito
 import org.scalatestplus.mockito.MockitoSugar.mock
+
+import scala.concurrent.ExecutionContextExecutor
+
+object ClientApplicationContextImpl:
+  /**
+    * Creates a mock actor system that is also prepared to provide an execution
+    * context.
+    *
+    * @return the mock for the actor system
+    */
+  private def createMockActorSystem(): ActorSystem =
+    val ec = mock[ExecutionContextExecutor]
+    val actorSystem = mock[ActorSystem]
+    Mockito.when(actorSystem.dispatcher).thenReturn(ec)
+    actorSystem
+end ClientApplicationContextImpl
 
 /**
   * An implementation of ''ClientApplicationContext'' which stores a bunch of
@@ -32,7 +49,8 @@ import org.scalatestplus.mockito.MockitoSugar.mock
   */
 class ClientApplicationContextImpl(override val managementConfiguration: Configuration = new PropertiesConfiguration(),
                                    override val messageBus: MessageBus = mock[MessageBus],
-                                   override val actorSystem: ActorSystem = mock[ActorSystem],
+                                   override val actorSystem: ActorSystem =
+                                   ClientApplicationContextImpl.createMockActorSystem(),
                                    override val actorFactory: ActorFactory = mock[ActorFactory],
                                    override val mediaFacade: MediaFacade = mock[MediaFacade],
                                    override val windowManager: WindowManager = new WindowManagerImpl,

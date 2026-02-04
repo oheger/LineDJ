@@ -28,7 +28,7 @@ import net.sf.jguiraffe.gui.builder.window.{Window, WindowListener, WindowManage
 import org.apache.commons.configuration.PropertiesConfiguration
 import org.apache.pekko.actor.ActorSystem
 import org.mockito.ArgumentMatchers.{any, anyBoolean}
-import org.mockito.Mockito._
+import org.mockito.Mockito.*
 import org.mockito.{ArgumentCaptor, Mockito}
 import org.osgi.service.component.ComponentContext
 import org.scalatest.flatspec.AnyFlatSpec
@@ -36,6 +36,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import java.util.concurrent.atomic.AtomicInteger
+import scala.concurrent.ExecutionContext
 
 /**
   * Test class for ''ClientApplication''.
@@ -98,6 +99,13 @@ class ClientApplicationSpec extends AnyFlatSpec with Matchers with MockitoSugar 
 
     queryBean[ActorSystem](app, ClientApplication.BeanActorSystem) should be(app.
       clientApplicationContext.actorSystem)
+
+  it should "define a bean for the execution context" in :
+    val app = setUpApp()
+
+    val ec = queryBean[ExecutionContext](app, ClientApplication.BeanExecutionContext)
+
+    ec should be(app.clientApplicationContext.actorSystem.dispatcher)
 
   it should "define a bean for the actor factory" in :
     val app = setUpApp()
