@@ -40,11 +40,11 @@ import java.util.concurrent.atomic.AtomicInteger
 /**
   * Test class for ''ClientApplication''.
   */
-class ClientApplicationSpec extends AnyFlatSpec with Matchers with MockitoSugar with
-ApplicationTestSupport:
+class ClientApplicationSpec extends AnyFlatSpec with Matchers with MockitoSugar with ApplicationTestSupport:
   /**
     * Creates a mock application context. The mock is also prepared to return
     * the application's main window mock and an empty configuration.
+    *
     * @return the mock application context
     */
   private def createApplicationContext(): ApplicationContext =
@@ -55,29 +55,31 @@ ApplicationTestSupport:
 
   /**
     * Creates a test application.
+    *
     * @param mainWindowBeanContext a bean context for the main window
     * @return the test application
     */
   private def createApp(mainWindowBeanContext: BeanContext = null): ClientApplication =
-    val app = new ClientApplication("testClientApp") with ApplicationSyncStartup:
+    val app: ClientApplication = new ClientApplication("testClientApp") with ApplicationSyncStartup:
       override def getMainWindowBeanContext: BeanContext = mainWindowBeanContext
-    app initApplicationManager mock[ApplicationManager]
+    app.initApplicationManager(mock[ApplicationManager])
     app
 
   /**
     * Creates a test application and starts it so that it is correctly
     * initialized.
+    *
     * @return the test application
     */
   private def setUpApp(): ClientApplication =
     activateApp(createApp())
 
-  "A ClientApplication" should "use the correct configuration" in:
+  "A ClientApplication" should "use the correct configuration" in :
     val app = setUpApp()
 
     app.getConfigResourceName should be("testClientApp_config.xml")
 
-  it should "return a correct client context" in:
+  it should "return a correct client context" in :
     val context = mock[ClientApplicationContext]
     val app = createApp()
 
@@ -85,43 +87,43 @@ ApplicationTestSupport:
     app.clientApplicationContext should be(context)
     verifyNoInteractions(context)
 
-  it should "define a bean for the window manager" in:
+  it should "define a bean for the window manager" in :
     val app = setUpApp()
 
     queryBean[WindowManager](app,
       "jguiraffe.windowManager") should be(app.clientApplicationContext.windowManager)
 
-  it should "define a bean for the actor system" in:
+  it should "define a bean for the actor system" in :
     val app = setUpApp()
 
     queryBean[ActorSystem](app, ClientApplication.BeanActorSystem) should be(app.
       clientApplicationContext.actorSystem)
 
-  it should "define a bean for the actor factory" in:
+  it should "define a bean for the actor factory" in :
     val app = setUpApp()
 
     queryBean[ActorFactory](app, ClientApplication.BeanActorFactory) should be(app.
       clientApplicationContext.actorFactory)
 
-  it should "define a bean for the message bus" in:
+  it should "define a bean for the message bus" in :
     val app = setUpApp()
 
     queryBean[MessageBus](app, ClientApplication.BeanMessageBus) should be(app.
       clientApplicationContext.messageBus)
 
-  it should "define a bean for the media facade" in:
+  it should "define a bean for the media facade" in :
     val app = setUpApp()
 
     queryBean[MediaFacade](app, ClientApplication.BeanMediaFacade) should be
     app.clientApplicationContext.mediaFacade
 
-  it should "define a bean for the client application context" in:
+  it should "define a bean for the client application context" in :
     val app = setUpApp()
 
     queryBean[ClientApplicationContext](app,
       ClientApplication.BeanClientApplicationContext) should be(app.clientApplicationContext)
 
-  it should "correctly initialize the application" in:
+  it should "correctly initialize the application" in :
     val app = createApp()
     val appContext = createApplicationContext()
     val clientContext = new ClientApplicationContextImpl
@@ -132,12 +134,12 @@ ApplicationTestSupport:
     verify(appContext).getConfiguration
     verify(app.applicationManager).registerApplication(app)
 
-  it should "initialize some special beans if they are present" in:
+  it should "initialize some special beans if they are present" in :
     val appContext = createApplicationContext()
     val beanContext = mock[BeanContext]
     addBeans(beanContext,
       Map(ClientApplication.BeanMessageBusRegistration -> mock[MessageBusRegistration],
-      ClientApplication.BeanConsumerRegistration -> mock[ConsumerRegistrationProcessor]))
+        ClientApplication.BeanConsumerRegistration -> mock[ConsumerRegistrationProcessor]))
     val app = createApp(mainWindowBeanContext = beanContext)
     app initClientContext new ClientApplicationContextImpl
     app setApplicationContext appContext
@@ -146,7 +148,7 @@ ApplicationTestSupport:
     verify(beanContext).getBean(ClientApplication.BeanMessageBusRegistration)
     verify(beanContext).getBean(ClientApplication.BeanConsumerRegistration)
 
-  it should "not initialize special beans that are not present" in:
+  it should "not initialize special beans that are not present" in :
     val appContext = createApplicationContext()
     val beanContext = mock[BeanContext]
     when(appContext.getConfiguration).thenReturn(new PropertiesConfiguration)
@@ -158,7 +160,7 @@ ApplicationTestSupport:
     verify(beanContext, never()).getBean(ClientApplication.BeanMessageBusRegistration)
     verify(beanContext, never()).getBean(ClientApplication.BeanConsumerRegistration)
 
-  it should "support updating the title of its main window" in:
+  it should "support updating the title of its main window" in :
     val Title = "Changed Window Title"
     val appContext = createApplicationContext()
     val app = createApp()
@@ -169,7 +171,7 @@ ApplicationTestSupport:
     io.verify(appContext.getMainWindow).setTitle(Title)
     io.verify(app.applicationManager).applicationTitleUpdated(app, Title)
 
-  it should "not throw if the title of a non-existing window is changed" in:
+  it should "not throw if the title of a non-existing window is changed" in :
     val app = createApp()
     app setApplicationContext mock[ApplicationContext]
 
@@ -206,10 +208,10 @@ ApplicationTestSupport:
     app.showMainWindow(visible)
     verify(window).setVisible(visible)
 
-  it should "allow hiding the main window" in:
+  it should "allow hiding the main window" in :
     checkChangeWindowVisibility(visible = false)
 
-  it should "allow showing the main window" in:
+  it should "allow showing the main window" in :
     checkChangeWindowVisibility(visible = true)
 
   /**
@@ -237,7 +239,7 @@ ApplicationTestSupport:
     verify(sync).asyncInvoke(captor.capture())
     captor.getValue
 
-  it should "allow hiding the window before it is opened" in:
+  it should "allow hiding the window before it is opened" in :
     val appContext = createApplicationContext()
     val app = createApp()
     app initClientContext new ClientApplicationContextImpl
@@ -252,7 +254,7 @@ ApplicationTestSupport:
     expectSyncAction(sync).run()
     verify(appContext.getMainWindow).setVisible(false)
 
-  it should "hide the application window only once when being opened" in:
+  it should "hide the application window only once when being opened" in :
     val appContext = createApplicationContext()
     val app = createApp()
     app initClientContext new ClientApplicationContextImpl
@@ -265,10 +267,10 @@ ApplicationTestSupport:
     notifyWindowOpened(appContext)
     verify(sync).asyncInvoke(any(classOf[Runnable]))
 
-  it should "trigger a shutdown when it is deactivated" in:
+  it should "trigger a shutdown when it is deactivated" in :
     val shutdownCounter = new AtomicInteger
     val app = new ClientApplication("testClientApp") with ApplicationSyncStartup:
-      override def shutdown(force: Boolean):Unit =
+      override def shutdown(force: Boolean): Unit =
         if force then shutdownCounter.incrementAndGet()
 
     app.deactivate(mock[ComponentContext])

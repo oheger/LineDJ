@@ -25,29 +25,29 @@ import org.osgi.service.component.ComponentContext
 
 object ClientApplication:
   /** The prefix used by all beans managed by this application. */
-  val BeanPrefix = "LineDJ_"
+  final val BeanPrefix = "LineDJ_"
 
   /** The bean for the client-side actor system. */
-  val BeanActorSystem: String = BeanPrefix + "ActorSystem"
+  final val BeanActorSystem: String = BeanPrefix + "ActorSystem"
 
   /** The bean for the actor factory. */
-  val BeanActorFactory: String = BeanPrefix + "ActorFactory"
+  final val BeanActorFactory: String = BeanPrefix + "ActorFactory"
 
   /** The bean for the message bus. */
-  val BeanMessageBus: String = BeanPrefix + "MessageBus"
+  final val BeanMessageBus: String = BeanPrefix + "MessageBus"
 
   /** The bean for the media facade. */
-  val BeanMediaFacade: String = BeanPrefix + "MediaFacade"
+  final val BeanMediaFacade: String = BeanPrefix + "MediaFacade"
 
   /** The bean for the whole client application context. */
-  val BeanClientApplicationContext: String = BeanPrefix + "ClientApplicationContext"
+  final val BeanClientApplicationContext: String = BeanPrefix + "ClientApplicationContext"
 
   /**
     * The bean for the message bus registration. If a bean with this name is
     * available in the bean context for the main window, it is requested and
     * thus initialized automatically.
     */
-  val BeanMessageBusRegistration: String = BeanPrefix + "messageBusRegistration"
+  final val BeanMessageBusRegistration: String = BeanPrefix + "messageBusRegistration"
 
   /**
     * The bean for the consumer registration (for extensions of the media
@@ -55,14 +55,15 @@ object ClientApplication:
     * context for the main window, it is requested and thus initialized
     * automatically.
     */
-  val BeanConsumerRegistration: String = BeanPrefix + "consumerRegistration"
+  final val BeanConsumerRegistration: String = BeanPrefix + "consumerRegistration"
 
   /**
     * The name of a blocking dispatcher in the actor system configuration.
     * Client applications can use this dispatcher for actors that do blocking
     * operations of any kind.
     */
-  val BlockingDispatcherName = "blocking-dispatcher"
+  final val BlockingDispatcherName = "blocking-dispatcher"
+end ClientApplication
 
 /**
   * A class representing a visual client application running on the LineDJ
@@ -84,7 +85,7 @@ object ClientApplication:
   *  - ''LineDJ_MessageBus'': The UI message bus.
   *  - ''LineDJ_MediaFacade'': The facade to the media archive.
   *  - ''LineDJ_ClientApplicationContext'': The [[ClientApplicationContext]]
-  * itself.
+  *    itself.
   *
   * There is also some support for registering listeners on the system-wide
   * message bus: If the Jelly script for the main window defines a bean named
@@ -103,11 +104,11 @@ object ClientApplication:
   * interactions are implemented with it:
   *
   *  - The application is registered as service in the OSGi registry. This is
-  * required to let it take part in the platform's application management,
-  * including shutdown handling.
+  *    required to let it take part in the platform's application management,
+  *    including shutdown handling.
   *  - The ''ApplicationManager'' is notified when this application has been
-  * fully initialized (and the Jelly script for the main window has been
-  * executed).
+  *    fully initialized (and the Jelly script for the main window has been
+  *    executed).
   *
   * '''Further notes'''
   *
@@ -142,14 +143,16 @@ class ClientApplication(val appName: String) extends Application with ClientCont
   /**
     * Initializes the ''ApplicationManager'' service. This method is called by
     * the SCR.
+    *
     * @param appMan the ''ApplicationManager''
     */
   def initApplicationManager(appMan: ApplicationManager): Unit =
     applicationManagerField = appMan
 
   /**
-    * Returns the ''ApplicationManager''. This object is available afther the
+    * Returns the ''ApplicationManager''. This object is available after the
     * initialization of this application.
+    *
     * @return the ''ApplicationManager''
     */
   def applicationManager: ApplicationManager = applicationManagerField
@@ -175,7 +178,7 @@ class ClientApplication(val appName: String) extends Application with ClientCont
     * updates the title but also informs the [[ApplicationManager]] about the
     * new title. '''Note:''' This method can only be called on the event
     * dispatch thread!
- *
+    *
     * @param newTitle the new title of this application's main window
     */
   def updateTitle(newTitle: String): Unit =
@@ -189,6 +192,7 @@ class ClientApplication(val appName: String) extends Application with ClientCont
     * already open, its visibility is changed immediately. Otherwise, the
     * visibility state is stored and applied when the window is opened.
     * This method must be called in the event dispatch thread.
+    *
     * @param display the new visibility state of the main window
     */
   def showMainWindow(display: Boolean): Unit =
@@ -199,6 +203,7 @@ class ClientApplication(val appName: String) extends Application with ClientCont
 
   /**
     * Returns an option for this application's main window.
+    *
     * @return the option for the main window
     */
   def optMainWindow: Option[Window] =
@@ -206,7 +211,8 @@ class ClientApplication(val appName: String) extends Application with ClientCont
 
   /**
     * Returns this application's main window.
-    * @return this application's main window (may be '''null''')
+    *
+    * @return this application's main window (can be '''null''')
     */
   def mainWindow: Window =
     getApplicationContext.getMainWindow
@@ -224,7 +230,7 @@ class ClientApplication(val appName: String) extends Application with ClientCont
     addBeanDuringApplicationStartup(BeanMediaFacade, clientApplicationContext.mediaFacade)
     addBeanDuringApplicationStartup(BeanClientApplicationContext, clientApplicationContext)
 
-    // needs to be added to the bean store with highest priority
+    // needs to be added to the bean store with the highest priority
     val topBeanStore = appCtx.getBeanContext.getDefaultBeanStore.asInstanceOf[MutableBeanStore]
     topBeanStore.addBeanProvider("jguiraffe.windowManager",
       ConstantBeanProvider.getInstance(clientApplicationContext.windowManager))
@@ -262,6 +268,7 @@ class ClientApplication(val appName: String) extends Application with ClientCont
     * Creates a window listener which notifies this application when its main
     * window is opened. This is needed because some manipulations on the main
     * window can only be done if it has already been opened.
+    *
     * @return the window listener
     */
   private def createWindowOpenedListener(): WindowListener =
