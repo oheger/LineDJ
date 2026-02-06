@@ -30,7 +30,7 @@ import de.oliver_heger.linedj.platform.bus.MessageBusRegistration
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.{MediaArchiveAvailabilityEvent, MediaFacadeActors}
 import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension.{ArchiveAvailabilityRegistration, ArchiveAvailabilityUnregistration}
-import de.oliver_heger.linedj.shared.actors.ActorFactory
+import de.oliver_heger.linedj.shared.actors.{ActorFactory, ManagingActorFactory}
 import net.sf.jguiraffe.di.BeanContext
 import net.sf.jguiraffe.di.impl.DefaultBeanStore
 import net.sf.jguiraffe.di.impl.providers.ConstantBeanProvider
@@ -171,6 +171,16 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
 
     app shouldBe a[HttpArchiveStartupApplication]
     app.appName should be("httpArchiveStartup")
+    
+  it should "create a correct factory bean for cloud files downloader objects" in:
+    val helper = new StartupTestHelper()  
+    
+    val factory = helper.startupApplication()
+      .queryBean[DownloaderFactoryBean](helper.app, HttpArchiveStartupApplication.BeanDownloaderFactory)
+    
+    factory.actorFactory match
+      case m: ManagingActorFactory =>
+        m.management should be(helper.app)
 
   it should "create a default archive starter" in:
     val helper = new StartupTestHelper(mockStarter = false)

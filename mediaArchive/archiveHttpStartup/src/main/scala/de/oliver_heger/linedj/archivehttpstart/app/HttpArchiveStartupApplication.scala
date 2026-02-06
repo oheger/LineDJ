@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.archivehttpstart.app
 import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystemFactory
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
 import de.oliver_heger.linedj.archivehttp.{HttpArchiveStateConnected, HttpArchiveStateResponse, HttpArchiveStateServerError}
-import de.oliver_heger.linedj.archivehttpstart.app.HttpArchiveStates._
+import de.oliver_heger.linedj.archivehttpstart.app.HttpArchiveStates.*
 import de.oliver_heger.linedj.platform.app.support.{ActorClientSupport, ActorManagementComponent}
 import de.oliver_heger.linedj.platform.app.{ApplicationAsyncStartup, ClientApplication, ClientApplicationContext}
 import de.oliver_heger.linedj.platform.bus.Identifiable
@@ -27,6 +27,7 @@ import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaArchiveAvailabilityEvent
 import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension.{ArchiveAvailabilityRegistration, ArchiveAvailabilityUnregistration}
+import de.oliver_heger.linedj.shared.actors.ManagingActorFactory
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import org.apache.pekko.actor.Actor.Receive
 import org.apache.pekko.actor.ActorRef
@@ -38,7 +39,7 @@ import java.nio.file.Path
 import java.security.Key
 import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.Future
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.language.existentials
 import scala.util.{Failure, Success, Try}
 
@@ -67,8 +68,14 @@ object HttpArchiveStartupApplication:
     * central bean context.
     */
   final val BeanConfigManager = "httpArchiveConfigManager"
+  
+  /** The name of the bean for the managing actor factory. */
+  final val BeanManagingActorFactory = "httpArchiveManagingActorFactory"
+  
+  /** The name of the factory bean to create a downloader factory. */
+  final val BeanDownloaderFactory = "httpArchiveDownloaderFactory"
 
-  /** The name of the bean to startup an HTTP archive. */
+  /** The name of the bean to start up an HTTP archive. */
   final val BeanArchiveStarter = "httpArchiveStarter"
 
   /** The default initialization timeout (in seconds). */
@@ -172,15 +179,14 @@ object HttpArchiveStartupApplication:
   * only be started if it is present.
   */
 class HttpArchiveStartupApplication extends ClientApplication("httpArchiveStartup")
-  with ApplicationAsyncStartup with Identifiable with ActorClientSupport
-  with ActorManagementComponent:
+  with ApplicationAsyncStartup with Identifiable with ActorClientSupport with ActorManagementComponent:
 
   import HttpArchiveStartupApplication._
 
   /**
     * Stores the ID for the message bus registration. Note: The registration
     * is done during application context creation in a background thread.
-    * Therefore, is has to be ensured that the value is published in a safe
+    * Therefore, it has to be ensured that the value is published in a safe
     * way.
     */
   private val messageBusRegistrationID = new AtomicInteger
@@ -270,6 +276,8 @@ class HttpArchiveStartupApplication extends ClientApplication("httpArchiveStartu
     configManager = HttpArchiveConfigManager(clientApplicationContext.managementConfiguration)
     archiveStates = createInitialArchiveState()
     addBeanDuringApplicationStartup(BeanConfigManager, configManager)
+    val managingActorFactory = ManagingActorFactory.newManagingActorFactory(this)
+    addBeanDuringApplicationStartup(BeanManagingActorFactory, managingActorFactory)
     publish(ArchiveAvailabilityRegistration(componentID, archiveAvailabilityChanged))
     context
 

@@ -35,6 +35,19 @@
               field="MODULE$" var="requestSenderFactoryVar"/>
     <di:contextBean var="requestSenderFactoryVar" name="requestSenderFactory"/>
 
+    <!-- The factory bean for creating a downloader factory -->
+    <di:bean name="httpArchiveDownloaderFactory"
+      beanClassName="de.oliver_heger.linedj.archivehttpstart.app.DownloaderFactoryBean">
+      <di:constructor>
+        <di:param refName="LineDJ_ActorSystem"/>
+        <di:param refName="LineDJ_ExecutionContext"/>
+        <di:param refName="httpArchiveManagingActorFactory"/>
+        <di:param refName="oauthStorageService"/>
+        <di:param refName="requestSenderFactory"/>
+        <di:param refName="LineDJ_ClientApplicationContext"/>
+      </di:constructor>
+    </di:bean>
+
     <!-- The factory for creating a MediaFileDownloader. -->
     <di:bean name="mediaDownloaderFactory"
              beanClassName="de.oliver_heger.linedj.archivehttpstart.app.FileSystemMediaDownloaderFactory">
