@@ -225,7 +225,7 @@ authentication mechanism. Currently, the following mechanisms are supported:
 [cols="1,2",options="header"]
 |=================
 | Type | Description
-| basic | The _basic auth_ mechanism. Requires a user name and password to log
+| basic | The _basic auth_ mechanism. Requires a username and password to log
 into the server.
 | oauth | Authentication based on https://oauth.net/2/[OAuth 2.0] (using the
 https://oauth.net/2/grant-types/authorization-code/[Authorization Code Grant]).
@@ -260,25 +260,23 @@ additional metadata:
     <realm>
       <name>microsoft</name>
       <type>oauth</type>
-      <idp>microsoft</idp>
       <path>${sys:user.home}/.lineDJ/tokens</path>
     </realm>
   </realms>
 ----
 
-In addition to the default elements _name_ and _type_, a name of the IDP and a
-path where the IDP-related information files are located must be specified. In
+In addition to the default elements _name_ and _type_, a path where the IDP-related information files are located must be specified. In
 this path (note how this example makes use of system properties to reference
 the user's home directory) a number of files are expected that define basic
 properties of the IDP and store token information. The name of these files is
-always identical to the IDP name (as defined by the _idp_ element), but they
+always identical to the realm name (as defined by the _name_ element), but they
 have different extensions:
 
 .Extensions for files defining IDPs
 [cols="1,2",options="header"]
 |=================
 | File extension | Description
-| xml | An XML file defining basic properties of the IDP, such as the endpoints
+| json | A JSON file defining basic properties of the IDP, such as the endpoints
 for requesting access tokens, the client ID, the scope, and the redirect URI.
 An example can be found xref:idp-definition-file[below].
 | sec | This file contains the client secret assigned by the IDP. As this
@@ -293,25 +291,15 @@ refresh token is used to request another token.
 [[idp-definition-file]]
 A file defining basic properties of an IDP looks as follows:
 
-[source,xml]
+[source,json]
 ----
-<oauth-config>
-    <client-id>
-      8275fe3a-2bef-45c1-b9fc-fedc940fb386
-    </client-id>
-    <authorization-endpoint>
-      https://login.live.com/oauth20_authorize.srf
-    </authorization-endpoint>
-    <token-endpoint>
-      https://login.live.com/oauth20_token.srf
-    </token-endpoint>
-    <scope>
-      files.readwrite offline_access
-    </scope>
-    <redirect-uri>
-      http://localhost:8080
-    </redirect-uri>
-</oauth-config>
+{
+  "authorizationEndpoint": "https://login.live.com/oauth20_authorize.srf",
+  "clientId": "98275fe3a-2bef-45c1-b9fc-fedc940fb386",
+  "redirectUri": "http://localhost:8080",
+  "scope": "files.readwrite offline_access",
+  "tokenEndpoint": "https://login.live.com/oauth20_token.srf"
+}
 ----
 
 === Basic metadata

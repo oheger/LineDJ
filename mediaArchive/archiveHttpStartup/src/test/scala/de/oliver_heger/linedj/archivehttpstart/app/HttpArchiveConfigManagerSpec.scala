@@ -76,11 +76,10 @@ class HttpArchiveConfigManagerSpec extends AnyFlatSpec with Matchers:
 
   it should "extract realm data from the configuration" in:
     val OAuthPath = Paths get "/oauth/data"
-    val ProviderName = "TestIDP"
     val OAuthRealmName = "oauthRealm"
     val BasicAuthRealmName = "basicAuthRealm"
     val oauthProps = Map("type" -> HttpArchiveConfigManager.RealmTypeOAuth, "name" -> OAuthRealmName,
-      "path" -> OAuthPath.toString, "idp" -> ProviderName)
+      "path" -> OAuthPath.toString)
     val basicProps = Map("type" -> HttpArchiveConfigManager.RealmTypeBasicAuth,
       "name" -> BasicAuthRealmName)
     val config = new HierarchicalConfiguration
@@ -93,7 +92,7 @@ class HttpArchiveConfigManagerSpec extends AnyFlatSpec with Matchers:
     val basicData = manager.archives(StartupConfigTestHelper.archiveName(1))
     basicData.realm should be(BasicAuthRealm(BasicAuthRealmName))
     val oauthData = manager.archives(StartupConfigTestHelper.archiveName(2))
-    oauthData.realm should be(OAuthRealm(OAuthRealmName, OAuthPath, ProviderName))
+    oauthData.realm should be(OAuthRealm(OAuthRealmName, OAuthPath))
 
   /**
     * Checks the handling of invalid realm data and that archives linked to an
@@ -119,11 +118,6 @@ class HttpArchiveConfigManagerSpec extends AnyFlatSpec with Matchers:
 
   it should "detect an OAuth realm with a missing path" in:
     val props = Map("type" -> HttpArchiveConfigManager.RealmTypeOAuth, "idp" -> "IDPName")
-
-    checkArchiveIsFilteredOutForInvalidRealmData(props)
-
-  it should "detect an OAuth realm with a missing IDP name" in:
-    val props = Map("type" -> HttpArchiveConfigManager.RealmTypeOAuth, "path" -> "testPath")
 
     checkArchiveIsFilteredOutForInvalidRealmData(props)
 

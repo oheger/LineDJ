@@ -32,7 +32,7 @@ class RealmsSpec extends AnyFlatSpec with Matchers:
     realm.needsUserID shouldBe true
 
   "OAuthRealm" should "return the correct user ID flag" in:
-    val realm = OAuthRealm("foo", Paths.get("/data"), "my-IDP")
+    val realm = OAuthRealm("foo", Paths.get("/data"))
 
     realm.needsUserID shouldBe false
 
@@ -40,7 +40,7 @@ class RealmsSpec extends AnyFlatSpec with Matchers:
     val IdpDir = Paths.get("idp-data")
     val IdpName = "MyIdp"
     val Password = "IdpAccess"
-    val realm = OAuthRealm("oauth", IdpDir, IdpName)
+    val realm = OAuthRealm(IdpName, IdpDir)
 
     val config = realm.createIdpConfig(Secret(Password))
     config.rootDir should be(IdpDir)

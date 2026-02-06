@@ -250,9 +250,7 @@ private object HttpArchiveConfigManager:
         case RealmTypeBasicAuth =>
           BasicAuthRealm(name)
         case RealmTypeOAuth =>
-          OAuthRealm(name,
-            Paths.get(mandatoryProperty(KeyOAuthRealmPath)),
-            mandatoryProperty(KeyOAuthRealmIdp))
+          OAuthRealm(name, Paths.get(mandatoryProperty(KeyOAuthRealmPath)))
         case t =>
           throw new ArchiveConfigException(s"Unknown archive type: $t.")
     (name, realm)

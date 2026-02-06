@@ -76,11 +76,9 @@ case class BasicAuthRealm(override val name: String) extends ArchiveRealm:
   *
   * @param name    the name of this realm
   * @param rootDir the directory storing information about the IDP
-  * @param idpName the name of the IDP
   */
 case class OAuthRealm(override val name: String,
-                      rootDir: Path,
-                      idpName: String) extends ArchiveRealm:
+                      rootDir: Path) extends ArchiveRealm:
   /**
     * @inheritdoc This implementation returns '''false''' because only a
     *             password is needed to decrypt IDP-related information.
@@ -95,7 +93,7 @@ case class OAuthRealm(override val name: String,
     * @return the ''OAuthStorageConfig''
     */
   def createIdpConfig(secret: Secret): OAuthStorageConfig =
-    OAuthStorageConfig(rootDir, idpName, secret)
+    OAuthStorageConfig(rootDir, name, secret)
 
 /**
   * A data class collecting information about a single HTTP archive to be

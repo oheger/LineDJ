@@ -65,10 +65,9 @@ class AuthConfigFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem)
     authConfig should be(BasicAuthConfig(User, Password))
 
   it should "create a configuration for OAuth" in:
-    val IdpName = "MyIDP"
     val StoragePath = Paths.get("/my/idp/data")
     val service = mock[OAuthStorageService[OAuthStorageConfig, OAuthConfig, Secret, OAuthTokenData]]
-    val realm = OAuthRealm(RealmName, StoragePath, IdpName)
+    val realm = OAuthRealm(RealmName, StoragePath)
     val credentials = UserCredentials(null, Password)
     val oauthConfig = OAuthConfig(authorizationEndpoint = "https://authorization.example.org/",
       tokenEndpoint = "https://tokens.example.org/", scope = "testing", redirectUri = "https://redirect.example.org/",
