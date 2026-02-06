@@ -537,7 +537,12 @@ lazy val archiveHttpStartup = (project in file("mediaArchive/archiveHttpStartup"
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archivehttpstart.spi"),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
-  ) dependsOn(shared % "compile->compile;test->test", platform % "compile->compile;test->test", archiveHttp)
+  ) dependsOn(
+  shared % "compile->compile;test->test",
+  platform % "compile->compile;test->test",
+  archiveHttp,
+  cloudAccess
+)
 
 /**
   * A project which implements an admin UI for the media archive.
