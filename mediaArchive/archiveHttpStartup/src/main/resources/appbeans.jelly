@@ -48,28 +48,34 @@
       </di:constructor>
     </di:bean>
 
-    <!-- The factory for creating a MediaFileDownloader. -->
-    <di:bean name="mediaDownloaderFactory"
-             beanClassName="de.oliver_heger.linedj.archivehttpstart.app.FileSystemMediaDownloaderFactory">
-        <di:constructor>
-            <di:param refName="requestSenderFactory"/>
-        </di:constructor>
+    <!-- The factory for creating a CloudFileDownloader. -->
+    <di:bean name="downloaderFactory" resultVar="result">
+      <di:methodInvocation method="createDownloaderFactory" result="result">
+        <di:invocationTarget refName="httpArchiveDownloaderFactory" />
+      </di:methodInvocation>
     </di:bean>
 
-    <!-- The factory for creating an Auth configuration. -->
-    <di:bean name="authConfigFactory"
-             beanClassName="de.oliver_heger.linedj.archivehttpstart.app.AuthConfigFactory">
-        <di:constructor>
-            <di:param refName="oauthStorageService"/>
-        </di:constructor>
+    <!-- The actor to manage credentials. -->
+    <di:bean name="httpArchiveCredentialsManager" resultVar="result">
+      <di:methodInvocation method="credentialsManager" result="result">
+        <di:invocationTarget refName="httpArchiveDownloaderFactory" />
+      </di:methodInvocation>
+    </di:bean>
+
+    <!-- The credentials provider bean. -->
+    <di:bean name="httpArchiveCredentialsProvider"
+      beanClassName="de.oliver_heger.linedj.archivehttpstart.app.CredentialsProvider">
+      <di:constructor>
+        <di:param refName="httpArchiveCredentialsManager"/>
+      </di:constructor>
     </di:bean>
 
     <!-- The helper object for starting up HTTP archives. -->
     <di:bean name="httpArchiveStarter"
              beanClassName="de.oliver_heger.linedj.archivehttpstart.app.HttpArchiveStarter">
         <di:constructor>
-            <di:param refName="mediaDownloaderFactory"/>
-            <di:param refName="authConfigFactory"/>
+            <di:param refName="downloaderFactory"/>
+            <di:param refName="httpArchiveCredentialsProvider"/>
         </di:constructor>
     </di:bean>
 </j:jelly>

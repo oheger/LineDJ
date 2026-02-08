@@ -16,7 +16,8 @@
 
 package de.oliver_heger.linedj.archivehttpstart.app
 
-import de.oliver_heger.linedj.archive.cloud.CloudFileDownloader
+import de.oliver_heger.linedj.archive.cloud.{CloudArchiveConfig, CloudFileDownloader, CloudFileDownloaderFactory}
+import de.oliver_heger.linedj.archive.cloud.auth.{AuthMethod, BasicAuthMethod, OAuthMethod}
 import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystemFactory
 import de.oliver_heger.linedj.archivecommon.download.DownloadMonitoringActor
 import de.oliver_heger.linedj.archivehttp.HttpArchiveManagementActor
@@ -62,7 +63,7 @@ object HttpArchiveStarter:
     *
     * An object of this class is returned by [[HttpArchiveStarter]] when an
     * archive could be started successfully. This is needed to gracefully
-    * shutdown the archive when it is no longer needed.
+    * shut down the archive when it is no longer needed.
     *
     * @param actors        a map with the (classic) actors used by the archive
     *                      (keyed by the actor names)
@@ -86,6 +87,17 @@ object HttpArchiveStarter:
     s"$arcShortName${index}_$suffix"
 
   /**
+    * Returns an [[AuthMethod]] that corresponds to the given realm.
+    *
+    * @param realm the realm
+    * @return the corresponding [[AuthMethod]]
+    */
+  def toAuthMethod(realm: ArchiveRealm): AuthMethod =
+    realm match
+      case BasicAuthRealm(name) => BasicAuthMethod(name)
+      case OAuthRealm(name, _) => OAuthMethod(name)
+
+  /**
     * Creates the ''TempPathGenerator'' to be used by the archive. Makes sure
     * that the correct path for temporary files is used: it is either
     * specified in the configuration or defaults to the OS temp directory.
@@ -104,27 +116,27 @@ object HttpArchiveStarter:
   * [[HttpArchiveData]] object. It extracts the configuration settings, creates
   * all required actors, and initiates a media scan operation.
   *
-  * The creation method returns a map with all actors that have been created
-  * for the archive. The keys of the map are the names of the actors. Because
-  * multiple archives can be active in parallel actor names have to be
-  * generated dynamically. The short name of an HTTP archive is included into
-  * actor names. In addition, a numeric index is expected as argument to
-  * guarantee uniqueness of actor names. This is actually needed to deal with a
-  * race condition: When the user updates the credentials of an archive, the
-  * corresponding actors are stopped and new ones are created. As stopping
-  * actors is an asynchronous operation, it can happen that the creation of new
-  * actors fail because names are already in use. The numeric index integrated
-  * into generated actor names prevents this. The object to download media
-  * files is returned as well as it needs to be properly shutdown when the
-  * archive is no longer needed.
+  * The creation method returns an object containing a map with all actors that
+  * have been created for the archive. The keys of the map are the names of the
+  * actors. Because multiple archives can be active in parallel actor names
+  * have to be generated dynamically. The short name of an HTTP archive is
+  * included into actor names. In addition, a numeric index is expected as
+  * argument to guarantee uniqueness of actor names. This is actually needed to
+  * deal with a race condition: When the user updates the credentials of an
+  * archive, the corresponding actors are stopped, and new ones are created. As
+  * stopping actors is an asynchronous operation, it can happen that the
+  * creation of new actors fails because names are already in use. The numeric
+  * index integrated into generated actor names prevents this. The object to
+  * download media files is returned as well as it needs to be properly
+  * shutdown when the archive is no longer needed.
   *
-  * @param downloaderFactory the object to create the media downloader
-  * @param authConfigFactory the factory for the auth configuration
+  * @param downloaderFactory   the object to create the media downloader
+  * @param credentialsProvider the object to propagate archive credentials
   */
-class HttpArchiveStarter(val downloaderFactory: MediaDownloaderFactory,
-                         val authConfigFactory: AuthConfigFactory):
+class HttpArchiveStarter(val downloaderFactory: CloudFileDownloaderFactory,
+                         val credentialsProvider: CredentialsProvider):
 
-  import HttpArchiveStarter._
+  import HttpArchiveStarter.*
 
   /**
     * Starts up the HTTP archive with the specified settings and returns a
@@ -133,7 +145,7 @@ class HttpArchiveStarter(val downloaderFactory: MediaDownloaderFactory,
     * @param unionArchiveActors an object with the actors for the union archive
     * @param archiveData        data for the archive to be started
     * @param config             the configuration
-    * @param protocolSpec       the spec for the protocol for this archive
+    * @param fileSystemFactory  the file system factory for this archive
     * @param credentials        the user credentials for the current realm
     * @param optKey             option for the decryption key of an encrypted archive
     * @param actorFactory       the actor factory
@@ -143,19 +155,30 @@ class HttpArchiveStarter(val downloaderFactory: MediaDownloaderFactory,
     * @param system             the actor system to materialize streams
     * @return a ''Future'' with the resources created for this archive
     */
-  def startup(unionArchiveActors: MediaFacadeActors, archiveData: HttpArchiveData,
-              config: Configuration, protocolSpec: CloudArchiveFileSystemFactory, credentials: UserCredentials,
-              optKey: Option[Key], actorFactory: ActorFactory, index: Int, clearTemp: Boolean)
-             (implicit ec: ExecutionContext, system: ActorSystem): Future[ArchiveResources] = for
-    authConf <- authConfigFactory.createAuthConfig(archiveData.realm, credentials)
-    httpActorName = archiveActorName(archiveData.shortName, HttpRequestActorName, index)
-    downloader <- Future.fromTry(downloaderFactory.createDownloader(protocolSpec, archiveData.config,
-      authConf, httpActorName, optKey))
-  yield
-    val archiveConfig = archiveData.config.archiveConfig.copy(downloader = downloader)
-    val actors = createArchiveActors(unionArchiveActors, actorFactory, archiveConfig, config,
-      archiveData.shortName, index, clearTemp)
-    ArchiveResources(actors, downloader, httpActorName)
+  def startup(unionArchiveActors: MediaFacadeActors,
+              archiveData: HttpArchiveData,
+              config: Configuration,
+              fileSystemFactory: CloudArchiveFileSystemFactory,
+              credentials: UserCredentials,
+              optKey: Option[Key],
+              actorFactory: ActorFactory,
+              index: Int,
+              clearTemp: Boolean)
+             (using ec: ExecutionContext, system: ActorSystem): Future[ArchiveResources] =
+    val httpActorName = archiveActorName(archiveData.shortName, HttpRequestActorName, index)
+    credentialsProvider.passCredentials(archiveData.realm, credentials)
+
+    val cloudArchiveConfig = CloudArchiveConfig(
+      archiveBaseUri = archiveData.config.archiveConfig.archiveBaseUri,
+      archiveName = archiveData.config.archiveConfig.archiveName,
+      fileSystemFactory = fileSystemFactory,
+      authMethod = toAuthMethod(archiveData.realm)
+    )
+    downloaderFactory.createDownloader(cloudArchiveConfig) map : downloader =>
+      val archiveConfig = archiveData.config.archiveConfig.copy(downloader = downloader)
+      val actors = createArchiveActors(unionArchiveActors, actorFactory, archiveConfig, config,
+        archiveData.shortName, index, clearTemp)
+      ArchiveResources(actors, downloader, httpActorName)
 
   /**
     * Creates the actors for the HTTP archive and ensures that anything is
