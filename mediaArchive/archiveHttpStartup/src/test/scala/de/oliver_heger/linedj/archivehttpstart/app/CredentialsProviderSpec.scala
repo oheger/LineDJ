@@ -58,3 +58,13 @@ class CredentialsProviderSpec extends ScalaTestWithActorTestKit with AnyFlatSpec
     provider.passCredentials(realm, credentials)
 
     probeCredentialsActor.expectMessage(Credentials.CredentialData(RealmName, credentials.password))
+
+  it should "pass the encryption key for an archive" in :
+    val ArchiveName = "ArchiveWithEncryptedData"
+    val cryptKey = Secret("HideTheData!")
+    val probeCredentialsActor = testKit.createTestProbe[Credentials.CredentialData]()
+
+    val provider = new CredentialsProvider(probeCredentialsActor.ref)
+    provider.passEncryptionKey(ArchiveName, cryptKey)
+
+    probeCredentialsActor.expectMessage(Credentials.CredentialData(ArchiveName, cryptKey))

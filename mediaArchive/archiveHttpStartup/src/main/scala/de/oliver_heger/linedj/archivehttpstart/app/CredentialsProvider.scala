@@ -60,6 +60,17 @@ class CredentialsProvider(credentialsManagerActor: ActorRef[Credentials.Credenti
         passCredential(name, credentials.password)
 
   /**
+    * Passes the key to encrypt/decrypt an archive to the credentials manager
+    * actor referenced by this instance. This function gets called only for
+    * encrypted archives.
+    *
+    * @param archiveName the name of the archive
+    * @param key         the [[Secret]] for the encryption key
+    */
+  def passEncryptionKey(archiveName: String, key: Secret): Unit =
+    passCredential(archiveName, key)
+
+  /**
     * Passes the given combination of key and secret value for a credential to
     * the associated credentials manager actor.
     *
