@@ -17,7 +17,6 @@
 package de.oliver_heger.linedj.archivehttpstart.app
 
 import com.github.cloudfiles.core.http.Secret
-import com.github.cloudfiles.crypt.alg.aes.Aes
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
 import de.oliver_heger.linedj.platform.bus.UIBus
 import net.sf.jguiraffe.gui.builder.components.model.StaticTextHandler
@@ -196,7 +195,7 @@ class HttpArchiveUnlockDlgController(bus: UIBus,
     *             with the crypt key generated from the entered password.
     */
   override protected def generateOkMessage(): Any =
-    val key = Aes.keyFromString(txtPassword.getData)
+    val key = Secret(txtPassword.getData)
     LockStateChanged(archiveName, Some(key))
 
 /**

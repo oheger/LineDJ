@@ -108,7 +108,7 @@ class HttpArchiveOverviewControllerSpec extends AnyFlatSpec with Matchers with M
     */
   private def lockStateChanged(locked: Boolean): LockStateChanged =
     LockStateChanged(StartupConfigTestHelper.archiveName(ArchiveCount),
-      if locked then None else Some(mock[Key]))
+      if locked then None else Some(Secret("someCryptKey")))
 
   "An HttpArchiveOverController" should "implement window listener methods" in:
     val helper = new ControllerTestHelper
@@ -347,7 +347,7 @@ class HttpArchiveOverviewControllerSpec extends AnyFlatSpec with Matchers with M
     val helper = new ControllerTestHelper
 
     helper.openWindow()
-      .sendMessage(LockStateChanged(StartupConfigTestHelper.archiveName(ArcIdx), Some(mock[Key])))
+      .sendMessage(LockStateChanged(StartupConfigTestHelper.archiveName(ArcIdx), Some(Secret("key"))))
       .checkArchiveData(ArcIdx, IconInactive, null)
 
   it should "lock archives when a logout for a realm is performed" in:

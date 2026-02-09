@@ -28,9 +28,8 @@ import org.apache.pekko.util.ByteString
 import java.io.IOException
 import java.nio.charset.StandardCharsets
 import java.nio.file.Path
-import java.security.{Key, SecureRandom}
+import java.security.SecureRandom
 import java.util.Base64
-import javax.crypto.spec.SecretKeySpec
 import scala.concurrent.{ExecutionContext, Future}
 
 /**
@@ -62,7 +61,7 @@ trait SuperPasswordStorageService:
     * @return a future with the path to the file that has been written
     */
   def writeSuperPasswordFile(target: Path, superPassword: String, realms: Iterable[(String, UserCredentials)],
-                             lockData: Iterable[(String, Key)])
+                             lockData: Iterable[(String, Secret)])
                             (implicit system: ActorSystem): Future[Path]
 
   /**
@@ -97,7 +96,7 @@ object SuperPasswordStorageServiceImpl extends SuperPasswordStorageService:
 
   override def writeSuperPasswordFile(target: Path, superPassword: String,
                                       realms: Iterable[(String, UserCredentials)],
-                                      lockData: Iterable[(String, Key)])
+                                      lockData: Iterable[(String, Secret)])
                                      (implicit system: ActorSystem): Future[Path] =
     val loginEntries = realms map realmDataToString
     val unlockEntries = lockData map { lock =>
@@ -185,9 +184,9 @@ object SuperPasswordStorageServiceImpl extends SuperPasswordStorageService:
     * @param lock the tuple with information about unlocking an archive
     * @return
     */
-  private def lockDataToString(lock: (String, Key)): String =
+  private def lockDataToString(lock: (String, Secret)): String =
     val archiveEnc = encodeBase64(lock._1)
-    val keyEnc = encodeKey(lock._2)
+    val keyEnc = encodeBase64(lock._2.secret)
     s"$UnlockEntry,$archiveEnc,$keyEnc"
 
   /**
@@ -212,7 +211,7 @@ object SuperPasswordStorageServiceImpl extends SuperPasswordStorageService:
   private def createLockStateChanged(fields: Array[String]): LockStateChanged =
     checkFieldCount(fields, 3)
     val archiveDec = decodeBase64Str(fields(1))
-    LockStateChanged(archiveDec, Some(decodeKey(fields(2))))
+    LockStateChanged(archiveDec, Some(Secret(decodeBase64Str(fields(2)))))
 
   /**
     * Checks whether the given array has the expected number of elements.
@@ -224,25 +223,6 @@ object SuperPasswordStorageServiceImpl extends SuperPasswordStorageService:
   private def checkFieldCount(array: Array[String], expCount: Int): Unit =
     if array.length != expCount then
       throw new IllegalStateException(s"Expected $expCount fields in line, but got ${array.length}.")
-
-  /**
-    * Returns a Base64-encoded form of the given key.
-    *
-    * @param key the key to encode
-    * @return the encoded form of this key
-    */
-  private def encodeKey(key: Key): String =
-    Base64.getEncoder.encodeToString(key.getEncoded)
-
-  /**
-    * Constructs a key from the passed in Base64-encoded data.
-    *
-    * @param encKeyData the encoded data of the key
-    * @return the resulting key
-    */
-  private def decodeKey(encKeyData: String): Key =
-    val decodedData = Base64.getDecoder.decode(encKeyData)
-    new SecretKeySpec(decodedData, Aes.AlgorithmName)
 
   /**
     * Decodes data with the Base64 decoder with error handling.

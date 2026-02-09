@@ -16,10 +16,9 @@
 
 package de.oliver_heger.linedj.archivehttpstart.app
 
+import com.github.cloudfiles.core.http.Secret
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
 import de.oliver_heger.linedj.archivehttpstart.app.HttpArchiveStates.HttpArchiveState
-
-import java.security.Key
 
 /**
   * A common base trait for messages indicating a change of the state of an
@@ -46,10 +45,10 @@ case class LoginStateChanged(realm: String, credentials: Option[UserCredentials]
   * Messages of this type are sent for encrypted archives when the user has
   * entered a password to unlock the archive or locks it again.
   *
-  * @param archive the name of the archive affected
-  * @param optKey  an option with the key to unlock the archive
+  * @param archive     the name of the archive affected
+  * @param optCryptKey an option with the key to unlock the archive
   */
-case class LockStateChanged(archive: String, optKey: Option[Key]) extends ArchiveStateChangedMessage
+case class LockStateChanged(archive: String, optCryptKey: Option[Secret]) extends ArchiveStateChangedMessage
 
 /**
   * An object defining the possible states of an HTTP archive.

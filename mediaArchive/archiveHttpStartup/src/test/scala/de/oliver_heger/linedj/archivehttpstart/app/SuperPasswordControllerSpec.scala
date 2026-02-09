@@ -88,7 +88,7 @@ class SuperPasswordControllerSpec(testSystem: ActorSystem) extends TestKit(testS
 
   it should "read the super password file and open the archives referenced" in:
     val path = Paths.get("stored/credentials.txt")
-    val archiveKey = mock[Key]
+    val archiveKey = Secret("archiveEncryptionKey")
     val states = List(LoginStateChanged("someRealm", Some(UserCredentials("user", Secret("secret")))),
       LockStateChanged("testArchive", Some(archiveKey)))
     val helper = new ControllerTestHelper

@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.archivehttpstart.app
 
+import com.github.cloudfiles.core.http.Secret
 import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystemFactory
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
 import de.oliver_heger.linedj.archivehttp.{HttpArchiveStateConnected, HttpArchiveStateResponse, HttpArchiveStateServerError}
@@ -36,7 +37,6 @@ import org.apache.pekko.util.Timeout
 import org.osgi.service.component.ComponentContext
 
 import java.nio.file.Path
-import java.security.Key
 import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.Future
 import scala.concurrent.duration.*
@@ -68,10 +68,10 @@ object HttpArchiveStartupApplication:
     * central bean context.
     */
   final val BeanConfigManager = "httpArchiveConfigManager"
-  
+
   /** The name of the bean for the managing actor factory. */
   final val BeanManagingActorFactory = "httpArchiveManagingActorFactory"
-  
+
   /** The name of the factory bean to create a downloader factory. */
   final val BeanDownloaderFactory = "httpArchiveDownloaderFactory"
 
@@ -92,12 +92,12 @@ object HttpArchiveStartupApplication:
     * @param resources    an ''Option'' with the resources created for this
     *                     archive
     * @param archiveIndex the index used for the archive when it was started
-    * @param optKey       an optional key to decrypt this archive
+    * @param optCryptKey  an optional key to decrypt this archive
     */
   private case class ArchiveStateData(state: HttpArchiveStateChanged,
                                       resources: Option[HttpArchiveStarter.ArchiveResources],
                                       archiveIndex: Int,
-                                      optKey: Option[Key]):
+                                      optCryptKey: Option[Secret]):
     /**
       * Returns a flag whether this archive is currently started.
       *
@@ -181,7 +181,7 @@ object HttpArchiveStartupApplication:
 class HttpArchiveStartupApplication extends ClientApplication("httpArchiveStartup")
   with ApplicationAsyncStartup with Identifiable with ActorClientSupport with ActorManagementComponent:
 
-  import HttpArchiveStartupApplication._
+  import HttpArchiveStartupApplication.*
 
   /**
     * Stores the ID for the message bus registration. Note: The registration
@@ -293,8 +293,8 @@ class HttpArchiveStartupApplication extends ClientApplication("httpArchiveStartu
     */
   private[archivehttpstart] def saveArchiveCredentials(storageService: SuperPasswordStorageService, target: Path,
                                                        superPassword: String): Future[Path] =
-    val lockData = archiveStates.filter(_._2.optKey.isDefined)
-      .map { e => (e._1, e._2.optKey.get) }
+    val lockData = archiveStates.filter(_._2.optCryptKey.isDefined)
+      .map { e => (e._1, e._2.optCryptKey.get) }
     storageService.writeSuperPasswordFile(target, superPassword, realms, lockData)
 
   /**
@@ -351,13 +351,13 @@ class HttpArchiveStartupApplication extends ClientApplication("httpArchiveStartu
 
     case LockStateChanged(archive, optKey@Some(_)) =>
       val currentState = archiveStates(archive)
-      archiveStates += archive -> currentState.copy(optKey = optKey)
+      archiveStates += archive -> currentState.copy(optCryptKey = optKey)
       updateArchiveState(archive, configManager.archives(archive))
       triggerArchiveStartIfPossible()
 
     case LockStateChanged(archive, None) =>
       val currentState = archiveStates(archive)
-      archiveStates += archive -> currentState.copy(optKey = None)
+      archiveStates += archive -> currentState.copy(optCryptKey = None)
       updateArchiveState(archive, configManager.archives(archive))
 
     case not@HttpArchiveStateChanged(_, HttpArchiveStateInitializing) =>
@@ -489,7 +489,7 @@ class HttpArchiveStartupApplication extends ClientApplication("httpArchiveStartu
           clientApplicationContext.managementConfiguration,
           protocol,
           realms(e._2.realm.name),
-          archiveStates(e._1).optKey,
+          archiveStates(e._1).optCryptKey,
           clientApplicationContext.actorFactory,
           currentArchiveIndex,
           clearTemp = currentArchiveIndex == 1)
@@ -570,7 +570,7 @@ class HttpArchiveStartupApplication extends ClientApplication("httpArchiveStartu
     if !isMediaArchiveAvailable then HttpArchiveStateNoUnionArchive
     else if !protocols.contains(data.protocol) then HttpArchiveStateNoProtocol
     else if !realms.contains(data.realm.name) then HttpArchiveStateNotLoggedIn
-    else if data.encrypted && archiveStates(name).optKey.isEmpty then HttpArchiveStateLocked
+    else if data.encrypted && archiveStates(name).optCryptKey.isEmpty then HttpArchiveStateLocked
     else HttpArchiveStateAvailable
 
   /**

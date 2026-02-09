@@ -18,7 +18,6 @@ package de.oliver_heger.linedj.archivehttpstart.app
 
 import com.github.cloudfiles.core.http.Secret
 import com.github.cloudfiles.core.http.auth.AuthConfig
-import com.github.cloudfiles.crypt.alg.aes.Aes
 import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.archive.cloud.auth.{BasicAuthMethod, OAuthMethod}
 import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystemFactory
@@ -35,8 +34,8 @@ import org.apache.pekko.actor.typed.Behavior
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props, typed}
 import org.apache.pekko.testkit.{TestKit, TestProbe}
 import org.mockito.ArgumentMatchers.any
-import org.mockito.{ArgumentCaptor, Mockito}
 import org.mockito.Mockito.*
+import org.mockito.{ArgumentCaptor, Mockito}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
@@ -44,7 +43,6 @@ import org.scalatestplus.mockito.MockitoSugar
 
 import java.io.IOException
 import java.nio.file.{Files, Paths}
-import java.security.Key
 import java.time.Instant
 import scala.concurrent.Future
 import scala.language.existentials
@@ -66,7 +64,7 @@ object HttpArchiveStarterSpec:
   private val ArcIndex = 28
 
   /** A key for testing the handling of encrypted archives. */
-  private val CryptKey = Aes.keyFromString("keyForMyArchive")
+  private val CryptKey = Secret("keyForMyArchive")
 
   /**
     * Creates a configuration object with the properties defining the test
@@ -440,7 +438,7 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
       *
       * @return the parameter for the decryption key
       */
-    private def cryptKeyParam: Option[Key] =
+    private def cryptKeyParam: Option[Secret] =
       if encryptedArchive then Some(CryptKey) else None
 
     /**

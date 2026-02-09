@@ -16,22 +16,21 @@
 
 package de.oliver_heger.linedj.archivehttpstart.app
 
-import com.github.cloudfiles.crypt.alg.aes.Aes
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import net.sf.jguiraffe.gui.builder.components.model.StaticTextHandler
 import net.sf.jguiraffe.gui.builder.event.FormActionEvent
 import net.sf.jguiraffe.gui.builder.window.{Window, WindowEvent}
 import net.sf.jguiraffe.gui.forms.ComponentHandler
 import org.mockito.Mockito.{doReturn, verify, verifyNoInteractions, when}
+import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
-import java.security.Key
 import scala.concurrent.duration.*
 
 object HttpArchiveDlgControllerSpec:
-  /** Constant for a test user name. */
+  /** Constant for a test username. */
   private val UserName = "scott"
 
   /** Constant for a password. */
@@ -52,9 +51,9 @@ object HttpArchiveDlgControllerSpec:
 /**
   * Test class for the dialog controllers for HTTP archives.
   */
-class HttpArchiveDlgControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar:
+class HttpArchiveDlgControllerSpec extends AnyFlatSpec with Matchers with OptionValues with MockitoSugar:
 
-  import HttpArchiveDlgControllerSpec._
+  import HttpArchiveDlgControllerSpec.*
 
   "An HttpArchiveLoginDlgController" should "have dummy window listener implementations" in:
     val helper = new LoginControllerTestHelper
@@ -115,8 +114,9 @@ class HttpArchiveDlgControllerSpec extends AnyFlatSpec with Matchers with Mockit
       .preparePassword()
       .okClicked()
       .verifyWindowClosed()
-    helper.messageBus.expectMessageType[LockStateChanged] should be(LockStateChanged(Archive,
-      Some(helper.key)))
+    val message = helper.messageBus.expectMessageType[LockStateChanged] 
+    message.archive should be(Archive)
+    message.optCryptKey.value.secret should be(Password)
 
   "An HttpArchiveSuperPasswordDlgController" should "initialize the label in read mode" in:
     val helper = new SuperPasswordControllerTestHelper(OpenDlgCommand.SuperPasswordModeRead)
@@ -343,14 +343,6 @@ class HttpArchiveDlgControllerSpec extends AnyFlatSpec with Matchers with Mockit
     def preparePassword(): UnlockControllerTestHelper =
       when(txtPassword.getData).thenReturn(Password)
       this
-
-    /**
-      * Returns the key for crypt operations that is used by the mock key
-      * generator.
-      *
-      * @return the crypt key
-      */
-    def key: Key = Aes.keyFromString(Password)
 
     override protected def createController(btnOk: ComponentHandler[_], btnCancel: ComponentHandler[_],
                                             txtPrompt: StaticTextHandler): HttpArchiveDlgController =

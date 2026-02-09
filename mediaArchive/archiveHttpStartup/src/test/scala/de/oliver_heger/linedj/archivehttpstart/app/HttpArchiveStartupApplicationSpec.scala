@@ -50,7 +50,6 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import java.nio.file.Paths
-import java.security.Key
 import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.immutable.Seq
 import scala.concurrent.duration.*
@@ -59,7 +58,7 @@ import scala.language.existentials
 import scala.util.Using
 
 object HttpArchiveStartupApplicationSpec:
-  /** Test user name. */
+  /** Test username. */
   private val UserName = "scott"
 
   /** Test password. */
@@ -595,7 +594,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       .expectArchiveStateNotification(stateNotification(EncArchiveIndex, HttpArchiveStateLocked))
 
   it should "start up an encrypted archive if all information is available" in :
-    val optKey = Some(mock[Key])
+    val optKey = Some(Secret("encrypt-secret"))
     val helper = new StartupTestHelper(skipUI = true)
 
     helper.startupApplication()
@@ -612,7 +611,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       .expectArchiveCreation()
 
   it should "start up an encrypted archive if information arrives in alternative order" in :
-    val optKey = Some(mock[Key])
+    val optKey = Some(Secret("foo"))
     val helper = new StartupTestHelper(skipUI = true)
 
     helper.startupApplication()
@@ -629,7 +628,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
 
   it should "stop the actors of an archive when it gets locked" in :
     val resources = createArchiveResources(EncArchiveIndex)
-    val optKey = Some(mock[Key])
+    val optKey = Some(Secret("bar"))
     val helper = new StartupTestHelper(skipUI = true)
 
     helper.startupApplication()
@@ -711,7 +710,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       .expectArchiveStateNotification(stateNotification(Index, expState))
 
   it should "invoke the super password service to write the password file" in :
-    val key = mock[Key]
+    val key = Secret("encrypt-it")
     val optKey = Some(key)
     val superPasswordService = mock[SuperPasswordStorageService]
     val targetPath = Paths get "somePath"
@@ -734,7 +733,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
 
     helper.app.saveArchiveCredentials(superPasswordService, targetPath, SuperPassword) should be(writeFuture)
     val captRealms = ArgumentCaptor.forClass(classOf[Map[String, UserCredentials]])
-    val captLocks = ArgumentCaptor.forClass(classOf[Map[String, Key]])
+    val captLocks = ArgumentCaptor.forClass(classOf[Map[String, Secret]])
     verify(superPasswordService).writeSuperPasswordFile(any(), anyString(), captRealms.capture(),
       captLocks.capture())(any())
     val realms = captRealms.getValue
@@ -931,7 +930,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       * @param optKey     the optional decryption key
       * @return this test helper
       */
-    def sendLockStateChangeNotification(archiveIdx: Int, optKey: Option[Key]): StartupTestHelper =
+    def sendLockStateChangeNotification(archiveIdx: Int, optKey: Option[Secret]): StartupTestHelper =
       sendOnMessageBus(LockStateChanged(StartupConfigTestHelper.archiveName(archiveIdx), optKey))
 
     /**
@@ -973,7 +972,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       */
     def initArchiveStartupResult(resources: HttpArchiveStarter.ArchiveResources, archiveIdx: Int,
                                  realmIdx: Int, optProtocol: Option[CloudArchiveFileSystemFactory] = None,
-                                 optKey: Option[Key] = None): StartupTestHelper =
+                                 optKey: Option[Secret] = None): StartupTestHelper =
       initArchiveStartupResultFuture(archiveIdx, realmIdx, optProtocol, optKey) { invocation =>
         Future.successful(adaptActorNames(resources, invocation.getArguments()(7).asInstanceOf[Int]))
       }
@@ -992,14 +991,14 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       */
     def initArchiveStartupResultFuture(archiveIdx: Int, realmIdx: Int,
                                        optProtocol: Option[CloudArchiveFileSystemFactory] = None,
-                                       optKey: Option[Key] = None)
+                                       optKey: Option[Secret] = None)
                                       (fResult: InvocationOnMock => Future[HttpArchiveStarter.ArchiveResources]):
     StartupTestHelper =
       expectStarterInvocation(archiveIdx, optProtocol getOrElse webDavProtocol, realmIdx, optKey)
-        .thenAnswer((invocation: InvocationOnMock) => {
+        .thenAnswer((invocation: InvocationOnMock) => 
           archiveStartupCount.incrementAndGet()
           fResult(invocation)
-        })
+        )
       this
 
     /**
@@ -1114,7 +1113,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       *         method
       */
     private def expectStarterInvocation(archiveIdx: Int, spec: CloudArchiveFileSystemFactory, realmIdx: Int,
-                                        optKey: Option[Key]):
+                                        optKey: Option[Secret]):
     OngoingStubbing[Future[HttpArchiveStarter.ArchiveResources]] =
       val archiveData = archiveConfigManager.archives(
         StartupConfigTestHelper.archiveName(archiveIdx))

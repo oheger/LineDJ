@@ -16,9 +16,10 @@
 
 package de.oliver_heger.linedj.archivehttpstart.app
 
-import de.oliver_heger.linedj.archive.cloud.{CloudArchiveConfig, CloudFileDownloader, CloudFileDownloaderFactory}
+import com.github.cloudfiles.core.http.Secret
 import de.oliver_heger.linedj.archive.cloud.auth.{AuthMethod, BasicAuthMethod, OAuthMethod}
 import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystemFactory
+import de.oliver_heger.linedj.archive.cloud.{CloudArchiveConfig, CloudFileDownloader, CloudFileDownloaderFactory}
 import de.oliver_heger.linedj.archivecommon.download.DownloadMonitoringActor
 import de.oliver_heger.linedj.archivehttp.HttpArchiveManagementActor
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
@@ -31,7 +32,6 @@ import org.apache.commons.configuration.Configuration
 import org.apache.pekko.actor.{ActorRef, ActorSystem}
 
 import java.nio.file.Paths
-import java.security.Key
 import scala.concurrent.{ExecutionContext, Future}
 
 object HttpArchiveStarter:
@@ -147,7 +147,7 @@ class HttpArchiveStarter(val downloaderFactory: CloudFileDownloaderFactory,
     * @param config             the configuration
     * @param fileSystemFactory  the file system factory for this archive
     * @param credentials        the user credentials for the current realm
-    * @param optKey             option for the decryption key of an encrypted archive
+    * @param optCryptKey        option for the decryption key of an encrypted archive
     * @param actorFactory       the actor factory
     * @param index              an index for unique actor name generation
     * @param clearTemp          flag whether the temp directory should be cleared
@@ -160,7 +160,7 @@ class HttpArchiveStarter(val downloaderFactory: CloudFileDownloaderFactory,
               config: Configuration,
               fileSystemFactory: CloudArchiveFileSystemFactory,
               credentials: UserCredentials,
-              optKey: Option[Key],
+              optCryptKey: Option[Secret],
               actorFactory: ActorFactory,
               index: Int,
               clearTemp: Boolean)

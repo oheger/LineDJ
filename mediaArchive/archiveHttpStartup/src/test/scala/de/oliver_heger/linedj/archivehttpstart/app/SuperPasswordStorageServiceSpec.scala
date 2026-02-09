@@ -17,9 +17,8 @@
 package de.oliver_heger.linedj.archivehttpstart.app
 
 import com.github.cloudfiles.core.http.Secret
-import com.github.cloudfiles.crypt.alg.aes.Aes
-import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
+import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.testkit.TestKit
@@ -31,7 +30,6 @@ import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
 import java.io.IOException
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Path, Paths}
-import java.security.Key
 import java.util.Base64
 import scala.collection.immutable.IndexedSeq
 import scala.concurrent.Future
@@ -79,8 +77,8 @@ object SuperPasswordStorageServiceSpec:
     * @param index the index
     * @return the test key with this index
     */
-  private def generateKey(index: Int): Key =
-    Aes.keyFromString(generate(PrefixCryptPassword, index))
+  private def generateKey(index: Int): Secret =
+    Secret(generate(PrefixCryptPassword, index))
 
   /**
     * Generates a sequence of test data with a given length using the generator
@@ -113,10 +111,9 @@ object SuperPasswordStorageServiceSpec:
     * @param count the number of elements to generate
     * @return the sequence with test archives
     */
-  private def generateLockData(count: Int): IndexedSeq[(String, Key)] =
-    generateSequence(count) { index =>
+  private def generateLockData(count: Int): IndexedSeq[(String, Secret)] =
+    generateSequence(count): index =>
       (generate(PrefixArchive, index), generateKey(index))
-    }
 
   /**
     * Generates a sequence with messages to log into test realms.
@@ -163,6 +160,8 @@ object SuperPasswordStorageServiceSpec:
     messages map:
       case LoginStateChanged(realm, Some(credentials)) =>
         s"LoginStateChanged($realm, {${credentials.userName}, ${credentials.password.secret})"
+      case LockStateChanged(archive, optCryptKey) =>
+        s"LockStateChanged($archive, ${optCryptKey.map(_.secret)})"
       case m => m
 
 /**
@@ -180,7 +179,7 @@ class SuperPasswordStorageServiceSpec(testSystem: ActorSystem) extends TestKit(t
     tearDownTestFile()
     super.afterEach()
 
-  import SuperPasswordStorageServiceSpec._
+  import SuperPasswordStorageServiceSpec.*
   import system.dispatcher
 
   /**
@@ -192,7 +191,7 @@ class SuperPasswordStorageServiceSpec(testSystem: ActorSystem) extends TestKit(t
     * @param optPath  optional target path; is generated if None
     * @return a future with the path to the file that was written
     */
-  private def writeFile(realms: Iterable[(String, UserCredentials)], lockData: Iterable[(String, Key)],
+  private def writeFile(realms: Iterable[(String, UserCredentials)], lockData: Iterable[(String, Secret)],
                         optPath: Option[Path] = None): Future[Path] =
     val path = optPath.getOrElse(createFileReference())
     SuperPasswordStorageServiceImpl.writeSuperPasswordFile(path, SuperPassword, realms, lockData)
@@ -302,14 +301,15 @@ class SuperPasswordStorageServiceSpec(testSystem: ActorSystem) extends TestKit(t
     val archiveName = "oh,my-archive"
     val archiveKey = generateKey(42)
     val lockData = generateLockData(3) ++ IndexedSeq((archiveName, archiveKey))
-    val expMessages = generateStateMessages(0, 3) ++
-      IndexedSeq(LockStateChanged(archiveName, Some(archiveKey)))
+    val expMessages = comparableMessages(
+      generateStateMessages(0, 3) ++ IndexedSeq(LockStateChanged(archiveName, Some(archiveKey)))
+    )
     val futMessages = for
       path <- writeFile(List.empty, lockData)
       msg <- readFile(path)
     yield msg
 
-    val messages = futureResult(futMessages)
+    val messages = comparableMessages(futureResult(futMessages))
     messages should contain theSameElementsAs expMessages
 
   it should "handle a non-existing file when reading" in:
