@@ -33,10 +33,10 @@ import org.apache.commons.configuration.{Configuration, HierarchicalConfiguratio
 import org.apache.pekko.actor.typed.Behavior
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props, typed}
 import org.apache.pekko.testkit.{TestKit, TestProbe}
-import org.mockito.ArgumentMatchers.any
+import org.mockito.ArgumentMatchers.{any, anyString}
 import org.mockito.Mockito.*
 import org.mockito.{ArgumentCaptor, Mockito}
-import org.scalatest.BeforeAndAfterAll
+import org.scalatest.{BeforeAndAfterAll, OptionValues}
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
@@ -91,7 +91,7 @@ object HttpArchiveStarterSpec:
   * Test class for ''HttpArchiveStarter''.
   */
 class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
-  with BeforeAndAfterAll with Matchers with MockitoSugar with AsyncTestHelper:
+  with BeforeAndAfterAll with Matchers with MockitoSugar with OptionValues with AsyncTestHelper:
   def this() = this(ActorSystem("HttpArchiveStarterSpec"))
 
   import HttpArchiveStarterSpec.*
@@ -144,6 +144,14 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
       .verifyDownloaderCreation()
 
     archiveConfig.optCryptConfig shouldBe empty
+
+  it should "create a correct downloader for an encrypted archive" in :
+    val helper = new StarterTestHelper(encryptedArchive = true)
+
+    val archiveConfig = helper.startArchiveAndCheckActors()
+      .verifyDownloaderCreation()
+
+    archiveConfig.optCryptConfig.value should be(CloudArchiveConfig.DefaultCryptConfig)
 
   it should "create a correct temp path generator" in :
     val helper = new StarterTestHelper
@@ -386,6 +394,10 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
       val inOrder = Mockito.inOrder(downloaderFactory, credentialsProvider)
       val captArchiveConfig = ArgumentCaptor.forClass(classOf[CloudArchiveConfig])
       inOrder.verify(credentialsProvider).passCredentials(archiveData.realm, ArchiveCredentials)
+      if encryptedArchive then
+        inOrder.verify(credentialsProvider).passEncryptionKey(archiveData.config.archiveConfig.archiveName, CryptKey)
+      else
+        inOrder.verify(credentialsProvider, never()).passEncryptionKey(anyString(), any())
       inOrder.verify(downloaderFactory).createDownloader(captArchiveConfig.capture())
 
       val archiveConfig = captArchiveConfig.getValue

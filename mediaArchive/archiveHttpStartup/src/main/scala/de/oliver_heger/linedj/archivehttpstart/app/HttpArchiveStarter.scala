@@ -167,12 +167,15 @@ class HttpArchiveStarter(val downloaderFactory: CloudFileDownloaderFactory,
              (using ec: ExecutionContext, system: ActorSystem): Future[ArchiveResources] =
     val httpActorName = archiveActorName(archiveData.shortName, HttpRequestActorName, index)
     credentialsProvider.passCredentials(archiveData.realm, credentials)
+    optCryptKey.foreach: key =>
+      credentialsProvider.passEncryptionKey(archiveData.config.archiveConfig.archiveName, key)
 
     val cloudArchiveConfig = CloudArchiveConfig(
       archiveBaseUri = archiveData.config.archiveConfig.archiveBaseUri,
       archiveName = archiveData.config.archiveConfig.archiveName,
       fileSystemFactory = fileSystemFactory,
-      authMethod = toAuthMethod(archiveData.realm)
+      authMethod = toAuthMethod(archiveData.realm),
+      optCryptConfig = optCryptKey.map(_ => CloudArchiveConfig.DefaultCryptConfig)
     )
     downloaderFactory.createDownloader(cloudArchiveConfig) map : downloader =>
       val archiveConfig = archiveData.config.archiveConfig.copy(downloader = downloader)
