@@ -25,6 +25,7 @@ import com.github.cloudfiles.crypt.fs.resolver.CachePathComponentsResolver
 import com.github.cloudfiles.crypt.fs.{CryptConfig, CryptContentFileSystem, CryptNamesConfig, CryptNamesFileSystem}
 import de.oliver_heger.linedj.archive.cloud.auth.{AuthConfigFactory, Credentials}
 import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystemFactory.CloudArchiveFileSystem
+import de.oliver_heger.linedj.shared.archive.media.UriHelper
 import org.apache.pekko.actor.typed.scaladsl.adapter.*
 import org.apache.pekko.actor.{ActorSystem, typed}
 
@@ -77,7 +78,7 @@ object DefaultCloudFileDownloaderFactory:
     HttpRequestSenderConfig(
       queueSize = config.requestQueueSize,
       authConfig = authConfig,
-      actorName = config.optActorBaseName.orElse(Some(config.archiveName)),
+      actorName = config.optActorBaseName.orElse(Some(UriHelper.urlEncode(config.archiveName))),
       retryAfterConfig = Some(RetryAfterConfig())
     )
 end DefaultCloudFileDownloaderFactory

@@ -258,6 +258,17 @@ class DefaultCloudFileDownloaderFactorySpec(testSystem: ActorSystem) extends Tes
       downloader.httpSender should be(helper.probeRequestActor.ref)
       helper.checkFileSystem(downloader.archiveFileSystem)
 
+  it should "URL-encode the archive name when used as actor base name" in :
+    val ArchiveNameWithSpecialCharacters = "My (cool) music #archive!"
+    val EncodedArchiveName = "My%20%28cool%29%20music%20%23archive%21"
+    val helper = new FactoryTestHelper
+
+    helper.expectSenderCreation(createSenderConfig(EncodedArchiveName))
+      .createDownloader(
+        helper.createArchiveConfig(optActorName = None).copy(archiveName = ArchiveNameWithSpecialCharacters)
+      ) map : downloader =>
+      downloader.httpSender should be(helper.probeRequestActor.ref)
+  
   /**
     * A test helper class managing a factory to be tested and its dependencies
     * and helper objects.
