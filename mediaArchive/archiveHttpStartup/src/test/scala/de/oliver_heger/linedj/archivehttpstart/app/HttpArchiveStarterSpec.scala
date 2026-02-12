@@ -201,7 +201,7 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
     method should be(BasicAuthMethod(realm.name))
 
   it should "correctly convert an OAuthRealm" in :
-    val realm = OAuthRealm("testOAuthRealm", Paths.get("irrelevantPath"))
+    val realm = OAuthRealm("testOAuthRealm")
 
     val method = HttpArchiveStarter.toAuthMethod(realm)
 

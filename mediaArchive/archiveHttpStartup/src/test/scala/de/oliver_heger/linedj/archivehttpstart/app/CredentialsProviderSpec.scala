@@ -51,7 +51,7 @@ class CredentialsProviderSpec extends ScalaTestWithActorTestKit with AnyFlatSpec
   it should "pass credentials for an OAuth realm" in :
     val RealmName = "Test_OAuth"
     val credentials = UserCredentials("usernameDoesNotMatter", Secret("idp-secret"))
-    val realm = OAuthRealm(RealmName, Paths.get("path", "does", "not", "matter"))
+    val realm = OAuthRealm(RealmName)
     val probeCredentialsActor = testKit.createTestProbe[Credentials.CredentialData]()
 
     val provider = new CredentialsProvider(probeCredentialsActor.ref)

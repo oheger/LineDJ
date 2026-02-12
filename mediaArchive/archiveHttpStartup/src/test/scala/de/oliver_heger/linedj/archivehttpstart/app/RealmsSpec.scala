@@ -16,11 +16,8 @@
 
 package de.oliver_heger.linedj.archivehttpstart.app
 
-import com.github.cloudfiles.core.http.Secret
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-
-import java.nio.file.Paths
 
 /**
   * Test class for the different implementations of archive realms.
@@ -32,17 +29,6 @@ class RealmsSpec extends AnyFlatSpec with Matchers:
     realm.needsUserID shouldBe true
 
   "OAuthRealm" should "return the correct user ID flag" in:
-    val realm = OAuthRealm("foo", Paths.get("/data"))
+    val realm = OAuthRealm("foo")
 
     realm.needsUserID shouldBe false
-
-  it should "create a correct IDP config" in:
-    val IdpDir = Paths.get("idp-data")
-    val IdpName = "MyIdp"
-    val Password = "IdpAccess"
-    val realm = OAuthRealm(IdpName, IdpDir)
-
-    val config = realm.createIdpConfig(Secret(Password))
-    config.rootDir should be(IdpDir)
-    config.baseName should be(IdpName)
-    config.encPassword.secret should be(Password)

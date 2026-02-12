@@ -16,11 +16,6 @@
 
 package de.oliver_heger.linedj.archivehttpstart.app
 
-import com.github.cloudfiles.core.http.Secret
-import de.oliver_heger.linedj.archive.cloud.auth.oauth.OAuthStorageConfig
-
-import java.nio.file.Path
-
 /**
   * A trait representing a realm that can be assigned to an archive.
   *
@@ -52,7 +47,7 @@ sealed trait ArchiveRealm:
 /**
   * Concrete realm implementation that represents the basic auth mechanism.
   *
-  * Realms of this type require the user to log in with user name and password.
+  * Realms of this type require the user to log in with username and password.
   * These credentials are used directly when communicating with the server that
   * hosts the archive.
   *
@@ -70,30 +65,20 @@ case class BasicAuthRealm(override val name: String) extends ArchiveRealm:
   * mechanism.
   *
   * A realm of this type contains the basic information required to generate an
-  * [[OAuthStorageConfig]], which describes the IDP to be used for
-  * authentication requests. This class only requires a password as credentials
-  * to unlock sensitive data related to the IDP.
+  * [[de.oliver_heger.linedj.archive.cloud.auth.oauth.OAuthStorageConfig]], 
+  * which describes the IDP to be used for authentication requests. This data
+  * is stored in a directory that is globally configured for this application.
+  * This realm type only requires a password as credentials to unlock sensitive
+  * data related to the IDP.
   *
-  * @param name    the name of this realm
-  * @param rootDir the directory storing information about the IDP
+  * @param name the name of this realm
   */
-case class OAuthRealm(override val name: String,
-                      rootDir: Path) extends ArchiveRealm:
+case class OAuthRealm(override val name: String) extends ArchiveRealm:
   /**
     * @inheritdoc This implementation returns '''false''' because only a
     *             password is needed to decrypt IDP-related information.
     */
   override def needsUserID: Boolean = false
-
-  /**
-    * Creates an ''OAuthStorageConfig'' based on the information stored in this
-    * object and the given ''Secret''.
-    *
-    * @param secret the ''Secret'' to decrypt IDP-related data
-    * @return the ''OAuthStorageConfig''
-    */
-  def createIdpConfig(secret: Secret): OAuthStorageConfig =
-    OAuthStorageConfig(rootDir, name, secret)
 
 /**
   * A data class collecting information about a single HTTP archive to be

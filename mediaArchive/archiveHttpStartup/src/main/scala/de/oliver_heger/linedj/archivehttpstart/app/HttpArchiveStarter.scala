@@ -95,7 +95,7 @@ object HttpArchiveStarter:
   def toAuthMethod(realm: ArchiveRealm): AuthMethod =
     realm match
       case BasicAuthRealm(name) => BasicAuthMethod(name)
-      case OAuthRealm(name, _) => OAuthMethod(name)
+      case OAuthRealm(name) => OAuthMethod(name)
 
   /**
     * Creates the ''TempPathGenerator'' to be used by the archive. Makes sure

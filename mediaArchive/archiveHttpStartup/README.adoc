@@ -151,11 +151,12 @@ example configuration with all supported options:
 <configuration>
 <media>
   <realms>
+    <oauthStoragePath>
+      ${sys:user.home}/.lineDJ/tokens
+    </oauthStoragePath>
     <realm>
       <name>microsoft</name>
       <type>oauth</type>
-      <idp>microsoft</idp>
-      <path>${sys:user.home}/.lineDJ/tokens</path>
     </realm>
   </realms>
   <archives>
@@ -211,16 +212,15 @@ settings for an archive which can be grouped into multiple categories.
 
 === Realms
 A realm defines information how to authenticate against an HTTP archive.
-Typically, a realm corresponds to a server which hosts media files. There is a
+Typically, a realm corresponds to a server which hosts media files. There is an
 n:1 relation between archives and realms: Each archive is assigned to exactly
 one realm, but multiple archives can share a single realm. This makes sense
 for instance if multiple archives are hosted on the same server or if the same
 credentials are used for different servers (which is not recommended).
 
-A single realm declaration defines a name for the realm, the authentication
-mechanism to be used, and additional metadata that depends on the concrete
-authentication mechanism. Currently, the following mechanisms are supported:
+A single realm declaration defines a name for the realm, and the authentication mechanism to be used. Currently, the following mechanisms are supported:
 
+[#tab_auth_mechanisms]
 .Supported authentication mechanisms
 [cols="1,2",options="header"]
 |=================
@@ -234,7 +234,7 @@ is used to authenticate against the server. Information about the IDP and the
 tokens available is stored in a number of files in a configurable directory.
 |=================
 
-The fragment below shows the declaration of a realm of type _basic_:
+The declaration of realms is rather straight-forward. A single declaration consists of the realm name and its type. The type must be one of the types listed in table <<tab_auth_mechanisms>>. The fragment below shows some example realm declaration:
 
 [source,xml]
 ----
@@ -243,34 +243,31 @@ The fragment below shows the declaration of a realm of type _basic_:
       <name>magenta</name>
       <type>basic</type>
     </realm>
-  </realms>
-----
-
-The declaration consists only of the realm name (to be referenced from an
-archive declaration) and the type. Such declarations are optional; if an
-archive references a realm by name for which no declaration exists, an implicit
-declaration of a _basic_ realm with this name is created automatically.
-
-The declaration of a realm of type _oauth_ is more complex as it requires some
-additional metadata:
-
-[source,xml]
-----
-  <realms>
     <realm>
       <name>microsoft</name>
       <type>oauth</type>
-      <path>${sys:user.home}/.lineDJ/tokens</path>
     </realm>
   </realms>
 ----
 
-In addition to the default elements _name_ and _type_, a path where the IDP-related information files are located must be specified. In
-this path (note how this example makes use of system properties to reference
-the user's home directory) a number of files are expected that define basic
-properties of the IDP and store token information. The name of these files is
-always identical to the realm name (as defined by the _name_ element), but they
-have different extensions:
+Declarations of type _basic_ are optional; if an archive references a realm by name for which no declaration exists, an implicit declaration of a _basic_ realm with this name is created automatically.
+
+To handle realms of type _oauth_ correctly, the system needs information about the involved identity providers which has to be stored in different files in a configured directory. The path where these files are located needs to be specified via the _oauthStoragePath_ element under _realms_:
+
+[source,xml]
+----
+  <realms>
+    <oauthStoragePath>
+      ${sys:user.home}/.lineDJ/tokens
+    </oauthStoragePath>
+    <realm>
+      <name>microsoft</name>
+      <type>oauth</type>
+    </realm>
+  </realms>
+----
+
+In this path (note how this example makes use of system properties to reference the user's home directory), a number of files are expected that define basic properties of the IDP and store token information. The name of these files is always identical to the realm name (as defined by the _name_ element), but they have different extensions:
 
 .Extensions for files defining IDPs
 [cols="1,2",options="header"]

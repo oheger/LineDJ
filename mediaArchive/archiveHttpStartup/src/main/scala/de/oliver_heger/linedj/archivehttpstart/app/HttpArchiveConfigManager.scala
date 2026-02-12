@@ -23,7 +23,6 @@ import org.apache.commons.logging.LogFactory
 
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
-import java.nio.file.Paths
 import scala.annotation.tailrec
 import scala.collection.immutable.{SortedMap, TreeMap}
 import scala.concurrent.duration.FiniteDuration
@@ -250,7 +249,7 @@ private object HttpArchiveConfigManager:
         case RealmTypeBasicAuth =>
           BasicAuthRealm(name)
         case RealmTypeOAuth =>
-          OAuthRealm(name, Paths.get(mandatoryProperty(KeyOAuthRealmPath)))
+          OAuthRealm(name)
         case t =>
           throw new ArchiveConfigException(s"Unknown archive type: $t.")
     (name, realm)

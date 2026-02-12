@@ -21,8 +21,6 @@ import org.apache.commons.configuration.HierarchicalConfiguration
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import java.nio.file.Paths
-
 /**
   * Test class for ''HttpArchiveConfigManager''.
   */
@@ -75,11 +73,9 @@ class HttpArchiveConfigManagerSpec extends AnyFlatSpec with Matchers:
     manager.archives.keySet should contain only StartupConfigTestHelper.archiveName(1)
 
   it should "extract realm data from the configuration" in:
-    val OAuthPath = Paths get "/oauth/data"
     val OAuthRealmName = "oauthRealm"
     val BasicAuthRealmName = "basicAuthRealm"
-    val oauthProps = Map("type" -> HttpArchiveConfigManager.RealmTypeOAuth, "name" -> OAuthRealmName,
-      "path" -> OAuthPath.toString)
+    val oauthProps = Map("type" -> HttpArchiveConfigManager.RealmTypeOAuth, "name" -> OAuthRealmName)
     val basicProps = Map("type" -> HttpArchiveConfigManager.RealmTypeBasicAuth,
       "name" -> BasicAuthRealmName)
     val config = new HierarchicalConfiguration
@@ -92,7 +88,7 @@ class HttpArchiveConfigManagerSpec extends AnyFlatSpec with Matchers:
     val basicData = manager.archives(StartupConfigTestHelper.archiveName(1))
     basicData.realm should be(BasicAuthRealm(BasicAuthRealmName))
     val oauthData = manager.archives(StartupConfigTestHelper.archiveName(2))
-    oauthData.realm should be(OAuthRealm(OAuthRealmName, OAuthPath))
+    oauthData.realm should be(OAuthRealm(OAuthRealmName))
 
   /**
     * Checks the handling of invalid realm data and that archives linked to an
@@ -113,11 +109,6 @@ class HttpArchiveConfigManagerSpec extends AnyFlatSpec with Matchers:
 
   it should "detect an invalid realm type" in:
     val props = Map("path" -> "/my/data", "idp" -> "myIdp", "type" -> "unknownType")
-
-    checkArchiveIsFilteredOutForInvalidRealmData(props)
-
-  it should "detect an OAuth realm with a missing path" in:
-    val props = Map("type" -> HttpArchiveConfigManager.RealmTypeOAuth, "idp" -> "IDPName")
 
     checkArchiveIsFilteredOutForInvalidRealmData(props)
 

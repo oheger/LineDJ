@@ -56,7 +56,7 @@ class CredentialsProvider(credentialsManagerActor: ActorRef[Credentials.Credenti
         passCredential(s"$name.username", Secret(credentials.userName))
         passCredential(s"$name.password", credentials.password)
 
-      case OAuthRealm(name, _) =>
+      case OAuthRealm(name) =>
         passCredential(name, credentials.password)
 
   /**
