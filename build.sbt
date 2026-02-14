@@ -18,6 +18,7 @@ import OsgiImagePlugin.autoImport.*
 import com.typesafe.sbt.osgi.OsgiKeys
 
 /** Definition of versions for production dependencies. */
+lazy val VersionASM = "9.9.1"
 lazy val VersionAeron = "1.46.8"
 lazy val VersionAries = "1.3.7"
 lazy val VersionBouncyCastle = "1.83"
@@ -162,6 +163,17 @@ lazy val logDependencies = Seq(
 
 lazy val osgiLogDependencies = logDependencies ++ Seq(
   "org.apache.aries.spifly" % "org.apache.aries.spifly.dynamic.bundle" % VersionAries
+ )
+
+/**
+  * ASM comes in as a transitive dependency of Apache Aries Spifly. To use
+  * newer Java versions in OSGi applications, an override for a newer ASM
+  * version needs to be added explicitly.
+  */
+lazy val asmOverrides = Seq(
+  "org.ow2.asm" % "asm" % VersionASM,
+  "org.ow2.asm" % "asm-commons" % VersionASM,
+  "org.ow2.asm" % "asm-util" % VersionASM,
 )
 
 lazy val beanUtilsDependency = "commons-beanutils" % "commons-beanutils" % VersionCommonsBeanutils
@@ -1148,7 +1160,8 @@ lazy val archiveOsgiImage = (project in file("images/archive"))
     sourceImagePaths := Seq("base", "archive"),
     excludedModules := OSGi.DefaultExcludedModules,
     libraryDependencies ++= remotingDependencies,
-    libraryDependencies ++= osgiLogDependencies
+    libraryDependencies ++= osgiLogDependencies,
+    dependencyOverrides ++= asmOverrides
   ) dependsOn(archiveUnion, archiveStartup, archiveLocalStartup, archiveAdmin, appShutdownOneForAll,
   mediaIfcEmbedded, log4jApiFragment, log4jConfFragment)
 
@@ -1166,7 +1179,8 @@ lazy val browserOsgiImage = (project in file("images/browser"))
     sourceImagePaths := Seq("base", "browser"),
     excludedModules := OSGi.DefaultExcludedModules,
     libraryDependencies ++= remotingDependencies,
-    libraryDependencies ++= osgiLogDependencies
+    libraryDependencies ++= osgiLogDependencies,
+    dependencyOverrides ++= asmOverrides
   ) dependsOn(mediaBrowser, playlistEditor, reorderAlbum, reorderArtist, reorderMedium,
   reorderRandomAlbums, reorderRandomArtists, reorderRandomSongs, mediaIfcRemote, appWindowHiding,
   trayWindowList, mp3PlaybackContextFactory, log4jApiFragment, log4jConfFragment)
@@ -1186,7 +1200,8 @@ lazy val playerOsgiImage = (project in file("images/player"))
     sourceImagePaths := Seq("base", "player"),
     excludedModules := OSGi.DefaultExcludedModules,
     libraryDependencies ++= remotingDependencies,
-    libraryDependencies ++= osgiLogDependencies
+    libraryDependencies ++= osgiLogDependencies,
+    dependencyOverrides ++= asmOverrides
   ) dependsOn(mediaBrowser, playlistEditor, audioPlayerUI, reorderAlbum, reorderArtist, reorderMedium,
   reorderRandomAlbums, reorderRandomArtists, reorderRandomSongs, mediaIfcRemote, appWindowHiding,
   trayWindowList, persistentPlaylistHandler, mp3PlaybackContextFactory, log4jApiFragment, log4jConfFragment)
@@ -1205,7 +1220,8 @@ lazy val playerAdvancedOsgiImage = (project in file("images/player_advanced"))
     sourceImagePaths := Seq("base", "player_advanced"),
     excludedModules := OSGi.DefaultExcludedModules,
     libraryDependencies ++= remotingDependencies,
-    libraryDependencies ++= osgiLogDependencies
+    libraryDependencies ++= osgiLogDependencies,
+    dependencyOverrides ++= asmOverrides
   ) dependsOn(mediaBrowser, playlistEditor, audioPlayerUI, reorderAlbum, reorderArtist, reorderMedium,
   reorderRandomAlbums, reorderRandomArtists, reorderRandomSongs, appWindowHiding,
   trayWindowList, persistentPlaylistHandler, archiveUnion, archiveStartup, archiveHttp,
@@ -1224,6 +1240,7 @@ lazy val radioOsgiImage = (project in file("images/radio"))
     sourceImagePaths := Seq("base", "radio"),
     excludedModules := OSGi.DefaultExcludedModules,
     libraryDependencies ++= remotingDependencies,
-    libraryDependencies ++= osgiLogDependencies
+    libraryDependencies ++= osgiLogDependencies,
+    dependencyOverrides ++= asmOverrides
   ) dependsOn(radioPlayer, appShutdownOneForAll, mediaIfcDisabled, mp3PlaybackContextFactory, log4jApiFragment,
   log4jConfFragment)
