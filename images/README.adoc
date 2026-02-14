@@ -217,16 +217,15 @@ source artifact. Refer to the plugin documentation for details.
 
 == Java dependencies
 
-The LineDJ applications run on a Java environment using version 11 or higher.
-(Actually, Java 8 should work as well, but this has not been tested.) As UI
+The LineDJ applications run on a Java environment using any recent Java version. (Typically, no specific Java features or APIs are used, but the JDK requirements are enforced by the version of Scala in use.) As UI
 technology, the applications use https://openjfx.io/[JavaFX].
 
-In Java 11, JavaFX is no longer part of the core environment. This complicates
+From Java 11 on, JavaFX is no longer part of the core environment. This complicates
 the installation of the LineDJ applications; especially, the OSGi framework
 must be able to resolve the JavaFX packages and provide them to the
 application.
 
-One way to achieve this - which has worked quite well for us - is to create a
+One way to achieve this is to create a
 https://openjfx.io/openjfx-docs/#modular[custom JDK+JavaFX image] as described
 in the JavaFX documentation. Here Java's
 https://docs.oracle.com/javase/9/tools/jlink.htm[JLink] tool is used to create
@@ -234,3 +233,13 @@ a custom JDK image that contains the JavaFX modules; so when running the OSGi
 images with this JDK the required package imports are directly available. This
 folder contains the example script link:./javaFxImage.sh[] that demonstrates
 this approach.
+
+Alternatively, it is possible to use a standard JDK or JRE and pass the additional required JavaFX modules as parameters. The modules are available in the JavaFX SDK that can be downloaded in the desired version from the https://gluonhq.com/products/javafx/[JavaFX downloads page]. Unzip the SDK to a folder. Assuming that the variable `JAVA_FX_SDK` points to this folder and the `JAVA_HOME` variable is set correctly, the following command starts a LineDJ OSGi application:
+
+[source, shell]
+----
+"$JAVA_HOME"/bin/java \
+  --module-path "$JAVA_FX_SDK"/lib \
+  --add-modules javafx.controls \
+  -jar bin/felix.jar
+----
