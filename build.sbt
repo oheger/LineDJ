@@ -203,6 +203,7 @@ lazy val LineDJ = (project in file("."))
   archiveHttpStartup,
   archiveLocalStartup,
   archiveServer,
+  archiveServerCloud,
   archiveServerLocal,
   archiveStartup,
   archiveUnion,
@@ -409,6 +410,20 @@ lazy val archiveServerLocal = (project in file("mediaArchive/archiveServerLocal"
     libraryDependencies += commonsConfig2Dependency,
     Compile / mainClass := Some("de.oliver_heger.linedj.archive.server.local.Server"),
   ) dependsOn(shared % "compile->compile;test->test", archiveUnion, archiveServer)
+
+/**
+  * The archive server cloud project. This is an HTTP server application that
+  * provides access to media files hosted on cloud servers.
+  */
+lazy val archiveServerCloud = (project in file("mediaArchive/archiveServerCloud"))
+  .settings(defaultSettings)
+  .settings(
+    name := "linedj-archive-server-cloud",
+    libraryDependencies ++= logDependencies,
+    libraryDependencies ++= pekkoHttpDependencies,
+    libraryDependencies += commonsConfig2Dependency,
+    Compile / mainClass := Some("de.oliver_heger.linedj.archive.server.cloud.Server"),
+  ) dependsOn(shared % "compile->compile;test->test", cloudAccess, archiveServer)
 
 /**
   * The WebDav protocol project. This is a module adding support for WebDav
