@@ -1,0 +1,211 @@
+/*
+ * Copyright 2015-2026 The Developers Team.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License")
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package de.oliver_heger.linedj.archive.server.cloud
+
+import de.oliver_heger.linedj.FileTestHelper
+import de.oliver_heger.linedj.shared.archive.metadata.Checksums
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.scaladsl.{Sink, Source}
+import org.apache.pekko.testkit.TestKit
+import org.apache.pekko.util.ByteString
+import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
+import org.scalatest.flatspec.AsyncFlatSpecLike
+import org.scalatest.matchers.should.Matchers
+
+import scala.concurrent.Future
+
+object CloudArchiveCacheSpec:
+  /** The prefix for generated test medium IDs. */
+  private val TestMediumIDPrefix = "testMedium-"
+
+  /**
+    * Generates an ID for the test medium with the given index.
+    *
+    * @param index the index of the test medium
+    * @return the ID for this test medium
+    */
+  private def testMediumID(index: Int): Checksums.MediumChecksum =
+    Checksums.MediumChecksum(s"$TestMediumIDPrefix$index")
+
+  /**
+    * Extracts the ID of test medium for the given medium ID.
+    *
+    * @param id the ID of the test medium
+    * @return the corresponding test medium index
+    */
+  private def testMediumIndex(id: Checksums.MediumChecksum): Int =
+    id.checksum.substring(TestMediumIDPrefix.length).toInt
+
+  /**
+    * Generates a [[MediumEntry]] object for the test medium with the given
+    * index.
+    *
+    * @param index the index of the test medium
+    * @return the entry for this test medium
+    */
+  private def testMediumEntry(index: Int): MediumEntry =
+    MediumEntry(testMediumID(index), 20260216213017L + index * 1000)
+
+  /**
+    * Generates text to represent a medium description for a test medium. Note
+    * that for this test class, the exact format of the test data is
+    * irrelevant; only some unique text needs to be generated.
+    *
+    * @param index the index of the test medium
+    * @return the medium description for this test medium
+    */
+  private def testMediumDescription(index: Int): String =
+    s"Description for medium $index: ${FileTestHelper.TestData}"
+
+  /**
+    * Generates metadata for a test medium analogously to
+    * [[testMediumDescription]].
+    *
+    * @param index the index of the test medium
+    * @return the metadata for this test medium
+    */
+  private def testMediumMetadata(index: Int): String =
+    s"Metadata for medium $index: ${FileTestHelper.TestData}"
+
+  /**
+    * Generates a [[CloudArchiveContent]] object with the given number of test
+    * media starting from index 1.
+    *
+    * @param mediaCount the number of media to be contained
+    * @return the content object with these test media
+    */
+  private def archiveContent(mediaCount: Int): CloudArchiveContent =
+    val media = (1 to mediaCount).foldRight(Map.empty[Checksums.MediumChecksum, MediumEntry]): (index, map) =>
+      val entry = testMediumEntry(index)
+      map + (entry.id -> entry)
+    CloudArchiveContent(media)
+end CloudArchiveCacheSpec
+
+/**
+  * Test class for [[CloudArchiveCache]].
+  */
+class CloudArchiveCacheSpec(testSystem: ActorSystem) extends TestKit(testSystem), AsyncFlatSpecLike,
+  BeforeAndAfterAll, BeforeAndAfterEach, Matchers, FileTestHelper:
+  def this() = this(ActorSystem("CloudArchiveCacheSpec"))
+
+  override protected def afterAll(): Unit =
+    TestKit.shutdownActorSystem(system)
+    super.afterAll()
+
+  override protected def afterEach(): Unit =
+    tearDownTestFile()
+    super.afterEach()
+
+  import CloudArchiveCacheSpec.*
+
+  /**
+    * Returns a new instance of [[CloudArchiveCache]] to be tested that is
+    * initialized with the managed temporary folder.
+    *
+    * @return the new cache instance
+    */
+  private def createCache(): CloudArchiveCache = CloudArchiveCache(testDirectory)
+
+  /**
+    * Creates an entry in the cache for a specific medium.
+    *
+    * @param cache     the cache object
+    * @param mediumID  the ID of the medium
+    * @param entryType the type of the entry
+    * @param data      the data to be stored
+    * @return a [[Future]] with the result of the operation
+    */
+  private def writeCacheFile(cache: CloudArchiveCache,
+                             mediumID: Checksums.MediumChecksum,
+                             entryType: CloudArchiveCache.EntryType,
+                             data: String): Future[Any] =
+    val entry = cache.entryFor(mediumID, entryType)
+    val source = Source(ByteString(data).grouped(64).toList)
+    source.runWith(entry.sink)
+
+  /**
+    * Creates entries for all provided items in the given cache.
+    *
+    * @param cache   the cache object
+    * @param entries the list with entries to be created
+    * @return a [[Future]] with the result
+    */
+  private def writeCacheFiles(cache: CloudArchiveCache, entries: List[MediumEntry]): Future[Any] =
+    entries match
+      case e :: t =>
+        val index = testMediumIndex(e.id)
+        val futEntries = for
+          _ <- writeCacheFile(cache, e.id, CloudArchiveCache.EntryType.MediumDescription, testMediumDescription(index))
+          r <- writeCacheFile(cache, e.id, CloudArchiveCache.EntryType.MediumSongs, testMediumMetadata(index))
+        yield r
+        futEntries.flatMap(_ => writeCacheFiles(cache, t))
+      case _ =>
+        Future.successful(())
+
+  /**
+    * Creates entries for all media listed in the given content document in a
+    * cache.
+    *
+    * @param cache   the cache object
+    * @param content the content document
+    * @return a [[Future]] with the result
+    */
+  private def writeCacheFiles(cache: CloudArchiveCache, content: CloudArchiveContent): Future[Any] =
+    writeCacheFiles(cache, content.media.values.toList)
+
+  /**
+    * Reads the data from the given cache entry.
+    *
+    * @param entry the entry to read
+    * @return a [[Future]] with the string content of this entry
+    */
+  private def readEntry(entry: CloudArchiveCache.CacheEntry): Future[String] =
+    val sink = Sink.fold[ByteString, ByteString](ByteString.empty)(_ ++ _)
+    entry.source.runWith(sink).map(_.utf8String)
+
+  "A CloudArchiveCache" should "return an empty content document if the cache is uninitialized" in :
+    val cache = createCache()
+
+    cache.loadAndValidateContent map : content =>
+      content should be(CloudArchiveContent(Map.empty))
+
+  it should "return the content document if the cache is up-to-date" in :
+    val content = archiveContent(8)
+    val cache = createCache()
+
+    for
+      _ <- writeCacheFiles(cache, content)
+      _ <- cache.saveContent(content)
+      result <- cache.loadAndValidateContent
+    yield
+      result should be(content)
+
+  it should "support reading an entry for a medium description" in :
+    val mediumID = testMediumID(42)
+    writeFileContent(createPathInDirectory(s"${mediumID.checksum}.json"), FileTestHelper.TestData)
+    val cache = createCache()
+
+    readEntry(cache.entryFor(mediumID, CloudArchiveCache.EntryType.MediumDescription)) map : data =>
+      data should be(FileTestHelper.TestData)
+
+  it should "support reading an entry for the songs of a medium" in :
+    val mediumID = testMediumID(42)
+    writeFileContent(createPathInDirectory(s"${mediumID.checksum}.mdt"), FileTestHelper.TestData)
+    val cache = createCache()
+
+    readEntry(cache.entryFor(mediumID, CloudArchiveCache.EntryType.MediumSongs)) map : data =>
+      data should be(FileTestHelper.TestData)
