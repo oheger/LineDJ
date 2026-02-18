@@ -181,9 +181,6 @@ object MediaArchiveConfig:
     */
   final val DefaultTocDescRemovePathComponents = 0
 
-  /** The default name of the blocking dispatcher. */
-  final val DefaultBlockingDispatcherName = "blocking-dispatcher"
-
   /**
     * A type class interface for loading the configuration of a media archive 
     * from different configuration libraries.

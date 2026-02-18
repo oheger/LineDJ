@@ -550,7 +550,7 @@ class ExportActor(mediaFacade: MediaFacade, chunkSize: Int, progressSize: Int, b
     * @param exportPath the export path to be scanned
     */
   private def scanExportFolder(exportPath: Path): Unit =
-    val localFs = LocalFsUtils.createLocalFs(exportPath, blockingDispatcherName, context.system)
+    val localFs = LocalFsUtils.createLocalFs(exportPath, context.system, blockingDispatcherName)
     val walkConfig = Walk.WalkConfig(localFs, null, exportPath)
 
     given typed.ActorSystem[_] = context.system.toTyped

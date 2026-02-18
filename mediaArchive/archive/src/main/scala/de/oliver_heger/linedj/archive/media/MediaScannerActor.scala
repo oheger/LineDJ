@@ -183,7 +183,7 @@ class MediaScannerActor(archiveName: String,
     * @return the source for scanning this structure
     */
   private[media] def createSource(path: Path): Source[Path, Any] =
-    val localFs = LocalFsUtils.createLocalFs(path, blockingDispatcherName, context.system)
+    val localFs = LocalFsUtils.createLocalFs(path, context.system, blockingDispatcherName)
     val walkConfig = Walk.WalkConfig(
       fileSystem = localFs,
       httpActor = null,

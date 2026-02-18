@@ -26,6 +26,13 @@ import java.nio.file.Path
   */
 object LocalFsUtils:
   /**
+    * The default name of the blocking dispatcher. This dispatcher needs to be
+    * declared in the application's configuration. It should be used when 
+    * performing I/O operations; also, when working with a local filesystem.
+    */
+  final val DefaultBlockingDispatcherName = "blocking-dispatcher"
+
+  /**
     * Constant for a string that is returned by ''extractExtension()'' if a
     * file does not have an extension. This is an empty string.
     */
@@ -65,7 +72,9 @@ object LocalFsUtils:
     * @param system                 the actor system
     * @return the [[LocalFileSystem]] instance
     */
-  def createLocalFs(rootPath: Path, blockingDispatcherName: String, system: ActorSystem): LocalFileSystem =
+  def createLocalFs(rootPath: Path, 
+                    system: ActorSystem,
+                    blockingDispatcherName: String = DefaultBlockingDispatcherName): LocalFileSystem =
     val ec = system.dispatchers.lookup(blockingDispatcherName)
     val fsOptions = LocalFsConfig(rootPath, ec)
     new LocalFileSystem(fsOptions)

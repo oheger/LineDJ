@@ -21,7 +21,7 @@ import de.oliver_heger.linedj.archive.metadata.MetadataManagerActor
 import de.oliver_heger.linedj.archivecommon.download.{DownloadConfig, DownloadMonitoringActor, MediaFileDownloadActor}
 import de.oliver_heger.linedj.extract.id3.stream.ID3SkipStage
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor
-import de.oliver_heger.linedj.io.{CloseHandlerActor, CloseRequest, CloseSupport, FileData}
+import de.oliver_heger.linedj.io.{CloseHandlerActor, CloseRequest, CloseSupport, FileData, LocalFsUtils}
 import de.oliver_heger.linedj.shared.actors.ChildActorFactory
 import de.oliver_heger.linedj.shared.archive.media.*
 import de.oliver_heger.linedj.shared.archive.metadata.GetMetadataFileInfo
@@ -46,7 +46,7 @@ import scala.concurrent.duration.*
 object MediaManagerActorSpec:
   /** Class for the directory scanner child actor. */
   private val ClsDirScanner: Class[_ <: Actor] = MediaScannerActor("", Set.empty,
-    Set.empty, 100, null, Timeout(1.minute), MediaArchiveConfig.DefaultBlockingDispatcherName).actorClass()
+    Set.empty, 100, null, Timeout(1.minute), LocalFsUtils.DefaultBlockingDispatcherName).actorClass()
 
   /** Class for the medium info parser child actor. */
   private val ClsInfoParser: Class[MediumInfoParserActor] = classOf[MediumInfoParserActor]

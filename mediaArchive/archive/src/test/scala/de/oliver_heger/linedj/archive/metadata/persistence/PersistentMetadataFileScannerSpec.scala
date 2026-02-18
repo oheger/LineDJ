@@ -18,6 +18,7 @@ package de.oliver_heger.linedj.archive.metadata.persistence
 
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
+import de.oliver_heger.linedj.io.LocalFsUtils
 import de.oliver_heger.linedj.shared.archive.metadata.Checksums.MediumChecksum
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.testkit.TestKit
@@ -54,7 +55,7 @@ class PersistentMetadataFileScannerSpec(testSystem: ActorSystem) extends TestKit
 
     val expMap = checkSumList.zip(pathList).toMap
     val scanner = new PersistentMetadataFileScanner
-    val futFileMap = scanner.scanForMetadataFiles(testDirectory, MediaArchiveConfig.DefaultBlockingDispatcherName)
+    val futFileMap = scanner.scanForMetadataFiles(testDirectory, LocalFsUtils.DefaultBlockingDispatcherName)
     val fileMap = Await.result(futFileMap, 5.seconds)
     fileMap should contain theSameElementsAs expMap
 
@@ -62,6 +63,6 @@ class PersistentMetadataFileScannerSpec(testSystem: ActorSystem) extends TestKit
     val scanner = new PersistentMetadataFileScanner
 
     val futFileMap = scanner.scanForMetadataFiles(Paths get "nonExistingPath",
-      MediaArchiveConfig.DefaultBlockingDispatcherName)
+      LocalFsUtils.DefaultBlockingDispatcherName)
     intercept[IOException]:
       Await.result(futFileMap, 5.seconds)

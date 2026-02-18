@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.archive.server.local
 
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
+import de.oliver_heger.linedj.io.LocalFsUtils
 import org.apache.commons.configuration2.{BaseHierarchicalConfiguration, Configuration}
 import org.apache.pekko.util.Timeout
 import org.scalatest.flatspec.AnyFlatSpec
@@ -230,7 +231,7 @@ class MediaArchiveConfigLoaderCC2Spec extends AnyFlatSpec with Matchers:
     appConfig.clearProperty("media.localArchives.localArchive.blockingDispatcherName")
     val config = createArchiveConfig(appConfig)
 
-    config.blockingDispatcherName should be(MediaArchiveConfig.DefaultBlockingDispatcherName)
+    config.blockingDispatcherName should be(LocalFsUtils.DefaultBlockingDispatcherName)
 
   it should "support a static name pattern without calling the resolver function" in :
     val count = new AtomicInteger

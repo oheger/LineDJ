@@ -19,6 +19,7 @@ package de.oliver_heger.linedj.archive.server.local
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig.MediaArchiveConfigLoader
 import de.oliver_heger.linedj.archivecommon.download.DownloadConfig
+import de.oliver_heger.linedj.io.LocalFsUtils
 import de.oliver_heger.linedj.shared.config.ConfigExtensions.toDuration
 import org.apache.commons.configuration2.Configuration
 import org.apache.logging.log4j.LogManager
@@ -84,7 +85,10 @@ private class MediaArchiveConfigLoaderCC2 extends MediaArchiveConfigLoader[Confi
       infoParserTimeout = durationProperty(config, subConfig, PropScanParseInfoTimeout,
         Some(DefaultInfoParserTimeout.duration)),
       scanMediaBufferSize = intProperty(config, subConfig, PropScanMediaBufferSize, Some(DefaultScanMediaBufferSize)),
-      blockingDispatcherName = subConfig.getString(PropBlockingDispatcherName, DefaultBlockingDispatcherName)
+      blockingDispatcherName = subConfig.getString(
+        PropBlockingDispatcherName,
+        LocalFsUtils.DefaultBlockingDispatcherName
+      )
     )
 
   /**

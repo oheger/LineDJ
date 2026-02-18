@@ -83,7 +83,7 @@ private class PersistentMetadataFileScanner:
     */
   def scanForMetadataFiles(dir: Path, blockingDispatcherName: String)
                           (implicit system: ActorSystem): Future[Map[MediumChecksum, Path]] =
-    val localFs = LocalFsUtils.createLocalFs(dir, blockingDispatcherName, system)
+    val localFs = LocalFsUtils.createLocalFs(dir, system, blockingDispatcherName)
     val walkConfig = Walk.WalkConfig(
       fileSystem = localFs,
       httpActor = null,

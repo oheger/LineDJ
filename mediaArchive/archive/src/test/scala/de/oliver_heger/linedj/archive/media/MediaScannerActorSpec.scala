@@ -20,7 +20,7 @@ import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.media.MediaScannerActor.ScanPath
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
-import de.oliver_heger.linedj.io.{CloseRequest, FileData}
+import de.oliver_heger.linedj.io.{CloseRequest, FileData, LocalFsUtils}
 import de.oliver_heger.linedj.shared.actors.ChildActorFactory
 import de.oliver_heger.linedj.shared.archive.media.{MediumDescription, MediumID, MediumInfo}
 import org.apache.pekko.actor.{Actor, ActorRef, ActorSystem, Props}
@@ -148,7 +148,7 @@ object MediaScannerActorSpec:
     */
   private def testActorProps(parser: ActorRef): Props =
     Props(new MediaScannerActor(ArchiveName, Set.empty, Set.empty,
-      BufferSize, parser, InfoParserTimeout, MediaArchiveConfig.DefaultBlockingDispatcherName)
+      BufferSize, parser, InfoParserTimeout, LocalFsUtils.DefaultBlockingDispatcherName)
       with ChildActorFactory)
 
   /**
@@ -301,7 +301,7 @@ class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   it should "support canceling a scan operation" in:
     val fProps: ActorRef => Props = parserActor =>
       Props(new MediaScannerActor(ArchiveName, Set.empty, Set.empty, BufferSize,
-        parserActor, InfoParserTimeout, MediaArchiveConfig.DefaultBlockingDispatcherName) with ChildActorFactory {
+        parserActor, InfoParserTimeout, LocalFsUtils.DefaultBlockingDispatcherName) with ChildActorFactory {
         override private[media] def createSource(path: Path): Source[Path, Any] = {
           super.createSource(path).delay(200.milliseconds, DelayOverflowStrategy.backpressure)
         }
@@ -318,7 +318,7 @@ class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val refKillSwitch = new AtomicReference[KillSwitch]
     val fProps: ActorRef => Props = parserActor =>
       Props(new MediaScannerActor(ArchiveName, Set.empty, Set.empty, BufferSize,
-        parserActor, InfoParserTimeout, MediaArchiveConfig.DefaultBlockingDispatcherName) with ChildActorFactory {
+        parserActor, InfoParserTimeout, LocalFsUtils.DefaultBlockingDispatcherName) with ChildActorFactory {
         override private[media] def runStream(source: Source[Path, Any], root: Path,
                                               sinkActor: ActorRef): KillSwitch = {
           val res = super.runStream(source, root, sinkActor)
@@ -340,7 +340,7 @@ class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   it should "support excluding files" in:
     val fProps: ActorRef => Props = parserActor =>
       Props(new MediaScannerActor(ArchiveName, Set("TXT"), Set.empty, BufferSize,
-        parserActor, InfoParserTimeout, MediaArchiveConfig.DefaultBlockingDispatcherName) with ChildActorFactory)
+        parserActor, InfoParserTimeout, LocalFsUtils.DefaultBlockingDispatcherName) with ChildActorFactory)
     val helper = new ScannerActorTestHelper(fProps)
 
     val results = helper.scanAndGetResults()
@@ -352,7 +352,7 @@ class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   it should "support including files (with a higher preference than excluding)" in:
     val fProps: ActorRef => Props = parserActor =>
       Props(new MediaScannerActor(ArchiveName, Set("TXT"), Set("TXT"), BufferSize,
-        parserActor, InfoParserTimeout, MediaArchiveConfig.DefaultBlockingDispatcherName) with ChildActorFactory)
+        parserActor, InfoParserTimeout, LocalFsUtils.DefaultBlockingDispatcherName) with ChildActorFactory)
     val helper = new ScannerActorTestHelper(fProps)
 
     val results = helper.scanAndGetResults()
@@ -364,7 +364,7 @@ class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   it should "handle timeouts when parsing medium description files" in:
     val fProps: ActorRef => Props = parserActor =>
       Props(new MediaScannerActor(ArchiveName, Set("TXT"), Set.empty, BufferSize,
-        parserActor, Timeout(500.millis), MediaArchiveConfig.DefaultBlockingDispatcherName) with ChildActorFactory)
+        parserActor, Timeout(500.millis), LocalFsUtils.DefaultBlockingDispatcherName) with ChildActorFactory)
     val helper = new ScannerActorTestHelper(fProps)
 
     val results = helper.disableInfoParserActor().scanAndGetResults()

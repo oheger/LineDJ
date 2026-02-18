@@ -141,7 +141,7 @@ class RemoveTempFilesActor(blockingDispatcherName: String) extends Actor with Ac
     */
   private def deleteTempFilesAndCollectFolders(root: Path, generator: TempPathGenerator):
   Future[List[Model.Folder[Path]]] =
-    val localFs = LocalFsUtils.createLocalFs(root, blockingDispatcherName, context.system)
+    val localFs = LocalFsUtils.createLocalFs(root, context.system, blockingDispatcherName)
     val walkOptions = Walk.WalkConfig(
       fileSystem = localFs,
       httpActor = null,
