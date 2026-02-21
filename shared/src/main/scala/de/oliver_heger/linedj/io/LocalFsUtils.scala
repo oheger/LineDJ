@@ -16,10 +16,15 @@
 
 package de.oliver_heger.linedj.io
 
+import com.github.cloudfiles.core.Model
+import com.github.cloudfiles.core.utils.Walk
 import com.github.cloudfiles.localfs.{LocalFileSystem, LocalFsConfig}
-import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.actor.{ActorSystem, typed}
+import org.apache.pekko.actor.typed.scaladsl.adapter.*
+import org.apache.pekko.stream.scaladsl.Sink
 
 import java.nio.file.Path
+import scala.concurrent.Future
 
 /**
   * A class providing some utility functions related to the local file system.
@@ -72,9 +77,44 @@ object LocalFsUtils:
     * @param system                 the actor system
     * @return the [[LocalFileSystem]] instance
     */
-  def createLocalFs(rootPath: Path, 
+  def createLocalFs(rootPath: Path,
                     system: ActorSystem,
                     blockingDispatcherName: String = DefaultBlockingDispatcherName): LocalFileSystem =
     val ec = system.dispatchers.lookup(blockingDispatcherName)
     val fsOptions = LocalFsConfig(rootPath, ec)
     new LocalFileSystem(fsOptions)
+
+  /**
+    * Lists the files contained in a folder ignoring any subfolders. It is
+    * possible to specify a set with file extensions to filter for; if an empty
+    * set is passed, the result contains all files found in this folder.
+    *
+    * @param path                   the path to be listed
+    * @param system                 the actor system
+    * @param extensions             a set with extensions to filer for
+    * @param blockingDispatcherName the name of the blocking dispatcher
+    * @return a [[Future]] with the found files
+    */
+  def listFolder(path: Path,
+                 system: ActorSystem,
+                 extensions: Set[String] = Set.empty,
+                 blockingDispatcherName: String = DefaultBlockingDispatcherName): Future[List[Path]] =
+    def filterFiles(elements: List[Model.Element[Path]]): List[Model.Element[Path]] =
+      elements.filter:
+        case f: Model.File[Path] if extensions.isEmpty || extensions.contains(extractExtension(f.id)) => true
+        case _ => false
+
+    val localFs = LocalFsUtils.createLocalFs(path, system, blockingDispatcherName)
+    val walkConfig = Walk.WalkConfig(
+      fileSystem = localFs,
+      httpActor = null,
+      rootID = path,
+      transform = filterFiles
+    )
+
+    given typed.ActorSystem[_] = system.toTyped
+
+    val source = Walk.dfsSource(walkConfig)
+      .map(_.id)
+    val sink = Sink.fold[List[Path], Path](List.empty)((list, path) => path :: list)
+    source.runWith(sink)
