@@ -759,7 +759,7 @@ class PersistentMetadataManagerActorSpec(testSystem: ActorSystem) extends TestKi
     def initMediaFiles(indices: Int*): PersistenceMetaDataManagerActorTestHelper =
       val futResult = if indices.isEmpty then Future.failed[Map[MediumChecksum, Path]](new IOException)
       else Future.successful(persistentFileMapping(indices: _*))
-      when(fileScanner.scanForMetadataFiles(argEq(FilePath), argEq(BlockingDispatcher))(any()))
+      when(fileScanner.scanForMetadataFiles(argEq(FilePath), argEq(BlockingDispatcher))(using any()))
         .thenReturn(futResult)
       this
 

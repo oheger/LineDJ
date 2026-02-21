@@ -17,7 +17,6 @@
 package de.oliver_heger.linedj.archive.metadata.persistence
 
 import de.oliver_heger.linedj.FileTestHelper
-import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.io.LocalFsUtils
 import de.oliver_heger.linedj.shared.archive.metadata.Checksums.MediumChecksum
 import org.apache.pekko.actor.ActorSystem
@@ -28,8 +27,8 @@ import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll}
 
 import java.io.IOException
 import java.nio.file.Paths
+import scala.concurrent.Await
 import scala.concurrent.duration.*
-import scala.concurrent.{Await, ExecutionContextExecutor}
 
 /**
   * Test class for ''PersistentMetaDataFileScanner''.

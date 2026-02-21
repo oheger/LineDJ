@@ -17,12 +17,9 @@
 package de.oliver_heger.linedj.archive.metadata.persistence
 
 import com.github.cloudfiles.core.Model
-import com.github.cloudfiles.core.utils.Walk
 import de.oliver_heger.linedj.io.LocalFsUtils
 import de.oliver_heger.linedj.shared.archive.metadata.Checksums.MediumChecksum
-import org.apache.pekko.actor.{ActorSystem, typed}
-import org.apache.pekko.actor.typed.scaladsl.adapter.*
-import org.apache.pekko.stream.scaladsl.Sink
+import org.apache.pekko.actor.ActorSystem
 
 import java.nio.file.Path
 import scala.concurrent.Future
@@ -30,6 +27,9 @@ import scala.concurrent.Future
 object PersistentMetadataFileScanner:
   /** The file extension for persistent metadata files. */
   final val MetadataFileExtension = "mdt"
+
+  /** The set of file extensions to filter for. */
+  private val FilterExtensions = Set(MetadataFileExtension)
 
   /**
     * Determines the checksum of a metadata file.
@@ -82,22 +82,9 @@ private class PersistentMetadataFileScanner:
     * @return a future with a map with the results of the scan operation
     */
   def scanForMetadataFiles(dir: Path, blockingDispatcherName: String)
-                          (implicit system: ActorSystem): Future[Map[MediumChecksum, Path]] =
-    val localFs = LocalFsUtils.createLocalFs(dir, system, blockingDispatcherName)
-    val walkConfig = Walk.WalkConfig(
-      fileSystem = localFs,
-      httpActor = null,
-      rootID = dir,
-      transform = filterMetadataFiles
-    )
+                          (using system: ActorSystem): Future[Map[MediumChecksum, Path]] =
+    import system.dispatcher
 
-    given typed.ActorSystem[_] = system.toTyped
-
-    val source = Walk.dfsSource(walkConfig)
-      .filter {
-        case _: Model.File[Path] => true
-        case _ => false
-      }
-      .map(elem => (checksumFor(elem.id), elem.id))
-    val sink = Sink.fold[Map[MediumChecksum, Path], (MediumChecksum, Path)](Map.empty)(_ + _)
-    source runWith sink
+    LocalFsUtils.listFolder(dir, system, FilterExtensions) map : paths =>
+      paths.foldRight(Map.empty[MediumChecksum, Path]): (path, map) =>
+        map + (checksumFor(path) -> path)
