@@ -22,10 +22,12 @@ import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import org.apache.pekko.testkit.TestKit
 import org.apache.pekko.util.ByteString
-import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
+import org.scalatest.Inspectors.forEvery
 import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
 
+import java.nio.file.Files
 import scala.concurrent.Future
 
 object CloudArchiveCacheSpec:
@@ -209,3 +211,69 @@ class CloudArchiveCacheSpec(testSystem: ActorSystem) extends TestKit(testSystem)
 
     readEntry(cache.entryFor(mediumID, CloudArchiveCache.EntryType.MediumSongs)) map : data =>
       data should be(FileTestHelper.TestData)
+
+  it should "remove media with missing entries from the content document" in :
+
+    def deleteFilesFromEntries(): Future[Any] = Future:
+      val filesToDelete = List(testMediumID(9).checksum + ".mdt", testMediumID(10).checksum + ".json")
+      filesToDelete.foreach: f =>
+        Files.delete(testDirectory.resolve(f))
+
+    val content = archiveContent(10)
+    val cache = createCache()
+
+    for
+      _ <- writeCacheFiles(cache, content)
+      _ <- cache.saveContent(content)
+      _ <- deleteFilesFromEntries()
+      result <- cache.loadAndValidateContent
+    yield
+      val expectedMedia = content.media - testMediumID(9) - testMediumID(10)
+      result.media should be(expectedMedia)
+
+  it should "remove entries from the cache for incomplete media" in :
+    val cache = createCache()
+
+    for
+      _ <- cache.saveContent(archiveContent(1))
+      _ <- writeCacheFiles(cache, List(testMediumEntry(1)))
+      _ <- writeCacheFile(cache, testMediumID(2), CloudArchiveCache.EntryType.MediumSongs, "testSongData")
+      _ <- writeCacheFile(cache, testMediumID(3), CloudArchiveCache.EntryType.MediumDescription, "testDesc")
+      _ <- cache.loadAndValidateContent
+    yield
+      Files.isRegularFile(testDirectory.resolve(testMediumID(1).checksum + ".mdt")) shouldBe true
+      val deletedPaths = List(
+        testDirectory.resolve(testMediumID(2).checksum + ".mdt"),
+        testDirectory.resolve(testMediumID(3).checksum + ".json")
+      )
+      forEvery(deletedPaths): p =>
+        Files.exists(p) shouldBe false
+
+  it should "not remove the table of contents file" in :
+    val cache = createCache()
+
+    for
+      _ <- cache.saveContent(archiveContent(1))
+      _ <- writeCacheFiles(cache, List(testMediumEntry(1)))
+      _ <- writeCacheFile(cache, testMediumID(2), CloudArchiveCache.EntryType.MediumSongs, "testSongData")
+      _ <- writeCacheFile(cache, testMediumID(3), CloudArchiveCache.EntryType.MediumDescription, "testDesc")
+      _ <- cache.loadAndValidateContent
+      result <- cache.loadAndValidateContent
+    yield
+      result.media should have size 1
+
+  it should "remove entries from the cache for non-existing media" in :
+    val cache = createCache()
+
+    for
+      _ <- cache.saveContent(archiveContent(1))
+      _ <- writeCacheFiles(cache, List(testMediumEntry(1), testMediumEntry(2)))
+      result <- cache.loadAndValidateContent
+    yield
+      result.media.keySet should contain only testMediumID(1)
+      val deletedPaths = List(
+        testDirectory.resolve(testMediumID(2).checksum + ".mdt"),
+        testDirectory.resolve(testMediumID(2).checksum + ".json")
+      )
+      forEvery(deletedPaths): p =>
+        Files.exists(p) shouldBe false

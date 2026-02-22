@@ -17,9 +17,11 @@
 package de.oliver_heger.linedj.archive.server.cloud
 
 import de.oliver_heger.linedj.archive.server.cloud.CloudArchiveCache.CacheEntry
+import de.oliver_heger.linedj.io.LocalFsUtils
 import de.oliver_heger.linedj.io.parser.JsonStreamParser
 import de.oliver_heger.linedj.io.stream.ListSeparatorStage
 import de.oliver_heger.linedj.shared.archive.metadata.Checksums
+import org.apache.logging.log4j.LogManager
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.scaladsl.{FileIO, Sink, Source}
 import org.apache.pekko.util.ByteString
@@ -38,6 +40,12 @@ object CloudArchiveCache:
 
   /** The extension for files with song metadata for a medium. */
   private val ExtMediumSongs = "mdt"
+
+  /** A set with the file extensions to filter for in the cache folder. */
+  private val FilterExtensions = Set(ExtMediumDesc, ExtMediumSongs)
+
+  /** The logger. */
+  private val log = LogManager.getLogger(CloudArchiveCache.getClass)
 
   /**
     * An enumeration for the different types of entries supported by this
@@ -105,6 +113,33 @@ object CloudArchiveCache:
   private def toInternalEntry(e: MediumEntry): MediumEntryInternal =
     MediumEntryInternal(e.id.checksum, e.timestamp)
 
+  /**
+    * Splits the given path into two components for the file name and the
+    * extension. For cache entries, the file name corresponds to the medium ID,
+    * the extension determines the type of the entry.
+    *
+    * @param path the path to split
+    * @return a tuple with the file name and the file extension
+    */
+  private def splitNameAndExtension(path: Path): (String, String) =
+    val extension = LocalFsUtils.extractExtension(path)
+    val nameWithExtension = path.getFileName.toString
+    val nameOnly = nameWithExtension.substring(0, nameWithExtension.length - extension.length - 1)
+    (nameOnly, extension)
+
+  /**
+    * Deletes the given path. Occurring exceptions are logged, but ignored
+    * otherwise.
+    *
+    * @param path the path to delete
+    */
+  private def deleteFile(path: Path): Unit =
+    log.info("Deleting file '{}' from cache.", path)
+    try
+      Files.delete(path)
+    catch
+      case e => log.error("Failed to delete file '{}'.", path, e)
+
   private given fmtMediumEntry: JsonFormat[MediumEntryInternal] = jsonFormat2(MediumEntryInternal.apply)
 end CloudArchiveCache
 
@@ -166,12 +201,18 @@ class CloudArchiveCache(val cacheFolder: Path):
   def loadAndValidateContent(using system: ActorSystem): Future[CloudArchiveContent] =
     val toc = contentPath
     if Files.isRegularFile(toc) then
-      val source = FileIO.fromPath(toc)
-      val parser = JsonStreamParser.parseStream[MediumEntryInternal, Any](source)
-      val sink = Sink.fold[Map[Checksums.MediumChecksum, MediumEntry], MediumEntry](Map.empty): (map, e) =>
-        map + (e.id -> e)
+      val futToc = loadContentDocument(toc)
+      val futMedia = readCacheFolder
+      for
+        toc <- futToc
+        (media, orphans) <- futMedia
+      yield
+        val toDelete = (media -- toc.keySet).foldRight(orphans): (mediumID, set) =>
+          set + cachePath(entryName(mediumID, EntryType.MediumDescription))
+            + cachePath(entryName(mediumID, EntryType.MediumSongs))
+        toDelete.foreach(deleteFile)
 
-      parser.map(toMediumEntry).runWith(sink).map(CloudArchiveContent.apply)
+        CloudArchiveContent(toc.filter(e => media.contains(e._1)))
     else
       Future.successful(CloudArchiveContent(Map.empty))
 
@@ -191,10 +232,55 @@ class CloudArchiveCache(val cacheFolder: Path):
 
     new CacheEntry:
       override def source: Source[ByteString, Any] =
+        log.debug("Reading cache entry '{}'.", path)
         FileIO.fromPath(path)
 
       override def sink: Sink[ByteString, Future[Any]] =
+        log.info("Writing cache entry '{}'.", path)
         FileIO.toPath(path)
+
+  /**
+    * Loads the document storing the table of contents of this cache.
+    *
+    * @param toc    the path to the content document
+    * @param system the actor system
+    * @return a [[Future]] with the content document
+    */
+  private def loadContentDocument(toc: Path)(using system: ActorSystem):
+  Future[Map[Checksums.MediumChecksum, MediumEntry]] =
+    val source = FileIO.fromPath(toc)
+    val parser = JsonStreamParser.parseStream[MediumEntryInternal, Any](source)
+    val sink = Sink.fold[Map[Checksums.MediumChecksum, MediumEntry], MediumEntry](Map.empty): (map, e) =>
+      map + (e.id -> e)
+
+    parser.map(toMediumEntry).runWith(sink)
+
+  /**
+    * Scans the cache folder for entries referring to media files. Constructs a
+    * set with the IDs of media for which all entries exist. Also, the function
+    * returns a set with paths for entry files that are incomplete, i.e., one
+    * of the entries for the affected medium is missing. This is used to sync
+    * the table-of-contents document with the real content of the cache folder.
+    *
+    * @param system the actor system
+    * @return a [[Future]] with sets for the media for which complete entries
+    *         exist and orphaned paths
+    */
+  private def readCacheFolder(using system: ActorSystem):
+  Future[(Set[Checksums.MediumChecksum], Set[Path])] =
+    LocalFsUtils.listFolder(cacheFolder, system, FilterExtensions) map : paths =>
+      val splitPaths = paths.filterNot(_.getFileName.toString == TocName)
+        .map(p => splitNameAndExtension(p) -> p).toMap
+      val (descEntries, songEntries) =
+        splitPaths.keys.foldRight((Set.empty[String], Set.empty[String])): (path, sets) =>
+          if path._2 == ExtMediumDesc then
+            (sets._1 + path._1, sets._2)
+          else
+            (sets._1, sets._2 + path._1)
+
+      val completeMedia = descEntries.intersect(songEntries)
+      val orphanedPaths = splitPaths.filterNot(e => completeMedia.contains(e._1._1)).values.toSet
+      (completeMedia.map(Checksums.MediumChecksum.apply), orphanedPaths)
 
   /**
     * Returns the path to the document storing the content of this cache.
