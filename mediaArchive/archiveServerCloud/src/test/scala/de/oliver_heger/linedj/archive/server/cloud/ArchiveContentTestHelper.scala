@@ -16,14 +16,19 @@
 
 package de.oliver_heger.linedj.archive.server.cloud
 
-import de.oliver_heger.linedj.FileTestHelper
-import de.oliver_heger.linedj.shared.archive.metadata.Checksums
+import de.oliver_heger.linedj.archive.server.model.ArchiveModel
+import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
+import de.oliver_heger.linedj.shared.archive.metadata.{Checksums, MediaMetadata}
+import de.oliver_heger.linedj.shared.archive.union.MetadataProcessingSuccess
 
 /**
   * A test helper object providing functionality to generate test data for
   * cloud archives. This test data is required by multiple test classes.
   */
 object ArchiveContentTestHelper:
+  /** The name of a test archive. */
+  final val TestArchiveName = "Test-Archive"
+
   /** The prefix for generated test medium IDs. */
   private val TestMediumIDPrefix = "testMedium-"
 
@@ -56,25 +61,66 @@ object ArchiveContentTestHelper:
     MediumEntry(testMediumID(index), 20260216213017L + index * 1000)
 
   /**
-    * Generates text to represent a medium description for a test medium. Note
-    * that for this test class, the exact format of the test data is
-    * irrelevant; only some unique text needs to be generated.
+    * Generates a medium details object for a test medium.
+    *
+    * @param index the index of the test medium
+    * @return the details for this test medium
+    */
+  def testMediumDetails(index: Int): ArchiveModel.MediumDetails =
+    ArchiveModel.MediumDetails(
+      overview = ArchiveModel.MediumOverview(testMediumID(index), s"TestMedium-$index"),
+      description = s"Description of test medium $index.",
+      orderMode = Some(ArchiveModel.OrderMode.fromOrdinal(index % ArchiveModel.OrderMode.values.length)),
+      archiveName = TestArchiveName
+    )
+
+  /**
+    * Generates a valid medium description for a test medium.
     *
     * @param index the index of the test medium
     * @return the medium description for this test medium
     */
   def testMediumDescription(index: Int): String =
-    s"Description for medium $index: ${FileTestHelper.TestData}"
+    val details = testMediumDetails(index)
+    s"""
+       |{
+       |  "description": "${details.description}",
+       |  "name": "${details.title}",
+       |  "orderMode": "${details.orderMode.get}"
+       |}
+       |""".stripMargin
 
   /**
-    * Generates metadata for a test medium analogously to
-    * [[testMediumDescription]].
+    * Generates a number of data objects to simulate metadata for the songs of
+    * a test medium.
+    *
+    * @param index the index of the test medium
+    * @return data about the songs on this test medium
+    */
+  def testSongDataForMedium(index: Int): List[MetadataProcessingSuccess] =
+    val mediumID = MediumID("someUri" + index, Some("someDescription" + index), testMediumID(index).checksum)
+    (1 to index).map: track =>
+      MetadataProcessingSuccess(
+        mediumID = mediumID,
+        uri = MediaFileUri(s"/medium_$index/songs/$track"),
+        metadata = MediaMetadata(
+          size = track * 1000 + index,
+          checksum = s"song-checksum-$index-$track",
+          trackNumber = Some(track),
+          title = Some(s"Song $track on medium $index")
+        )
+      )
+    .toList
+
+  /**
+    * Generates valid metadata for a test medium consisting of a number of test
+    * songs.
     *
     * @param index the index of the test medium
     * @return the metadata for this test medium
     */
   def testMediumMetadata(index: Int): String =
-    s"Metadata for medium $index: ${FileTestHelper.TestData}"
+    testSongDataForMedium(index).map(metadataToJson).mkString(start = "[", sep = ",", end = "]")
 
   /**
     * Generates a [[CloudArchiveContent]] object with the given number of test
@@ -88,3 +134,20 @@ object ArchiveContentTestHelper:
       val entry = testMediumEntry(index)
       map + (entry.id -> entry)
     CloudArchiveContent(media)
+
+  /**
+    * Generates a string with the JSON representation for the given metadata
+    * about a song.
+    *
+    * @param data the data object with all information about a song
+    * @return the JSON representation for this data
+    */
+  private def metadataToJson(data: MetadataProcessingSuccess): String =
+    s"""{
+       |  "checksum": "${data.metadata.checksum}",
+       |  "size": ${data.metadata.size},
+       |  "title": "${data.metadata.title.get}",
+       |  "trackNumber": ${data.metadata.trackNumber.get},
+       |  "uri": "${data.uri.uri}"
+       |}
+       |""".stripMargin
