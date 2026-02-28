@@ -17,10 +17,11 @@
 package de.oliver_heger.linedj.archive.metadata.persistence
 
 import de.oliver_heger.linedj.FileTestHelper
-import de.oliver_heger.linedj.archive.metadata.persistence.ArchiveTocWriterSpec.{TestTime, createMediaData, createMediumChecksum, createMediumEntries, createMediumEntry, createMediumID, readToc, testClock, writeToc}
+import de.oliver_heger.linedj.archive.metadata.persistence.ArchiveTocSerializerSpec.{TestTime, createInternalEntry, createMediaData, createMediumChecksum, createMediumEntries, createMediumEntry, createMediumID, readToc, testClock, writeToc}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.Checksums
 import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.scaladsl.{FileIO, Sink}
 import org.apache.pekko.testkit.TestKit
 import org.scalatest.{Assertion, BeforeAndAfterAll, BeforeAndAfterEach, OptionValues}
 import org.scalatest.flatspec.AsyncFlatSpecLike
@@ -30,8 +31,9 @@ import spray.json.DefaultJsonProtocol.*
 
 import java.nio.file.{Files, Path}
 import java.time.{Clock, Instant, ZoneId}
+import scala.concurrent.Future
 
-object ArchiveTocWriterSpec:
+object ArchiveTocSerializerSpec:
   /** An instant representing the test time used by tests. */
   private val TestTimeInstant = Instant.parse("2025-12-23T11:38:15Z")
 
@@ -70,16 +72,30 @@ object ArchiveTocWriterSpec:
     .toMap
 
   /**
+    * Creates a test internal medium entry based on the given index.
+    *
+    * @param index     the index
+    * @param timestamp the last modified timestamp for this entry
+    * @return the internal medium entry for this index
+    */
+  private def createInternalEntry(index: Int, timestamp: Long = TestTime): ArchiveTocSerializer.InternalMediumEntry =
+    ArchiveTocSerializer.InternalMediumEntry(
+      mediumDescriptionPath = createMediumID(index).mediumDescriptionPath.get,
+      checksum = Some(createMediumChecksum(index).checksum),
+      changedAt = Some(timestamp)
+    )
+
+  /**
     * Creates a test medium entry based on the given index.
     *
     * @param index the index
     * @return the medium entry for this index
     */
-  private def createMediumEntry(index: Int, timestamp: Long = TestTime): ArchiveTocWriter.MediumEntry =
-    ArchiveTocWriter.MediumEntry(
+  private def createMediumEntry(index: Int): ArchiveTocSerializer.MediumEntry =
+    ArchiveTocSerializer.MediumEntry(
       mediumDescriptionPath = createMediumID(index).mediumDescriptionPath.get,
-      checksum = Some(createMediumChecksum(index).checksum),
-      changedAt = Some(timestamp)
+      checksum = createMediumChecksum(index).checksum,
+      changedAt = TestTime
     )
 
   /**
@@ -90,9 +106,11 @@ object ArchiveTocWriterSpec:
     * @param timestamp the timestamp for the entries
     * @return the list with test entries
     */
-  private def createMediumEntries(fromIdx: Int, toIdx: Int, timestamp: Long): List[ArchiveTocWriter.MediumEntry] =
+  private def createMediumEntries(fromIdx: Int,
+                                  toIdx: Int,
+                                  timestamp: Long): List[ArchiveTocSerializer.InternalMediumEntry] =
     (fromIdx to toIdx).map: index =>
-      createMediumEntry(index, timestamp)
+      createInternalEntry(index, timestamp)
     .toList
 
   /**
@@ -110,10 +128,10 @@ object ArchiveTocWriterSpec:
     * @param path the path to the file to read
     * @return the list of entries read from this file
     */
-  private def readToc(path: Path): List[ArchiveTocWriter.MediumEntry] =
+  private def readToc(path: Path): List[ArchiveTocSerializer.InternalMediumEntry] =
     val data = Files.readString(path)
     val json = data.parseJson
-    json.convertTo[List[ArchiveTocWriter.MediumEntry]]
+    json.convertTo[List[ArchiveTocSerializer.InternalMediumEntry]]
 
   /**
     * Writes a ToC file with the given entries.
@@ -122,17 +140,17 @@ object ArchiveTocWriterSpec:
     * @param entries the entries to write
     * @return the path to the file that was written
     */
-  private def writeToc(path: Path, entries: List[ArchiveTocWriter.MediumEntry]): Path =
+  private def writeToc(path: Path, entries: List[ArchiveTocSerializer.InternalMediumEntry]): Path =
     val json = entries.toJson.compactPrint
     Files.writeString(path, json)
-end ArchiveTocWriterSpec
+end ArchiveTocSerializerSpec
 
 /**
-  * Test class for [[ArchiveTocWriter]].
+  * Test class for [[ArchiveTocSerializer]].
   */
-class ArchiveTocWriterSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AsyncFlatSpecLike
+class ArchiveTocSerializerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AsyncFlatSpecLike
   with BeforeAndAfterAll with BeforeAndAfterEach with Matchers with OptionValues with FileTestHelper:
-  def this() = this(ActorSystem("ArchiveTocWriterSpec"))
+  def this() = this(ActorSystem("ArchiveTocSerializerSpec"))
 
   override protected def afterAll(): Unit =
     TestKit.shutdownActorSystem(system)
@@ -150,12 +168,12 @@ class ArchiveTocWriterSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     * @param expectedEntries the expected entries
     * @return the result of the check
     */
-  private def verifyToc(path: Path, expectedEntries: Iterable[ArchiveTocWriter.MediumEntry]): Assertion =
+  private def verifyToc(path: Path, expectedEntries: Iterable[ArchiveTocSerializer.InternalMediumEntry]): Assertion =
     readToc(path) should contain theSameElementsInOrderAs expectedEntries
 
   "An ArchiveTocWriter" should "not write anything if there are no changes" in :
     val target = createPathInDirectory("toc.json")
-    val writer = ArchiveTocWriter()
+    val writer = ArchiveTocSerializer.writer()
 
     writer.writeToc(target, createMediaData(1, 8), Set.empty, Set.empty) map : result =>
       Files.isRegularFile(target) shouldBe false
@@ -165,14 +183,14 @@ class ArchiveTocWriterSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     val mediaData = createMediaData(1, 16)
     val modified = Set(createMediumChecksum(2), createMediumChecksum(4), createMediumChecksum(8))
     val target = createPathInDirectory("newToc.json")
-    val writer = ArchiveTocWriter(testClock())
+    val writer = ArchiveTocSerializer.writer(testClock())
 
     writer.writeToc(target, mediaData, Set.empty, modified) map : result =>
       result.value should be(target)
       val expectedEntries = List(
-        createMediumEntry(2),
-        createMediumEntry(4),
-        createMediumEntry(8)
+        createInternalEntry(2),
+        createInternalEntry(4),
+        createInternalEntry(8)
       )
       verifyToc(target, expectedEntries)
 
@@ -181,7 +199,7 @@ class ArchiveTocWriterSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     val mediaData = createMediaData(1, 8)
     val originalEntries = createMediumEntries(1, 8, originalTime)
     val target = writeToc(createPathInDirectory("overrideToc.json"), originalEntries)
-    val writer = ArchiveTocWriter(testClock())
+    val writer = ArchiveTocSerializer.writer(testClock())
 
     writer.writeToc(target, mediaData, Set.empty, Set(createMediumChecksum(1))) map : result =>
       result.value should be(target)
@@ -192,19 +210,19 @@ class ArchiveTocWriterSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     val mediaData = createMediaData(2, 2)
     val modified = Set(createMediumChecksum(1), createMediumChecksum(2))
     val target = createPathInDirectory("invalidChecksum.json")
-    val writer = ArchiveTocWriter(testClock())
+    val writer = ArchiveTocSerializer.writer(testClock())
 
     writer.writeToc(target, mediaData, Set.empty, modified) map : _ =>
-      verifyToc(target, List(createMediumEntry(2)))
+      verifyToc(target, List(createInternalEntry(2)))
 
   it should "remove obsolete entries from the ToC" in :
     val mediaData = createMediaData(2, 4)
     val originalEntries = createMediumEntries(1, 2, TestTime - 17)
     val target = writeToc(createPathInDirectory("obsoleteToc.json"), originalEntries)
-    val writer = ArchiveTocWriter(testClock())
+    val writer = ArchiveTocSerializer.writer(testClock())
 
     writer.writeToc(target, mediaData, Set.empty, Set(createMediumChecksum(2))) map : _ =>
-      verifyToc(target, List(createMediumEntry(2)))
+      verifyToc(target, List(createInternalEntry(2)))
 
   it should "remove unused entries from the ToC" in :
     val mediaData = createMediaData(1, 16)
@@ -212,7 +230,7 @@ class ArchiveTocWriterSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     val originalEntries = createMediumEntries(1, 16, originalTime)
     val unused = (1 to 8).map(createMediumChecksum).toSet
     val target = writeToc(createPathInDirectory("unusedToc.json"), originalEntries)
-    val writer = ArchiveTocWriter()
+    val writer = ArchiveTocSerializer.writer()
 
     writer.writeToc(target, mediaData, unused, Set.empty) map : result =>
       result.value should be(target)
@@ -224,7 +242,7 @@ class ArchiveTocWriterSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     val mediaData = createMediaData(2, 4) + (invalidMediumID -> createMediumChecksum(1))
     val modified = mediaData.values.toSet
     val target = createPathInDirectory("noPathsToc.json")
-    val writer = ArchiveTocWriter(testClock())
+    val writer = ArchiveTocSerializer.writer(testClock())
 
     writer.writeToc(target, mediaData, Set.empty, modified) map : _ =>
       val expectedEntries = createMediumEntries(2, 4, TestTime)
@@ -233,7 +251,7 @@ class ArchiveTocWriterSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
   it should "ignore invalid entries in the existing ToC file" in :
     val mediaData = createMediaData(1, 2)
     val originalEntries = List(
-      ArchiveTocWriter.MediumEntry(
+      ArchiveTocSerializer.InternalMediumEntry(
         mediumDescriptionPath = "some/description/path",
         checksum = None,
         changedAt = None,
@@ -241,10 +259,10 @@ class ArchiveTocWriterSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
       )
     )
     val target = writeToc(createPathInDirectory("invalidEntriesToc.json"), originalEntries)
-    val writer = ArchiveTocWriter(testClock())
+    val writer = ArchiveTocSerializer.writer(testClock())
 
     writer.writeToc(target, mediaData, Set.empty, Set(createMediumChecksum(2))) map : _ =>
-      val expectedEntries = List(createMediumEntry(2))
+      val expectedEntries = List(createInternalEntry(2))
       verifyToc(target, expectedEntries)
 
   it should "replace the metadata path by the checksum for existing entries" in :
@@ -253,10 +271,10 @@ class ArchiveTocWriterSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     val originalEntries = createMediumEntries(1, 4, originalTime).map: e =>
       e.copy(checksum = None, metaDataPath = e.checksum.map(_ + ".mdt"))
     val target = writeToc(createPathInDirectory("legacyToc.json"), originalEntries)
-    val writer = ArchiveTocWriter(testClock())
+    val writer = ArchiveTocSerializer.writer(testClock())
 
     writer.writeToc(target, mediaData, Set.empty, Set(createMediumChecksum(5))) map : _ =>
-      val expectedEntries = createMediumEntries(1, 4, originalTime).appended(createMediumEntry(5))
+      val expectedEntries = createMediumEntries(1, 4, originalTime).appended(createInternalEntry(5))
       verifyToc(target, expectedEntries)
 
   it should "set the timestamp if it is missing for existing entries" in :
@@ -264,8 +282,65 @@ class ArchiveTocWriterSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     val originalEntries = createMediumEntries(1, 4, 0).map: e =>
       e.copy(changedAt = None, checksum = None, metaDataPath = e.checksum.map(_ + ".mdt"))
     val target = writeToc(createPathInDirectory("noTimestampsToc.json"), originalEntries)
-    val writer = ArchiveTocWriter(testClock())
+    val writer = ArchiveTocSerializer.writer(testClock())
 
     writer.writeToc(target, mediaData, Set.empty, Set(createMediumChecksum(5))) map : _ =>
       val expectedEntries = createMediumEntries(1, 5, TestTime)
       verifyToc(target, expectedEntries)
+
+  /**
+    * Reads a ToC file using the given reader.
+    *
+    * @param reader the reader
+    * @param path   the path to the file to read
+    * @return a [[Future]] with the entries that were read
+    */
+  private def readTocWithReader(reader: ArchiveTocSerializer.ArchiveTocReader, path: Path):
+  Future[List[ArchiveTocSerializer.MediumEntry]] =
+    val sink =
+      Sink.fold[List[ArchiveTocSerializer.MediumEntry], ArchiveTocSerializer.MediumEntry](List.empty): (lst, e) =>
+        e :: lst
+    reader.readToc(FileIO.fromPath(path)).runWith(sink)
+
+  "An ArchiveTocReader" should "return a Source to read a ToC file" in :
+    val mediaData = createMediaData(1, 16)
+    val modified = Set(createMediumChecksum(2), createMediumChecksum(4), createMediumChecksum(8))
+    val expectedEntries = List(
+      createMediumEntry(2),
+      createMediumEntry(4),
+      createMediumEntry(8)
+    )
+    val target = createPathInDirectory("newTocToRead.json")
+    val writer = ArchiveTocSerializer.writer(testClock())
+
+    for
+      writeResult <- writer.writeToc(target, mediaData, Set.empty, modified)
+      readResult <- readTocWithReader(ArchiveTocSerializer.reader(), writeResult.value)
+    yield
+      readResult should contain theSameElementsAs expectedEntries
+
+  it should "ignore invalid entries in the ToC file to read" in :
+    val originalEntries = List(
+      ArchiveTocSerializer.InternalMediumEntry(
+        mediumDescriptionPath = "some/description/path",
+        checksum = None,
+        changedAt = None,
+        metaDataPath = None
+      ),
+      createInternalEntry(2)
+    )
+    val target = writeToc(createPathInDirectory("invalidEntriesToc.json"), originalEntries)
+    val reader = ArchiveTocSerializer.reader()
+
+    readTocWithReader(reader, target) map : result =>
+      result should contain only createMediumEntry(2)
+
+  it should "set the timestamp if it is missing for entries" in :
+    val originalEntries = createMediumEntries(1, 4, 0).map: e =>
+      e.copy(changedAt = None, checksum = None, metaDataPath = e.checksum.map(_ + ".mdt"))
+    val target = writeToc(createPathInDirectory("noTimestampsToc.json"), originalEntries)
+    val reader = ArchiveTocSerializer.reader(testClock())
+
+    readTocWithReader(reader, target) map : result =>
+      val expectedEntries = (1 to 4).map(createMediumEntry)
+      result should contain theSameElementsAs expectedEntries

@@ -18,6 +18,7 @@ package de.oliver_heger.linedj.archive.metadata.persistence
 
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.media.{EnhancedMediaScanResult, PathUriConverter}
+import de.oliver_heger.linedj.archive.metadata.persistence.ArchiveTocSerializer.ArchiveTocWriter
 import de.oliver_heger.linedj.archive.metadata.{ScanForMetadataFiles, UnresolvedMetadataFiles}
 import de.oliver_heger.linedj.archivecommon.parser.MetadataParser
 import de.oliver_heger.linedj.io.stream.{FilterInstanceOfStage, ListSeparatorStage}
@@ -186,7 +187,7 @@ object PersistentMetadataManagerActor:
   def apply(config: MediaArchiveConfig,
             metadataUnionActor: ActorRef,
             converter: PathUriConverter,
-            tocWriter: ArchiveTocWriter = ArchiveTocWriter()): Props =
+            tocWriter: ArchiveTocWriter = ArchiveTocSerializer.writer()): Props =
     Props(
       classOf[PersistentMetadataManagerActorImpl],
       config,

@@ -279,7 +279,7 @@ class PersistentMetadataManagerActorSpec(testSystem: ActorSystem) extends TestKi
     props.args.head should be(helper.config)
     props.args(1) should be(helper.metadataUnionActor.ref)
     props.args(3) should be(Converter)
-    props.args(4) shouldBe a[ArchiveTocWriter]
+    props.args(4) shouldBe a[ArchiveTocSerializer.ArchiveTocWriter]
 
   it should "notify the caller for unknown media immediately" in :
     val helper = new PersistenceMetaDataManagerActorTestHelper
@@ -737,7 +737,7 @@ class PersistentMetadataManagerActorSpec(testSystem: ActorSystem) extends TestKi
     val metadataUnionActor: TestProbe = TestProbe()
 
     /** The mock for the ToC writer object. */
-    val tocWriter: ArchiveTocWriter = mock
+    val tocWriter: ArchiveTocSerializer.ArchiveTocWriter = mock
 
     /** The test actor created by this helper. */
     var managerActor: TestActorRef[PersistentMetadataManagerActor] = _
