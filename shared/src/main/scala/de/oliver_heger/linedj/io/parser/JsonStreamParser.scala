@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.io.parser
 
 import de.oliver_heger.linedj.io.stream.StreamSizeRestrictionStage
+import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.{KillSwitch, KillSwitches}
 import org.apache.pekko.stream.scaladsl.{FileIO, Flow, JsonFraming, Keep, Sink, Source}
@@ -31,8 +32,10 @@ import scala.concurrent.{ExecutionContext, Future}
   * sources.
   *
   * The module offers a function that accepts a [[Source]] to a JSON array. It
-  * makes use of JSON deserialization provided by Spray Json to convert the 
-  * single array elements to model objects.
+  * makes use of JSON deserialization provided by Spray JSON to convert the 
+  * single array elements to model objects. The parsing functionality can also
+  * be integrated into arbitrary streams with [[ByteString]] elements as a 
+  * dedicated [[Flow]].
   *
   * There is also some functionality for dealing with smaller data sources,
   * e.g. files that can be read in a single shot.
@@ -43,6 +46,20 @@ object JsonStreamParser:
     * [[JsonFraming]]. Clients can override this value if there is need.
     */
   final val DefaultMaxObjectLength = 8192
+
+  /**
+    * Returns a [[Flow]] that parses serialized JSON input to a list of
+    * elements of a specific type. This [[Flow]] can be included in every
+    * stream or graph which requires JSON parsing functionality.
+    *
+    * @param maxObjectLength the maximum length of a single object
+    * @param reader          the [[JsonReader]] for the model objects
+    * @tparam T the type of the model objects
+    * @return the [[Flow]] to parse JSON objects
+    */
+  def streamParserFlow[T](maxObjectLength: Int = DefaultMaxObjectLength)
+                         (using reader: JsonReader[T]): Flow[ByteString, T, NotUsed] =
+    JsonFraming.objectScanner(maxObjectLength).via(Flow[ByteString].map(convert))
 
   /**
     * Parses a source with a JSON array and converts it to a source of model
@@ -58,8 +75,7 @@ object JsonStreamParser:
   def parseStream[T, MAT](source: Source[ByteString, MAT],
                           maxObjectLength: Int = DefaultMaxObjectLength)
                          (using reader: JsonReader[T]): Source[T, MAT] =
-    source.viaMat(JsonFraming.objectScanner(maxObjectLength))(Keep.left)
-      .viaMat(Flow[ByteString].map(convert))(Keep.left)
+    source.viaMat(streamParserFlow(maxObjectLength))(Keep.left)
 
   /**
     * Parses a [[Source]] that contains a single JSON object and returns a
