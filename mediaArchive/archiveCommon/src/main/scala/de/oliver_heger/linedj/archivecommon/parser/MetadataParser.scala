@@ -20,7 +20,8 @@ import de.oliver_heger.linedj.io.parser.JsonStreamParser
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
 import de.oliver_heger.linedj.shared.archive.union.MetadataProcessingSuccess
-import org.apache.pekko.stream.scaladsl.Source
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.{Flow, Source}
 import org.apache.pekko.util.ByteString
 import spray.json.*
 import spray.json.DefaultJsonProtocol.*
@@ -40,8 +41,9 @@ import spray.json.DefaultJsonProtocol.*
   * ''MediaMetaData'' class.
   *
   * This class uses an underlying [[JsonStreamParser]] for parsing metadata
-  * files. It produces a [[Source]] returning the metadata objects extracted
-  * from the file.
+  * files. It can operate on a binary [[Source]] and transform it to return the
+  * metadata objects extracted from the file. Alternatively, the parsing
+  * functionality is available via a [[Flow]].
   */
 object MetadataParser:
   /** The property for the song's URI. */
@@ -140,6 +142,16 @@ object MetadataParser:
     * @return a [[Source]] for extracting metadata objects
     */
   def parseMetadata(source: Source[ByteString, Any], mediumID: MediumID): Source[MetadataProcessingSuccess, Any] =
-    JsonStreamParser.parseStream[MetadataWithUri, Any](source).map { mwu =>
+    source.via(metadataParserFlow(mediumID))
+
+  /**
+    * Returns a [[Flow]] that can be integrated into an arbitrary stream
+    * processing [[ByteString]] objects and transforms this binary data to
+    * [[MetadataProcessingSuccess]] objects.
+    *
+    * @param mediumID the [[MediumID]] for the medium the data belongs to
+    * @return a [[Flow]] for extracting metadata objects
+    */
+  def metadataParserFlow(mediumID: MediumID): Flow[ByteString, MetadataProcessingSuccess, NotUsed] =
+    JsonStreamParser.streamParserFlow[MetadataWithUri]().map: mwu =>
       MetadataProcessingSuccess(mediumID, MediaFileUri(mwu.uri), mwu.metadata)
-    }

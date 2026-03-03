@@ -20,8 +20,10 @@ import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
 import de.oliver_heger.linedj.shared.archive.union.MetadataProcessingSuccess
 import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.stream.scaladsl.{FileIO, Sink}
+import org.apache.pekko.stream.IOResult
+import org.apache.pekko.stream.scaladsl.{FileIO, Sink, Source}
 import org.apache.pekko.testkit.TestKit
+import org.apache.pekko.util.ByteString
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.Inspectors.forEvery
 import org.scalatest.flatspec.AsyncFlatSpecLike
@@ -36,6 +38,15 @@ object MetadataParserSpec:
 
   /** Name of the metadata file with test data. */
   private val TestMetadataFile = "test_metadata.mdt"
+
+  /**
+    * Returns a [[Sink]] to aggregate metadata objects from a stream.
+    *
+    * @return the [[Sink]] to collect metadata objects
+    */
+  private def metadataSink(): Sink[MetadataProcessingSuccess, Future[List[MetadataProcessingSuccess]]] =
+    Sink.fold[List[MetadataProcessingSuccess], MetadataProcessingSuccess](List.empty): (lst, data) =>
+      data :: lst
 end MetadataParserSpec
 
 /**
@@ -53,6 +64,17 @@ class MetadataParserSpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
   import spray.json.*
 
   /**
+    * Returns a [[Source]] for reading the test file with the given name. The
+    * file is obtained from resources.
+    *
+    * @param name the resource name of the test file
+    * @return a [[Source]] with the content of this file
+    */
+  private def testFileSource(name: String): Source[ByteString, Future[IOResult]] =
+    val filePath = Paths.get(getClass.getResource("/" + name).toURI)
+    FileIO.fromPath(filePath)
+
+  /**
     * Reads a metadata file from the classpath with the given resource name.
     *
     * @param name the resource name of the file to be read (without trailing 
@@ -60,29 +82,24 @@ class MetadataParserSpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
     * @return a [[Future]] with the extracted data
     */
   private def readMetadataFile(name: String): Future[List[MetadataProcessingSuccess]] =
-    val filePath = Paths.get(getClass.getResource("/" + name).toURI)
-    val source = FileIO.fromPath(filePath)
-    val sink = Sink.fold[List[MetadataProcessingSuccess], MetadataProcessingSuccess](List.empty) { (lst, data) =>
-      data :: lst
-    }
+    val source = testFileSource(name)
+    val sink = metadataSink()
     MetadataParser.parseMetadata(source, TestMedium).runWith(sink).map(_.reverse)
 
   "MetadataParser" should "set the correct medium ID" in :
-    readMetadataFile(TestMetadataFile) map { results =>
-      forEvery(results) { result => result.mediumID should be(TestMedium) }
-    }
+    readMetadataFile(TestMetadataFile) map : results =>
+      forEvery(results):
+        result => result.mediumID should be(TestMedium)
 
   it should "set the correct file URI" in :
     val expectedUris = List(MediaFileUri("testUri"), MediaFileUri("undefinedUri"))
 
-    readMetadataFile(TestMetadataFile) map { results =>
+    readMetadataFile(TestMetadataFile) map : results =>
       results.map(_.uri) should contain theSameElementsInOrderAs expectedUris
-    }
 
   it should "handle undefined metadata" in :
-    readMetadataFile(TestMetadataFile) map { results =>
+    readMetadataFile(TestMetadataFile) map : results =>
       results(1).metadata should be(MediaMetadata.UndefinedMediaData)
-    }
 
   it should "correctly parse metadata" in :
     val expectedMetadata = MediaMetadata(
@@ -97,24 +114,29 @@ class MetadataParserSpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
       checksum = "check-this-out"
     )
 
-    readMetadataFile(TestMetadataFile) map { results =>
+    readMetadataFile(TestMetadataFile) map : results =>
       results.head.metadata should be(expectedMetadata)
-    }
 
   it should "throw an exception for input without a URI" in :
-    recoverToSucceededIf[DeserializationException] {
+    recoverToSucceededIf[DeserializationException]:
       readMetadataFile("metadata_without_uri.mdt")
-    }
 
   it should "throw an exception for input with invalid property values" in :
-    recoverToSucceededIf[DeserializationException] {
+    recoverToSucceededIf[DeserializationException]:
       readMetadataFile("metadata_invalid.mdt")
-    }
 
   it should "process a real-life metadata file" in :
-    readMetadataFile("metadata.mdt") map { results =>
+    readMetadataFile("metadata.mdt") map : results =>
       results should have size 67
-    }
+
+  it should "provide a Flow to parse metadata" in :
+    val source = testFileSource("metadata.mdt")
+    val sink = metadataSink()
+
+    source.via(MetadataParser.metadataParserFlow(TestMedium)).runWith(sink) map : results =>
+      forEvery(results):
+        result => result.mediumID should be(TestMedium)
+      results should have size 67
 
   it should "produce correct JSON output for metadata with an URI" in :
     val data = MetadataParser.MetadataWithUri(
