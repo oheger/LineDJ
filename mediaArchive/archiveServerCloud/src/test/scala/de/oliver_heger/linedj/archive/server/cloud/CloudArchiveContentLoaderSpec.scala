@@ -175,6 +175,48 @@ class CloudArchiveContentLoaderSpec(testSystem: classic.ActorSystem) extends Tes
         .verifyUpdatedCacheContent(null)
         .verifyArchiveContent()
 
+  it should "load the archive content from the archive if the cache is uninitialized" in :
+    val archiveContent = ArchiveContentTestHelper.archiveContent(TestMediaCount)
+    val helper = new LoaderTestHelper
+    helper.initCacheContent(CloudArchiveContent(Map.empty))
+      .initArchiveContent(archiveContent)
+      .initMediaDocuments(1 to TestMediaCount *)
+
+    helper.load() map : _ =>
+      helper.verifyUpdatedCacheContent(archiveContent)
+        .verifyUpdatedCacheEntries(1 to TestMediaCount *)
+        .verifyArchiveContent()
+
+  it should "load unmodified entries from the cache, modified from the archive" in :
+    val ModifiedIndex = TestMediaCount
+    val modifiedEntry = ArchiveContentTestHelper.testMediumEntry(ModifiedIndex).copy(timestamp = 20260307165039L)
+    val archiveContent = ArchiveContentTestHelper.archiveContent(TestMediaCount)
+    val modifiedMedia = archiveContent.media + (modifiedEntry.id -> modifiedEntry)
+    val cacheContent = CloudArchiveContent(modifiedMedia)
+    val helper = new LoaderTestHelper
+    helper.initCacheContent(cacheContent)
+      .initArchiveContent(archiveContent)
+      .initCacheEntries(1 until TestMediaCount *)
+      .initMediaDocuments(ModifiedIndex)
+
+    helper.load() map : _ =>
+      helper.verifyUpdatedCacheContent(archiveContent)
+        .verifyUpdatedCacheEntries(ModifiedIndex)
+        .verifyArchiveContent()
+
+  it should "ignore obsolete entries from the cache" in :
+    val archiveContent = ArchiveContentTestHelper.archiveContent(TestMediaCount)
+    val cacheContent = ArchiveContentTestHelper.archiveContent(TestMediaCount + 1)
+    val helper = new LoaderTestHelper
+    helper.initCacheContent(cacheContent)
+      .initArchiveContent(archiveContent)
+      .initCacheEntries(1 to TestMediaCount *)
+
+    helper.load() map : _ =>
+      helper.verifyUpdatedCacheContent(archiveContent)
+        .verifyUpdatedCacheEntries()
+        .verifyArchiveContent()
+
   /**
     * A test helper class to manage the object under test and its dependencies.
     */
@@ -284,7 +326,7 @@ class CloudArchiveContentLoaderSpec(testSystem: classic.ActorSystem) extends Tes
       * @return this test helper
       */
     def verifyUpdatedCacheEntries(indices: Int*): LoaderTestHelper =
-      updatedEntries should have size indices.length
+      updatedEntries should have size 2 * indices.length
       forEvery(indices): index =>
         val mediumID = ArchiveContentTestHelper.testMediumID(index)
         val description = ArchiveContentTestHelper.testMediumDescription(index)

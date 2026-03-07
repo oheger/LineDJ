@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.archive.server.cloud
 
+import de.oliver_heger.linedj.archive.metadata.persistence.ArchiveTocSerializer
 import de.oliver_heger.linedj.archive.server.model.{ArchiveCommands, ArchiveModel}
 import de.oliver_heger.linedj.archivecommon.parser.MetadataParser
 import de.oliver_heger.linedj.io.parser.JsonStreamParser
@@ -23,7 +24,8 @@ import de.oliver_heger.linedj.shared.archive.media.{MediumDescription, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.Checksums
 import org.apache.logging.log4j.LogManager
 import org.apache.pekko.actor.typed.ActorRef
-import org.apache.pekko.stream.scaladsl.{Flow, Sink, Source}
+import org.apache.pekko.stream.ClosedShape
+import org.apache.pekko.stream.scaladsl.{Broadcast, Flow, GraphDSL, RunnableGraph, Sink, Source}
 import org.apache.pekko.util.ByteString
 import org.apache.pekko.{Done, NotUsed, actor as classic}
 
@@ -137,11 +139,87 @@ class CloudArchiveContentLoader(using system: classic.ActorSystem):
                   cache: CloudArchiveCache,
                   archiveName: String,
                   contentActor: ActorRef[ArchiveCommands.UpdateArchiveContentCommand]): Future[Done] =
-    cache.loadAndValidateContent flatMap : cacheContent =>
-      val mediaSource = Source(cacheContent.media.keySet)
-      mediaSource.mapAsync(1): mediumID =>
-        readMediumFromCache(cache, contentActor, mediumID, archiveName)
-      .runWith(Sink.ignore)
+    val futCacheContent = cache.loadAndValidateContent
+    val futSourceArchiveContent = downloader.loadContentDocument()
+    for
+      cacheContent <- futCacheContent
+      sourceArchiveContent <- futSourceArchiveContent
+      result <- loadContentAndUpdateCache(
+        downloader,
+        cache,
+        archiveName,
+        contentActor,
+        cacheContent,
+        sourceArchiveContent
+      )
+    yield
+      result
+
+  /**
+    * Loads the content of a specific cloud archive, updates the local cache
+    * for this archive, and populates the given content actor with the 
+    * archive's data.
+    *
+    * @param downloader       the object to download content from the archive
+    * @param cache            the local cache for the archive's metadata
+    * @param archiveName      the name of the archive
+    * @param contentActor     the content actor to populate
+    * @param cacheContent     the content of the local cache
+    * @param archiveTocSource the source for the archive's content document
+    * @return a [[Future]] with the result of the operation
+    */
+  private def loadContentAndUpdateCache(downloader: ContentDownloader,
+                                        cache: CloudArchiveCache,
+                                        archiveName: String,
+                                        contentActor: ActorRef[ArchiveCommands.UpdateArchiveContentCommand],
+                                        cacheContent: CloudArchiveContent,
+                                        archiveTocSource: Source[ByteString, Any]): Future[Done] =
+    val archiveTocSink = Sink.fold[Map[Checksums.MediumChecksum, MediumEntry], MediumEntry](Map.empty): (map, e) =>
+      map + (e.id -> e)
+    val tocReader = ArchiveTocSerializer.reader()
+    tocReader.readToc(archiveTocSource).mapAsync(1): tocEntry =>
+      processMedium(
+        downloader,
+        cache,
+        archiveName,
+        contentActor,
+        cacheContent,
+        tocEntry
+      )
+    .runWith(archiveTocSink).flatMap: mediaData =>
+      if mediaData == cacheContent.media then
+        Future.successful(Done)
+      else
+        cache.saveContent(CloudArchiveContent(mediaData)).map(_ => Done)
+
+  /**
+    * Processes a single medium of a cloud archive whose content is to be 
+    * obtained. The function decides whether this medium's data is available in
+    * the local cache. If so, it is obtained from there. Otherwise, the 
+    * function loads the data from the archive and writes it to the cache.
+    *
+    * @param downloader   the object to download content from the archive
+    * @param cache        the local cache for the archive's metadata
+    * @param archiveName  the name of the archive
+    * @param contentActor the content actor to populate
+    * @param cacheContent the content of the local cache
+    * @param mediumEntry  the entry for the current medium
+    * @return a [[Future]] with information about the processed medium
+    */
+  private def processMedium(downloader: ContentDownloader,
+                            cache: CloudArchiveCache,
+                            archiveName: String,
+                            contentActor: ActorRef[ArchiveCommands.UpdateArchiveContentCommand],
+                            cacheContent: CloudArchiveContent,
+                            mediumEntry: ArchiveTocSerializer.MediumEntry): Future[MediumEntry] =
+    val mediumID = Checksums.MediumChecksum(mediumEntry.checksum)
+    val futMedium = if cacheContent.media.get(mediumID).exists(_.timestamp == mediumEntry.changedAt) then
+      readMediumFromCache(cache, contentActor, mediumID, archiveName)
+    else
+      readMediumFromArchive(downloader, cache, contentActor, mediumEntry, archiveName)
+
+    futMedium map : _ =>
+      MediumEntry(mediumID, mediumEntry.changedAt)
 
   /**
     * Reads data about a medium from the cache and passes it to the archive 
@@ -168,6 +246,91 @@ class CloudArchiveContentLoader(using system: classic.ActorSystem):
     for
       _ <- futDescription
       _ <- futMetadata
+    yield Done
+
+  /**
+    * Reads data about a medium from the cloud archive (via the provided
+    * downloader) and passes it to the archive content actor. The data is also
+    * stored in the local cache.
+    *
+    * @param downloader   the object to load content from the archive
+    * @param cache        the local cache for the archive's metadata
+    * @param contentActor the content actor to populate
+    * @param mediumEntry  the entry for the current medium
+    * @param archiveName  the name of the archive
+    * @return a [[Future]] with the result of the operation
+    */
+  private def readMediumFromArchive(downloader: ContentDownloader,
+                                    cache: CloudArchiveCache,
+                                    contentActor: ActorRef[ArchiveCommands.UpdateArchiveContentCommand],
+                                    mediumEntry: ArchiveTocSerializer.MediumEntry,
+                                    archiveName: String): Future[Any] =
+    val mediumID = Checksums.MediumChecksum(mediumEntry.checksum)
+    val futDescriptionSource = downloader.loadMediumDescription(mediumEntry.mediumDescriptionPath)
+    val futSongsSource = downloader.loadMediumMetadata(mediumID)
+    val descriptionEntry = cache.entryFor(mediumID, CloudArchiveCache.EntryType.MediumDescription)
+    val songsEntry = cache.entryFor(mediumID, CloudArchiveCache.EntryType.MediumSongs)
+    val futDescription = futDescriptionSource flatMap : source =>
+      downloadAndPassContent(
+        contentActor,
+        source,
+        mediumDescriptionParser(mediumID, archiveName),
+        descriptionEntry.sink
+      )
+    val futSongs = futSongsSource flatMap : source =>
+      downloadAndPassContent(
+        contentActor,
+        source,
+        metadataParser(mediumID),
+        songsEntry.sink
+      )
+
+    for
+      _ <- futDescription
+      _ <- futSongs
+    yield Done
+
+  /**
+    * Processes a single content document from the cloud archive from a 
+    * provided [[Source]]. The function parses the document and passes the
+    * results to a content actor. It also writes the data to a [[Sink]] that
+    * points to the correct location in the local cache.
+    *
+    * @param contentActor the content actor to populate
+    * @param source       the source for the content document
+    * @param parser       the function to parse the content document
+    * @param cacheSink    the sink for the target entry in the local cache
+    * @return a [[Future]] with the outcome of the operation
+    */
+  private def downloadAndPassContent(contentActor: ActorRef[ArchiveCommands.UpdateArchiveContentCommand],
+                                     source: Source[ByteString, Any],
+                                     parser: Flow[ByteString, ArchiveCommands.UpdateArchiveContentCommand, NotUsed],
+                                     cacheSink: Sink[ByteString, Future[Any]]): Future[Any] =
+    val contentSink = contentActorSink(contentActor)
+    val g = RunnableGraph.fromGraph(GraphDSL.createGraph(cacheSink, contentSink)(processingFuture) { implicit builder =>
+      (sinkEntry, sinkActor) =>
+        import GraphDSL.Implicits.*
+        val broadcast = builder.add(Broadcast[ByteString](2))
+
+        source ~> broadcast ~> sinkEntry
+        broadcast ~> parser ~> sinkActor
+        ClosedShape
+    })
+    g.run()
+
+  /**
+    * Combines the futures for the sinks involved in processing a content 
+    * document downloaded for the archive. Makes sure that the operation is
+    * reported as successfully finished only after both futures have completed.
+    *
+    * @param futSink1 the future for the result of sink 1
+    * @param futSink2 the future for the result of sink 2
+    * @return the combined future
+    */
+  private def processingFuture(futSink1: Future[Any], futSink2: Future[Any]): Future[Any] =
+    for
+      _ <- futSink1
+      _ <- futSink2
     yield Done
 
   /**
