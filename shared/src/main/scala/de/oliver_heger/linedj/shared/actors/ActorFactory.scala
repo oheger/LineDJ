@@ -20,6 +20,8 @@ import com.github.cloudfiles.core.http.factory.Spawner
 import org.apache.pekko.actor.typed.Behavior
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props, typed}
 
+import scala.concurrent.ExecutionContext
+
 object ActorFactory:
   /**
     * Provides a default [[ActorFactory]] that uses the given actor system.
@@ -46,6 +48,16 @@ object ActorFactory:
                                      props: typed.Props,
                                      optStopCommand: Option[T]): typed.ActorRef[T] =
       spawner.spawn(behavior, Option(name), props)
+
+  /**
+    * Returns an implicit [[ExecutionContext]] that is obtained from the
+    * current actor system. This functionality is required frequently; 
+    * therefore, it is useful to have it defined centrally.
+    *
+    * @param system the actor system
+    * @return the [[ExecutionContext]]
+    */
+  given executionContext(using system: ActorSystem): ExecutionContext = system.dispatcher
 end ActorFactory
 
 /**

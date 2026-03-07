@@ -20,6 +20,7 @@ import de.oliver_heger.linedj.archive.metadata.persistence.ArchiveTocSerializer
 import de.oliver_heger.linedj.archive.server.model.{ArchiveCommands, ArchiveModel}
 import de.oliver_heger.linedj.archivecommon.parser.MetadataParser
 import de.oliver_heger.linedj.io.parser.JsonStreamParser
+import de.oliver_heger.linedj.shared.actors.ActorFactory.executionContext
 import de.oliver_heger.linedj.shared.archive.media.{MediumDescription, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.Checksums
 import org.apache.logging.log4j.LogManager
@@ -29,7 +30,7 @@ import org.apache.pekko.stream.scaladsl.{Broadcast, Flow, GraphDSL, RunnableGrap
 import org.apache.pekko.util.ByteString
 import org.apache.pekko.{Done, NotUsed, actor as classic}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 import scala.util.{Failure, Try}
 
 object CloudArchiveContentLoader:
@@ -332,12 +333,3 @@ class CloudArchiveContentLoader(using system: classic.ActorSystem):
       _ <- futSink1
       _ <- futSink2
     yield Done
-
-  /**
-    * Returns an implicit [[ExecutionContext]] that is obtained from the 
-    * current actor system.
-    *
-    * @param system the actor system
-    * @return the [[ExecutionContext]]
-    */
-  private given executionContext(using system: classic.ActorSystem): ExecutionContext = system.dispatcher

@@ -20,6 +20,7 @@ import de.oliver_heger.linedj.archive.server.cloud.CloudArchiveCache.CacheEntry
 import de.oliver_heger.linedj.io.LocalFsUtils
 import de.oliver_heger.linedj.io.parser.JsonStreamParser
 import de.oliver_heger.linedj.io.stream.ListSeparatorStage
+import de.oliver_heger.linedj.shared.actors.ActorFactory.executionContext
 import de.oliver_heger.linedj.shared.archive.metadata.Checksums
 import org.apache.logging.log4j.LogManager
 import org.apache.pekko.actor.ActorSystem
@@ -29,7 +30,7 @@ import spray.json.*
 import spray.json.DefaultJsonProtocol.*
 
 import java.nio.file.{Files, Path}
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
 object CloudArchiveCache:
   /** The name of the document storing the content of the cache. */
@@ -309,6 +310,3 @@ class CloudArchiveCache(val cacheFolder: Path):
     * @return the [[Path]] to this file
     */
   private def cachePath(name: String): Path = cacheFolder.resolve(name)
-
-  /** Returns the implicit execution context from the given actor system. */
-  private given ec(using system: ActorSystem): ExecutionContext = system.dispatcher
