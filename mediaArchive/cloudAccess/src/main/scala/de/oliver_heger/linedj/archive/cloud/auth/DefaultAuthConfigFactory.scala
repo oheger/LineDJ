@@ -25,23 +25,6 @@ import org.apache.pekko.actor.ActorSystem
 import java.nio.file.Path
 import scala.concurrent.{ExecutionContext, Future}
 
-object DefaultAuthConfigFactory:
-  /** The property to request the username for a basic auth config. */
-  final val UsernameProperty = "username"
-
-  /** The property to request the password for a basic auth config. */
-  final val PasswordProperty = "password"
-
-  /**
-    * Returns the key for a specific credential property for a given method.
-    *
-    * @param methodName the name of the [[AuthMethod]]
-    * @param property   the desired property
-    * @return the full key of this credential for this method
-    */
-  private def authProperty(methodName: String, property: String): String = s"$methodName.$property"
-end DefaultAuthConfigFactory
-
 /**
   * A default implementation of the [[AuthConfigFactory]] trait.
   *
@@ -71,23 +54,20 @@ class DefaultAuthConfigFactory(storageService:
                                storagePath: Path)
                               (resolverFunc: Credentials.ResolverFunc)
                               (using ec: ExecutionContext, system: ActorSystem) extends AuthConfigFactory:
-
-  import DefaultAuthConfigFactory.*
-
   override def createAuthConfig(config: CloudArchiveConfig): Future[AuthConfig] =
     config.authMethod match
-      case BasicAuthMethod(realm) =>
-        val futUser = resolverFunc(authProperty(realm, UsernameProperty))
-        val futPwd = resolverFunc(authProperty(realm, PasswordProperty))
+      case basic: BasicAuthMethod =>
+        val futUser = resolverFunc(basic.usernameKey)
+        val futPwd = resolverFunc(basic.passwordKey)
         for
           user <- futUser
           pwd <- futPwd
         yield BasicAuthConfig(user.secret, pwd)
 
-      case OAuthMethod(realm) =>
+      case oauth: OAuthMethod =>
         for
-          cryptSecret <- resolverFunc(realm)
-          storageConfig = OAuthStorageConfig(storagePath, realm, cryptSecret)
+          cryptSecret <- resolverFunc(oauth.storageKey)
+          storageConfig = OAuthStorageConfig(storagePath, oauth.realm, cryptSecret)
           config <- storageService.loadConfig(storageConfig)
           secret <- storageService.loadClientSecret(storageConfig)
           tokens <- storageService.loadTokens(storageConfig)
