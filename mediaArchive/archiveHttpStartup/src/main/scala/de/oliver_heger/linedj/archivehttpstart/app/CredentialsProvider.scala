@@ -19,29 +19,28 @@ package de.oliver_heger.linedj.archivehttpstart.app
 import com.github.cloudfiles.core.http.Secret
 import de.oliver_heger.linedj.archive.cloud.auth.Credentials
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
-import org.apache.pekko.actor.typed.ActorRef
 
 /**
   * A helper class to pass the credentials for a specific realm to a
-  * credentials manager actor instance.
+  * credentials setter object.
   *
   * This class mainly implements a work-around that allows for an easy
   * integration of the ''cloudAccess'' module with the HTTP archive startup
   * application - without major changes on this application. The preferred way
-  * to deal with credentials would be to directly pass them to the actor when
+  * to deal with credentials would be to directly pass them to the setter when
   * they become available and to request futures for the required credentials
-  * from the actor. When these futures complete, the required archives can
-  * start.
+  * from the resolver function. When these futures complete, the associated 
+  * archives can start.
   *
   * But, since this workflow does not really fit to the current application
   * design, the integration is done differently: The application manages the
   * required credentials itself. When they are available, during the archive
-  * startup operation, they are passed to the credentials manager actor, so
-  * that they can be obtained from the factory for the cloud file downloader.
+  * startup operation, they are passed to the credentials manager, so that they
+  * can be obtained from the factory for the cloud file downloader.
   *
-  * @param credentialsManagerActor the actor managing credentials
+  * @param credentialsSetter the object to set credentials
   */
-class CredentialsProvider(credentialsManagerActor: ActorRef[Credentials.CredentialData]):
+class CredentialsProvider(credentialsSetter: Credentials.CredentialSetter):
   /**
     * Passes the credentials for a specific realm to the credentials manager
     * actor referenced by this instance. The keys used for these credentials
@@ -78,4 +77,4 @@ class CredentialsProvider(credentialsManagerActor: ActorRef[Credentials.Credenti
     * @param value the secret value of the credential
     */
   private def passCredential(key: String, value: Secret): Unit =
-    credentialsManagerActor ! Credentials.CredentialData(key, value)
+    credentialsSetter.setCredential(key, value)

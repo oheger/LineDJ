@@ -55,9 +55,9 @@
       </di:methodInvocation>
     </di:bean>
 
-    <!-- The actor to manage credentials. -->
-    <di:bean name="httpArchiveCredentialsManager" resultVar="result">
-      <di:methodInvocation method="credentialsManager" result="result">
+    <!-- The object to set credentials. -->
+    <di:bean name="httpArchiveCredentialsSetter" resultVar="result">
+      <di:methodInvocation method="credentialSetter" result="result">
         <di:invocationTarget refName="httpArchiveDownloaderFactory" />
       </di:methodInvocation>
     </di:bean>
@@ -66,7 +66,7 @@
     <di:bean name="httpArchiveCredentialsProvider"
       beanClassName="de.oliver_heger.linedj.archivehttpstart.app.CredentialsProvider">
       <di:constructor>
-        <di:param refName="httpArchiveCredentialsManager"/>
+        <di:param refName="httpArchiveCredentialsSetter"/>
       </di:constructor>
     </di:bean>
 

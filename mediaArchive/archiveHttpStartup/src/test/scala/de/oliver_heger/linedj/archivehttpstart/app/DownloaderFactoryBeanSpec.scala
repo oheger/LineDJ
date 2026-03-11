@@ -19,8 +19,8 @@ package de.oliver_heger.linedj.archivehttpstart.app
 import com.github.cloudfiles.core.http.Secret
 import com.github.cloudfiles.core.http.auth.{OAuthTokenData, OAuthConfig as CloudOAuthConfig}
 import com.github.cloudfiles.core.http.factory.HttpRequestSenderFactory
+import de.oliver_heger.linedj.archive.cloud.auth.OAuthMethod
 import de.oliver_heger.linedj.archive.cloud.auth.oauth.{OAuthConfig, OAuthStorageConfig, OAuthStorageService}
-import de.oliver_heger.linedj.archive.cloud.auth.{Credentials, OAuthMethod}
 import de.oliver_heger.linedj.archive.cloud.{CloudArchiveConfig, DefaultCloudFileDownloaderFactory}
 import de.oliver_heger.linedj.platform.app.ClientApplicationContext
 import de.oliver_heger.linedj.shared.actors.ActorFactory
@@ -97,8 +97,8 @@ class DownloaderFactoryBeanSpec(testSystem: classic.ActorSystem) extends TestKit
     Mockito.when(storageService.loadConfig(storageConfig)).thenReturn(Future.successful(oauthConfig))
     Mockito.when(storageService.loadClientSecret(storageConfig)).thenReturn(Future.successful(clientSecret))
     Mockito.when(storageService.loadTokens(storageConfig)).thenReturn(Future.successful(tokenData))
-    val credentialsManager = bean.credentialsManager()
-    credentialsManager ! Credentials.CredentialData(storageConfig.baseName, oauthSecret)
+    val credentialSetter = bean.credentialSetter()
+    credentialSetter.setCredential(storageConfig.baseName, oauthSecret)
 
     downloaderFactory.authConfigFactory.createAuthConfig(archiveConfig) map : authConfig =>
       authConfig should be(expectedAuthConfig)

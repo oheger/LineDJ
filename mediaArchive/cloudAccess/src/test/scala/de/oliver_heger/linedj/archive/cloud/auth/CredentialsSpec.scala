@@ -22,9 +22,9 @@ import org.apache.pekko.actor as classic
 import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
 import org.apache.pekko.testkit.TestKit
 import org.apache.pekko.util.Timeout
-import org.scalatest.BeforeAndAfterAll
-import org.scalatest.flatspec.AsyncFlatSpecLike
+import org.scalatest.flatspec.FixtureAsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.{BeforeAndAfterAll, FutureOutcome}
 
 import java.util.concurrent.TimeoutException
 import scala.concurrent.duration.DurationInt
@@ -32,7 +32,7 @@ import scala.concurrent.duration.DurationInt
 /**
   * Test class for [[Credentials]].
   */
-class CredentialsSpec(testSystem: classic.ActorSystem) extends TestKit(testSystem), AsyncFlatSpecLike,
+class CredentialsSpec(testSystem: classic.ActorSystem) extends TestKit(testSystem), FixtureAsyncFlatSpecLike,
   BeforeAndAfterAll, Matchers:
   def this() = this(classic.ActorSystem("CredentialsSpec"))
 
@@ -47,98 +47,79 @@ class CredentialsSpec(testSystem: classic.ActorSystem) extends TestKit(testSyste
   import Credentials.given
 
   /**
-    * Returns the [[ActorFactory]] based on the actor system of this test
-    * class.
+    * A data class to represent the fixture used by the test cases.
     *
-    * @return the actor factory for tests
+    * @param setter       the setter for credentials
+    * @param resolver     the credentials resolver function
+    * @param actorFactory the actor factory
     */
-  private def actorFactory: ActorFactory = implicitly
+  case class FixtureParam(setter: Credentials.CredentialSetter,
+                          resolver: Credentials.ResolverFunc,
+                          actorFactory: ActorFactory)
 
-  "A credentials manager actor" should "stop itself on receiving a Stop command" in :
-    val (actor, _) = Credentials.setUpCredentialsManager(actorFactory)
+  override def withFixture(test: OneArgAsyncTest): FutureOutcome =
+    val actorFactory = ManagingActorFactory.newDefaultManagingActorFactory
+    val (setter, resolver) = Credentials.setUpCredentialsManager(actorFactory)
+    val fixture = FixtureParam(setter, resolver, actorFactory)
 
-    actor ! Credentials.Stop
+    complete:
+      withFixture(test.toNoArgAsyncTest(fixture))
+    .lastly:
+      actorFactory.stopActors()
 
-    val probe = typedTestKit.createDeadLetterProbe()
-    probe.expectTerminated(actor)
+  "Credentials management" should "pass existing credentials to requesting clients" in : fixture =>
+    val key = "someKey"
+    val value = Secret("very-secret")
+
+    for
+      setResult <- fixture.setter.setCredential(key, value)
+      secret <- fixture.resolver(key)
+    yield
+      setResult shouldBe false
+      secret should be(value)
+
+  it should "notify clients when their credentials become available" in : fixture =>
+    val key1 = "cred1"
+    val key2 = "cred2"
+    val value1 = Secret("sec1")
+    val value2 = Secret("sec2")
+
+    val futSec1 = fixture.resolver(key1)
+    val futSec2 = fixture.resolver(key2)
+    val futSec1_2 = fixture.resolver(key1)
+
+    for
+      setResult1 <- fixture.setter.setCredential(key1, value1)
+      setResult2 <- fixture.setter.setCredential(key2, value2)
+      secret1 <- futSec1
+      secret2 <- futSec2
+      secret1_2 <- futSec1_2
+    yield
+      setResult1 shouldBe true
+      setResult2 shouldBe true
+      secret1 should be(value1)
+      secret1_2 should be(value1)
+      secret2 should be(value2)
+
+  it should "notify clients only once about incoming credentials" in : fixture =>
+    val key = "key"
+    val value = Secret("onlyOnce")
+    val deadLetterProbe = typedTestKit.createDeadLetterProbe()
+
+    val futSecret = fixture.resolver(key)
+    fixture.setter.setCredential(key, value)
+
+    fixture.setter.setCredential(key, Secret("someNewValue"))
+    deadLetterProbe.expectNoMessage(100.millis)
     succeed
 
-  it should "pass existing credentials to requesting clients" in :
-    val credentialData = Credentials.CredentialData("someKey", Secret("very-secret"))
-    val probe = typedTestKit.createTestProbe[Credentials.CredentialData]()
-    val (actor, _) = Credentials.setUpCredentialsManager(actorFactory)
-
-    actor ! credentialData
-    actor ! Credentials.QueryCredential(credentialData.key, probe.ref)
-
-    probe.expectMessage(credentialData)
-    succeed
-
-  it should "notify clients when their credentials become available" in :
-    val credentialData1 = Credentials.CredentialData("cred1", Secret("sec1"))
-    val credentialData2 = Credentials.CredentialData("cred2", Secret("sec2"))
-    val client1 = typedTestKit.createTestProbe[Credentials.CredentialData]()
-    val client2 = typedTestKit.createTestProbe[Credentials.CredentialData]()
-    val client3 = typedTestKit.createTestProbe[Credentials.CredentialData]()
-    val (actor, _) = Credentials.setUpCredentialsManager(actorFactory, actorName = "queryThenSet")
-
-    actor ! Credentials.QueryCredential(credentialData1.key, client1.ref)
-    actor ! Credentials.QueryCredential(credentialData2.key, client2.ref)
-    actor ! Credentials.QueryCredential(credentialData1.key, client3.ref)
-    actor ! credentialData1
-    actor ! credentialData2
-
-    client1.expectMessage(credentialData1)
-    client2.expectMessage(credentialData2)
-    client3.expectMessage(credentialData1)
-    succeed
-
-  it should "notify clients only once about incoming credentials" in :
-    val credentialData = Credentials.CredentialData("key", Secret("onlyOnce"))
-    val client = typedTestKit.createTestProbe[Credentials.CredentialData]()
-    val (actor, _) = Credentials.setUpCredentialsManager(actorFactory, actorName = "multiSet")
-
-    actor ! Credentials.QueryCredential(credentialData.key, client.ref)
-    actor ! credentialData
-    actor ! credentialData.copy(value = Secret("anotherValue"))
-
-    client.expectMessage(credentialData)
-    client.expectNoMessage(100.millis)
-    succeed
-
-  "The resolver function" should "return the correct credentials" in :
-    val credentialData1 = Credentials.CredentialData("cred1", Secret("sec1"))
-    val credentialData2 = Credentials.CredentialData("cred2", Secret("sec2"))
-    val (actor, resolver) = Credentials.setUpCredentialsManager(actorFactory, actorName = "resolverFunc")
-
-    val futSecrets = for
-      sec1 <- resolver(credentialData1.key)
-      sec2 <- resolver(credentialData2.key)
-    yield (sec1, sec2)
-
-    actor ! credentialData2
-    actor ! credentialData1
-    futSecrets map : (sec1, sec2) =>
-      sec1 should be(credentialData1.value)
-      sec2 should be(credentialData2.value)
-
-  "setUpCredentialsManager" should "set the stop command for the actor" in :
-    val managingFactory = ManagingActorFactory.newDefaultManagingActorFactory(using actorFactory)
-
-    val (actor, _) = Credentials.setUpCredentialsManager(managingFactory, actorName = "withManagingFactory")
-    managingFactory.stopActors()
-
-    val probe = typedTestKit.createDeadLetterProbe()
-    probe.expectTerminated(actor)
-    succeed
-
-  it should "take the timeout into account" in :
+  it should "take the timeout into account" in : fixture =>
     val shortTimeout = Timeout(10.millis)
     val processingTime = 500.millis
-    val (actor, resolver) = Credentials.setUpCredentialsManager(
-      actorFactory, actorName = "runIntoTimeout"
+    val (setter, resolver) = Credentials.setUpCredentialsManager(
+      fixture.actorFactory, actorName = "runIntoTimeout"
     )(using shortTimeout)
 
-    typedTestKit.scheduler.scheduleOnce(processingTime, () => actor ! Credentials.CredentialData("k", Secret("v")))
+    typedTestKit.scheduler.scheduleOnce(processingTime, () => fixture.setter.setCredential("k", Secret("v")))
     recoverToSucceededIf[TimeoutException]:
       resolver("k")

@@ -25,7 +25,6 @@ import de.oliver_heger.linedj.archive.cloud.{CloudFileDownloaderFactory, Default
 import de.oliver_heger.linedj.platform.app.ClientApplicationContext
 import de.oliver_heger.linedj.shared.actors.ActorFactory
 import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.actor.typed.ActorRef
 
 import java.nio.file.Paths
 import scala.concurrent.ExecutionContext
@@ -89,9 +88,9 @@ case class DownloaderFactoryBean(actorSystem: ActorSystem,
     DefaultCloudFileDownloaderFactory(authFactory, senderFactory)(credentialsResolverData._2)
 
   /**
-    * Returns the credentials manager actor that is connected to the downloader
+    * Returns the credentials setter object that is connected to the downloader
     * factory created by this instance.
     *
-    * @return the credentials manager actor
+    * @return the object to set credentials
     */
-  def credentialsManager(): ActorRef[Credentials.CredentialData] = credentialsResolverData._1
+  def credentialSetter(): Credentials.CredentialSetter = credentialsResolverData._1

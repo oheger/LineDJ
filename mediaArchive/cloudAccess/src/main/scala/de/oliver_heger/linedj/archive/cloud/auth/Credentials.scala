@@ -18,14 +18,16 @@ package de.oliver_heger.linedj.archive.cloud.auth
 
 import com.github.cloudfiles.core.http.Secret
 import de.oliver_heger.linedj.shared.actors.ActorFactory
+import de.oliver_heger.linedj.shared.actors.ActorFactory.given
+import org.apache.pekko.actor as classic
 import org.apache.pekko.actor.typed.scaladsl.AskPattern.{Askable, schedulerFromActorSystem}
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import org.apache.pekko.actor.typed.scaladsl.adapter.*
 import org.apache.pekko.actor.typed.{ActorRef, ActorSystem, Behavior}
 import org.apache.pekko.util.Timeout
 
+import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
-import scala.concurrent.{ExecutionContext, Future}
 
 /**
   * A module providing functionality to deal with credentials.
@@ -33,9 +35,10 @@ import scala.concurrent.{ExecutionContext, Future}
   * To connect to a cloud archive, credentials are required in any form. How
   * these credentials are managed or obtained depends on the application that
   * interacts with archives. This module defines an abstraction for accessing
-  * such credentials and provides an implementation of an actor for managing
-  * credentials that connects application-specific code to obtain credentials
-  * to clients that need these credentials.
+  * such credentials and provides an internal implementation based on an actor
+  * for managing credentials in a thread-safe way that connects
+  * application-specific code to obtain credentials to clients that need these
+  * credentials.
   */
 object Credentials:
   /** The default name for the credentials manager actor. */
@@ -65,33 +68,60 @@ object Credentials:
     * @param key   the key of the credential
     * @param value the secret value
     */
-  final case class CredentialData(key: String, value: Secret)
+  private case class CredentialData(key: String, value: Secret)
 
   /**
-    * A data class representing a command to query information about a specific
-    * credential. The credentials manager actor sends an answer immediately if
-    * the credential is known. Otherwise, it records this request and waits
-    * until the credential becomes available. So, a result is eventually sent,
-    * but maybe with a delay.
-    *
-    * @param key      the key of the desired credential
-    * @param replayTo the actor to send the reply to
+    * An enumeration defining the commands supported by the internal
+    * credentials manager actor.
     */
-  final case class QueryCredential(key: String,
-                                   replayTo: ActorRef[CredentialData])
+  private enum CredentialsManagerCommand:
+    /**
+      * A command to query information about a specific credential. The
+      * credentials manager actor sends an answer immediately if the credential
+      * is known. Otherwise, it records this request and waits until the
+      * credential becomes available. So, a result is eventually sent, but
+      * maybe with a delay.
+      *
+      * @param key     the key of the desired credential
+      * @param replyTo the actor to send the reply to
+      */
+    case QueryCredential(key: String,
+                         replyTo: ActorRef[CredentialData])
+
+    /**
+      * A command to set a specific credential. The actor stores this value. If
+      * there are already clients waiting for the value of this credential,
+      * they are now notified. The actor also sends a response of type
+      * ''Boolean'' that is '''true''' if there is at least one client waiting
+      * for this credential and '''false''' otherwise.
+      */
+    case SetCredential(data: CredentialData,
+                       replyTo: ActorRef[Boolean])
+
+    /**
+      * A command that tells the credentials manager actor to stop itself.
+      */
+    case Stop
+  end CredentialsManagerCommand
 
   /**
-    * A command that tells the credentials manager actor to stop itself.
+    * A trait that allows setting the values of credentials when they become
+    * available. Via this abstraction, credential values are passed to the
+    * credential management. If there are clients waiting for these
+    * credentials, they are notified. Otherwise, the credentials are only
+    * stored, so that they are available once a client asks for them.
     */
-  case object Stop
-
-  /**
-    * Definition of the command type that is handled by the credentials manager
-    * actor. This is a union type, which makes it possible to let clients
-    * operate on narrowed actor references that support only the subcommands
-    * they need.
-    */
-  type CredentialsManagerCommand = CredentialData | QueryCredential | Stop.type
+  trait CredentialSetter:
+    /**
+      * Sets the value of a credential. The return value indicates whether a
+      * client was waiting for this credential.
+      *
+      * @param key   the key of the credential
+      * @param value the secret value
+      * @return a [[Future]] with a flag whether a client has already asked for
+      *         this credential
+      */
+    def setCredential(key: String, value: Secret): Future[Boolean]
 
   /**
     * A helper class to manage the state of known credentials.
@@ -157,13 +187,13 @@ object Credentials:
     * @return a tuple with the actor reference and the resolver function
     */
   def setUpCredentialsManager(factory: ActorFactory, actorName: String = CredentialsManagerName)
-                             (using queryTimeout: Timeout): (ActorRef[CredentialsManagerCommand], ResolverFunc) =
+                             (using queryTimeout: Timeout): (CredentialSetter, ResolverFunc) =
     val actor = factory.createTypedActor(
       handleCredentialsCommand(InitialCredentialsState),
       actorName,
-      optStopCommand = Some(Stop)
+      optStopCommand = Some(CredentialsManagerCommand.Stop)
     )
-    (actor, createResolverFunc(actor, factory))
+    (createCredentialSetter(actor, factory), createResolverFunc(actor, factory))
 
   /**
     * The command handler function of the credentials manager actor.
@@ -173,15 +203,16 @@ object Credentials:
     */
   private def handleCredentialsCommand(state: CredentialsState): Behavior[CredentialsManagerCommand] =
     Behaviors.receiveMessage:
-      case Stop =>
+      case CredentialsManagerCommand.Stop =>
         Behaviors.stopped
-      case QueryCredential(key, replayTo) =>
-        val (nextState, optData) = state.queryCredential(key, replayTo)
-        optData.foreach(replayTo.!)
+      case CredentialsManagerCommand.QueryCredential(key, replyTo) =>
+        val (nextState, optData) = state.queryCredential(key, replyTo)
+        optData.foreach(replyTo.!)
         handleCredentialsCommand(nextState)
-      case data: CredentialData =>
+      case CredentialsManagerCommand.SetCredential(data, replyTo) =>
         val (nextState, clients) = state.addCredential(data)
         clients.foreach(c => c ! data)
+        replyTo ! clients.nonEmpty
         handleCredentialsCommand(nextState)
 
   /**
@@ -195,9 +226,43 @@ object Credentials:
     */
   private def createResolverFunc(actor: ActorRef[CredentialsManagerCommand], factory: ActorFactory)
                                 (using timeout: Timeout): ResolverFunc =
-    given ActorSystem[_] = factory.actorSystem.toTyped
-
-    given ExecutionContext = factory.actorSystem.dispatcher
+    given classic.ActorSystem = factory.actorSystem
 
     key =>
-      actor.ask[CredentialData](ref => QueryCredential(key, ref)).map(_.value)
+      askCredentialActor[CredentialData](actor, factory): ref =>
+        CredentialsManagerCommand.QueryCredential(key, ref)
+      .map(_.value)
+
+  /**
+    * Returns a [[CredentialSetter]] object that passes credentials to the
+    * given credentials manager actor.
+    *
+    * @param actor   the actor
+    * @param factory the actor factory
+    * @param timeout the timeout for ''ask'' operations
+    * @return
+    */
+  private def createCredentialSetter(actor: ActorRef[CredentialsManagerCommand], factory: ActorFactory)
+                                    (using timeout: Timeout): CredentialSetter =
+    (key: String, value: Secret) =>
+      val data = CredentialData(key, value)
+      askCredentialActor[Boolean](actor, factory): ref =>
+        CredentialsManagerCommand.SetCredential(data, ref)
+
+  /**
+    * Helper function to apply the ''ask'' pattern to the given credential
+    * actor reference.
+    *
+    * @param actor   the actor to ask
+    * @param factory the actor factory
+    * @param replyTo the function to construct the query message
+    * @param timeout the timeout for the operation
+    * @tparam Res the type of the result
+    * @return a [[Future]] with the response from the actor
+    */
+  private def askCredentialActor[Res](actor: ActorRef[CredentialsManagerCommand], factory: ActorFactory)
+                                     (replyTo: ActorRef[Res] => CredentialsManagerCommand)
+                                     (using timeout: Timeout): Future[Res] =
+    given ActorSystem[_] = factory.actorSystem.toTyped
+
+    actor.ask(replyTo)
