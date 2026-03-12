@@ -17,29 +17,28 @@
 package de.oliver_heger.linedj.archive.cloud
 
 import com.github.cloudfiles.core.FileSystem.Operation
-import com.github.cloudfiles.core.{FileSystem, Model}
 import com.github.cloudfiles.core.delegate.ExtensibleFileSystem
 import com.github.cloudfiles.core.http.RetryAfterExtension.RetryAfterConfig
 import com.github.cloudfiles.core.http.auth.BasicAuthConfig
-import com.github.cloudfiles.core.http.{HttpRequestSender, Secret}
 import com.github.cloudfiles.core.http.factory.{HttpRequestSenderConfig, HttpRequestSenderFactory}
+import com.github.cloudfiles.core.http.{HttpRequestSender, Secret}
+import com.github.cloudfiles.core.{FileSystem, Model}
 import com.github.cloudfiles.crypt.alg.aes.Aes
 import com.github.cloudfiles.crypt.fs.{CryptContentFileSystem, CryptNamesFileSystem}
 import com.github.cloudfiles.crypt.service.CryptService
-import de.oliver_heger.linedj.archive.cloud.auth.{AuthConfigFactory, BasicAuthMethod, Credentials, DefaultAuthConfigFactory}
+import de.oliver_heger.linedj.archive.cloud.auth.{AuthConfigFactory, BasicAuthMethod, Credentials}
 import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystemFactory
 import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystemFactory.CloudArchiveFileSystem
-import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.actor.testkit.typed.scaladsl.{ActorTestKit, TestProbe}
-import org.apache.pekko.testkit.TestKit
-import org.apache.pekko.actor.typed
+import org.apache.pekko.actor.{ActorSystem, typed}
 import org.apache.pekko.http.scaladsl.model.Uri
+import org.apache.pekko.testkit.TestKit
 import org.apache.pekko.util.Timeout
 import org.mockito.ArgumentMatchers.{any, eq as argEq}
 import org.mockito.Mockito.*
-import org.scalatest.{Assertion, BeforeAndAfterAll}
 import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.{Assertion, BeforeAndAfterAll}
 import org.scalatestplus.mockito.MockitoSugar
 
 import java.security.SecureRandom
@@ -268,6 +267,23 @@ class DefaultCloudFileDownloaderFactorySpec(testSystem: ActorSystem) extends Tes
         helper.createArchiveConfig(optActorName = None).copy(archiveName = ArchiveNameWithSpecialCharacters)
       ) map : downloader =>
       downloader.httpSender should be(helper.probeRequestActor.ref)
+
+  "credentialKeys" should "return the keys for a non-encrypted archive" in :
+    val helper = new FactoryTestHelper
+    val config = helper.createArchiveConfig()
+
+    val keys = DefaultCloudFileDownloaderFactory.credentialKeys(config)
+
+    keys should contain theSameElementsAs TestAuthMethod.credentialKeys
+
+  it should "return the keys for an encrypted archive" in :
+    val helper = new FactoryTestHelper
+    val config = helper.createArchiveConfig(optCryptConfig = Some(TestCryptConfig))
+
+    val keys = DefaultCloudFileDownloaderFactory.credentialKeys(config)
+
+    val expectedKeys = TestAuthMethod.credentialKeys + ArchiveName
+    keys should contain theSameElementsAs expectedKeys
   
   /**
     * A test helper class managing a factory to be tested and its dependencies

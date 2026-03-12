@@ -34,6 +34,22 @@ import scala.concurrent.{ExecutionContext, Future}
 
 object DefaultCloudFileDownloaderFactory:
   /**
+    * Returns a [[Set]] with all credential keys that are consumed by the cloud
+    * archive with the given configuration. Only if all these keys are present,
+    * the archive can be accessed. Having this information, is useful in some
+    * cases. For instance, when access to the archive fails because of 
+    * incorrect credentials, the current values of these credentials should be
+    * removed, so that they can be entered again.
+    *
+    * @param archiveConfig the archive configuration
+    * @return a [[Set]] with all credential keys that are required by this
+    *         archive configuration
+    */
+  def credentialKeys(archiveConfig: CloudArchiveConfig): Set[String] =
+    val authMethodKeys = archiveConfig.authMethod.credentialKeys
+    archiveConfig.optCryptConfig.fold(authMethodKeys)(_ => authMethodKeys + archiveConfig.archiveName)
+
+  /**
     * Extends the given file system with functionality to encrypt the content
     * of files and the names of files and folders. Encryption is done via the
     * AES algorithm.
