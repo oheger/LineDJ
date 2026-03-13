@@ -138,3 +138,17 @@ class CredentialsSpec(testSystem: classic.ActorSystem) extends TestKit(testSyste
 
     futSecret map : secret =>
       secret should be(value)
+
+  it should "return information about credential keys" in : fixture =>
+    fixture.setter.setCredential("available", Secret("foo"))
+    fixture.resolver("pending1")
+    fixture.resolver("pending2")
+
+    fixture.setter.credentialKeys map : keys =>
+      val expectedKeys = Set(
+        Credentials.CredentialKeyInfo("available", pending = false),
+        Credentials.CredentialKeyInfo("pending1", pending = true),
+        Credentials.CredentialKeyInfo("pending2", pending = true),
+      )
+      keys should contain theSameElementsAs expectedKeys
+      

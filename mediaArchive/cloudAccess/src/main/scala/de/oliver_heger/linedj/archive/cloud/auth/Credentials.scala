@@ -105,10 +105,33 @@ object Credentials:
     case ClearCredential(key: String)
 
     /**
+      * A command to request information about the currently known credential
+      * keys.
+      */
+    case GetKeys(replyTo: ActorRef[Set[CredentialKeyInfo]])
+
+    /**
       * A command that tells the credentials manager actor to stop itself.
       */
     case Stop
   end CredentialsManagerCommand
+
+  /**
+    * A data class to store information about a credential key. Instances of
+    * this class are returned by [[CredentialSetter]] when querying the current
+    * set of keys. Credential management distinguishes between two cases: A key
+    * with a values has already been set, and a key is requested by at least
+    * one consumer, but the value is not yet available. An instance of this
+    * class has a flag that allows to determine in which state the associated
+    * key is.
+    *
+    * @param key     the name of the key
+    * @param pending '''true''' if there are consumers waiting for this
+    *                credential; '''false''' if the value of the credential has
+    *                already been set
+    */
+  final case class CredentialKeyInfo(key: String,
+                                     pending: Boolean)
 
   /**
     * A trait that allows setting the values of credentials when they become
@@ -138,6 +161,15 @@ object Credentials:
       * @param key the key of the credential to remove
       */
     def clearCredential(key: String): Unit
+
+    /**
+      * Returns a [[Set]] with [[CredentialKeyInfo]] objects describing the
+      * keys that are currently known to this object. This information is
+      * obtained asynchronously; therefore, result is a [[Future]].
+      *
+      * @return a [[Future]] with information about known credential keys
+      */
+    def credentialKeys: Future[Set[CredentialKeyInfo]]
 
   /**
     * A helper class to manage the state of known credentials.
@@ -246,6 +278,11 @@ object Credentials:
         handleCredentialsCommand(nextState)
       case CredentialsManagerCommand.ClearCredential(key) =>
         handleCredentialsCommand(state.clearCredential(key))
+      case CredentialsManagerCommand.GetKeys(replyTo) =>
+        val keyInfo = (state.credentials.keys.map(key => CredentialKeyInfo(key, pending = false)) ++
+          state.clients.keys.map(key => CredentialKeyInfo(key, pending = true))).toSet
+        replyTo ! keyInfo
+        Behaviors.same
 
   /**
     * Returns a [[ResolverFunc]] that queries credentials from the given 
@@ -284,6 +321,10 @@ object Credentials:
 
       override def clearCredential(key: String): Unit =
         actor ! CredentialsManagerCommand.ClearCredential(key)
+
+      override def credentialKeys: Future[Set[CredentialKeyInfo]] =
+        askCredentialActor[Set[CredentialKeyInfo]](actor, factory): ref =>
+          CredentialsManagerCommand.GetKeys(ref)
 
   /**
     * Helper function to apply the ''ask'' pattern to the given credential
