@@ -55,7 +55,7 @@ class CredentialsSpec(testSystem: classic.ActorSystem) extends TestKit(testSyste
     */
   case class FixtureParam(setter: Credentials.CredentialSetter,
                           resolver: Credentials.ResolverFunc,
-                          actorFactory: ActorFactory)
+                          actorFactory: ManagingActorFactory)
 
   override def withFixture(test: OneArgAsyncTest): FutureOutcome =
     val actorFactory = ManagingActorFactory.newDefaultManagingActorFactory
@@ -114,6 +114,9 @@ class CredentialsSpec(testSystem: classic.ActorSystem) extends TestKit(testSyste
     succeed
 
   it should "take the timeout into account" in : fixture =>
+    // This is necessary for unclear reasons to prevent an actor name not unique exception.
+    fixture.actorFactory.stopActors()
+
     val shortTimeout = Timeout(10.millis)
     val processingTime = 500.millis
     val (setter, resolver) = Credentials.setUpCredentialsManager(
@@ -123,3 +126,15 @@ class CredentialsSpec(testSystem: classic.ActorSystem) extends TestKit(testSyste
     typedTestKit.scheduler.scheduleOnce(processingTime, () => fixture.setter.setCredential("k", Secret("v")))
     recoverToSucceededIf[TimeoutException]:
       resolver("k")
+
+  it should "allow clearing credentials" in : fixture =>
+    val key = "clearedCredential"
+    val value = Secret("theCorrectValue")
+    fixture.setter.setCredential(key, Secret("Wrong value"))
+
+    fixture.setter.clearCredential(key)
+    val futSecret = fixture.resolver(key)
+    fixture.setter.setCredential(key, value)
+
+    futSecret map : secret =>
+      secret should be(value)

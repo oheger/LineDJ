@@ -99,6 +99,12 @@ object Credentials:
                        replyTo: ActorRef[Boolean])
 
     /**
+      * A command to clear a specific credential. If a value is assigned to
+      * this key, it is removed. Otherwise, this command has no effect.
+      */
+    case ClearCredential(key: String)
+
+    /**
       * A command that tells the credentials manager actor to stop itself.
       */
     case Stop
@@ -122,6 +128,16 @@ object Credentials:
       *         this credential
       */
     def setCredential(key: String, value: Secret): Future[Boolean]
+
+    /**
+      * Removes the credential with the given key from this object. Consumers
+      * requesting this key will receive a [[Future]] that only completes when
+      * the value is set anew. This function can be used for instance, if it
+      * turns out that the value was incorrect.
+      *
+      * @param key the key of the credential to remove
+      */
+    def clearCredential(key: String): Unit
 
   /**
     * A helper class to manage the state of known credentials.
@@ -167,6 +183,20 @@ object Credentials:
       */
     def addCredential(data: CredentialData): (CredentialsState, Iterable[ActorRef[CredentialData]]) =
       (CredentialsState(credentials + (data.key -> data), clients - data.key), clients.getOrElse(data.key, Nil))
+
+    /**
+      * Updates this state if a credential key is removed. This key is just
+      * removed from the internal map if it was present. Otherwise, no change
+      * is required.
+      *
+      * @param key the key to be removed
+      * @return the updated state
+      */
+    def clearCredential(key: String): CredentialsState =
+      if credentials.contains(key) then
+        CredentialsState(credentials - key, clients)
+      else
+        this
   end CredentialsState
 
   /** Constant for an initial, empty credentials state instance. */
@@ -214,6 +244,8 @@ object Credentials:
         clients.foreach(c => c ! data)
         replyTo ! clients.nonEmpty
         handleCredentialsCommand(nextState)
+      case CredentialsManagerCommand.ClearCredential(key) =>
+        handleCredentialsCommand(state.clearCredential(key))
 
   /**
     * Returns a [[ResolverFunc]] that queries credentials from the given 
@@ -240,14 +272,18 @@ object Credentials:
     * @param actor   the actor
     * @param factory the actor factory
     * @param timeout the timeout for ''ask'' operations
-    * @return
+    * @return the [[CredentialSetter]] object
     */
   private def createCredentialSetter(actor: ActorRef[CredentialsManagerCommand], factory: ActorFactory)
                                     (using timeout: Timeout): CredentialSetter =
-    (key: String, value: Secret) =>
-      val data = CredentialData(key, value)
-      askCredentialActor[Boolean](actor, factory): ref =>
-        CredentialsManagerCommand.SetCredential(data, ref)
+    new CredentialSetter:
+      override def setCredential(key: String, value: Secret): Future[Boolean] =
+        val data = CredentialData(key, value)
+        askCredentialActor[Boolean](actor, factory): ref =>
+          CredentialsManagerCommand.SetCredential(data, ref)
+
+      override def clearCredential(key: String): Unit =
+        actor ! CredentialsManagerCommand.ClearCredential(key)
 
   /**
     * Helper function to apply the ''ask'' pattern to the given credential
