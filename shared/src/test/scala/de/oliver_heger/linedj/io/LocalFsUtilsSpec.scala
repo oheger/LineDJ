@@ -93,7 +93,17 @@ class LocalFsUtilsSpec(testSystem: ActorSystem) extends TestKit(testSystem), Asy
         val mp3Path = testDirectory.resolve(name + "mp3")
         mp3Path :: txtPath :: lst
       files should contain theSameElementsAs expectedPaths
-      
+
+  it should "handle complex file extension correctly" in:
+    val ComplexExtension = "json.crypt"
+    val TestFileName = "test-file."
+    val expectedPath = writeFileContent(createPathInDirectory(TestFileName + ComplexExtension), "the expected file")
+    writeFileContent(createPathInDirectory(TestFileName + "crypt"), "not to be found")
+    writeFileContent(createPathInDirectory(TestFileName + "json"), "not to be found, too")
+
+    LocalFsUtils.listFolder(testDirectory, system, extensions = Set(ComplexExtension)) map: files =>
+      files should contain only expectedPath
+
   it should "return a failed future if listing a non-existing path" in:
     val nonExistingPath = Paths.get("non", "existing", "path")
     

@@ -99,9 +99,15 @@ object LocalFsUtils:
                  system: ActorSystem,
                  extensions: Set[String] = Set.empty,
                  blockingDispatcherName: String = DefaultBlockingDispatcherName): Future[List[Path]] =
+    val suffixes = extensions.map("." + _)
+
+    def matchesExtension(file: Path): Boolean =
+      val name = file.getFileName.toString
+      suffixes.exists(name.endsWith)
+
     def filterFiles(elements: List[Model.Element[Path]]): List[Model.Element[Path]] =
       elements.filter:
-        case f: Model.File[Path] if extensions.isEmpty || extensions.contains(extractExtension(f.id)) => true
+        case f: Model.File[Path] if extensions.isEmpty || matchesExtension(f.id) => true
         case _ => false
 
     val localFs = LocalFsUtils.createLocalFs(path, system, blockingDispatcherName)
