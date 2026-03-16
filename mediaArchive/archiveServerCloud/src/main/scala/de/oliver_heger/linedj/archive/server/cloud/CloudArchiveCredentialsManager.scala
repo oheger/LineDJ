@@ -17,7 +17,10 @@
 package de.oliver_heger.linedj.archive.server.cloud
 
 import com.github.cloudfiles.core.http.Secret
+import com.github.cloudfiles.crypt.alg.aes.Aes
+import com.github.cloudfiles.crypt.service.CryptService
 import de.oliver_heger.linedj.archive.cloud.auth.Credentials
+import de.oliver_heger.linedj.archive.server.cloud.CloudArchiveCredentialsManager.readCredentials
 import de.oliver_heger.linedj.io.LocalFsUtils
 import de.oliver_heger.linedj.io.parser.JsonStreamParser
 import de.oliver_heger.linedj.shared.actors.ActorFactory
@@ -31,12 +34,25 @@ import spray.json.*
 import spray.json.DefaultJsonProtocol.*
 
 import java.nio.file.Path
+import java.security.SecureRandom
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
 object CloudArchiveCredentialsManager:
   /** The extension for unencrypted files storing credentials. */
   private val PlainCredentialsFileExtension = "json"
+
+  /** The extension for encrypted files storing credentials. */
+  private val CryptCredentialsFileExtension = "json.crypt"
+
+  /** The suffix to detect an encrypted file based on its extension. */
+  private val CryptCredentialsFileSuffix = "." + CryptCredentialsFileExtension
+
+  /**
+    * A set with the extensions of file to search for in the configured
+    * directory with credentials files.
+    */
+  private val FileExtensions = Set(PlainCredentialsFileExtension, CryptCredentialsFileExtension)
 
   /** The logger. */
   private val log = LogManager.getLogger(classOf[CloudArchiveCredentialsManager])
@@ -53,6 +69,9 @@ object CloudArchiveCredentialsManager:
 
   /** The format to deserialize [[Credential]] structures. */
   private given credentialFormat: RootJsonFormat[Credential] = jsonFormat2(Credential.apply)
+
+  /** The secure random for decrypt operations. */
+  private given random: SecureRandom = SecureRandom()
 
   /**
     * Creates a new instance of [[CloudArchiveCredentialsManager]] that
@@ -72,15 +91,15 @@ object CloudArchiveCredentialsManager:
 
     val (setter, resolver) = Credentials.setUpCredentialsManager(factory, credentialsActorName)
 
-    LocalFsUtils.listFolder(credentialDirectory, factory.actorSystem, Set(PlainCredentialsFileExtension))
+    LocalFsUtils.listFolder(credentialDirectory, factory.actorSystem, FileExtensions)
       .onComplete:
         case Success(files) =>
           files.foreach: file =>
-            processCredentialsFile(file, setter)
+            processCredentialsFile(file, setter, resolver)
         case Failure(exception) =>
           log.error("Could not load credential files from directory '{}'.", credentialDirectory, exception)
 
-    new CloudArchiveCredentialsManager(resolver)
+    new CloudArchiveCredentialsManager(resolver, setter)
 
   /**
     * Processes a file with credentials that has been found in the credential
@@ -89,13 +108,96 @@ object CloudArchiveCredentialsManager:
     *
     * @param credentialsFile  the path to the credentials file
     * @param credentialSetter the object to set credentials
+    * @param resolver         the function to resolve credentials
     * @param system           the actor system
     */
-  private def processCredentialsFile(credentialsFile: Path, credentialSetter: Credentials.CredentialSetter)
+  private def processCredentialsFile(credentialsFile: Path,
+                                     credentialSetter: Credentials.CredentialSetter,
+                                     resolver: Credentials.ResolverFunc)
                                     (using system: ActorSystem): Unit =
     log.info("Found credentials file '{}'.", credentialsFile.getFileName)
+    if credentialsFile.getFileName.toString.endsWith(CryptCredentialsFileSuffix) then
+      processEncryptedCredentialsFile(credentialsFile, credentialSetter, resolver)
+    else
+      processPlainCredentialsFile(credentialsFile, credentialSetter)
+
+  /**
+    * Processes an unencrypted file with credentials. The file can be read
+    * directly.
+    *
+    * @param credentialsFile  the path to the credentials file
+    * @param credentialSetter the object to set credentials
+    * @param system           the actor system
+    */
+  private def processPlainCredentialsFile(credentialsFile: Path, credentialSetter: Credentials.CredentialSetter)
+                                         (using system: ActorSystem): Unit =
     val source = FileIO.fromPath(credentialsFile)
+    logReadOutcome(credentialsFile, readCredentials(source, credentialSetter))
+
+  /**
+    * Processes an encrypted files with credentials. The function requests a
+    * secret with a key derived from the file name from the resolver function.
+    * When this secret becomes available, the file can be read. In case that
+    * the secret is invalid, the function makes sure that it is possible to set
+    * the credential again by removing the invalid secret and registering
+    * another listener for it.
+    *
+    * @param credentialsFile   the path to the credentials file
+    * @param credentialsSetter the object to set credentials
+    * @param resolver          the resolver function
+    * @param system            the actor system
+    */
+  private def processEncryptedCredentialsFile(credentialsFile: Path,
+                                              credentialsSetter: Credentials.CredentialSetter,
+                                              resolver: Credentials.ResolverFunc)
+                                             (using system: ActorSystem): Unit =
+    val fileKey = credentialsFile.getFileName.toString.stripSuffix(CryptCredentialsFileSuffix)
+    resolver(fileKey).map: secret =>
+      credentialsSetter.clearCredential(fileKey) // Clear directly, in case the secret is invalid.
+      log.info("Got secret to decrypt credentials file '{}'.", credentialsFile)
+
+      val fileSource = FileIO.fromPath(credentialsFile)
+      val key = Aes.keyFromString(secret.secret)
+      val source = CryptService.decryptSource(Aes, key, fileSource)
+      logReadOutcome(credentialsFile, readCredentials(source, credentialsSetter)).onComplete:
+        case Success(_) =>
+        case Failure(exception) =>
+          log.warn("Waiting again for credential '{}'.", fileKey)
+          processEncryptedCredentialsFile(credentialsFile, credentialsSetter, resolver)
+
+  /**
+    * Reads the content of a credentials file from a given source, passes the
+    * found credentials to a [[Credentials.CredentialSetter]], and logs the
+    * outcome of the operation.
+    *
+    * @param credentialsFile  the path to the credentials file
+    * @param credentialSetter the object to set credentials
+    * @param source           the source to the content of the file
+    * @param system           the actor system
+    */
+  private def readCredentialsFile(credentialsFile: Path,
+                                  credentialSetter: Credentials.CredentialSetter,
+                                  source: Source[ByteString, Any])
+                                 (using system: ActorSystem): Unit =
     readCredentials(source, credentialSetter).onComplete:
+      case Success(_) =>
+        log.info("Successfully loaded credentials from '{}'.", credentialsFile.getFileName)
+      case Failure(exception) =>
+        log.error("Failed to process credentials file '{}'.", credentialsFile.getFileName, exception)
+
+  /**
+    * Extends the [[Future]] for reading a credentials file with logging about
+    * the outcome of the operation. This generates log statements with the file
+    * name and either a success message or an exception stacktrace.
+    *
+    * @param credentialsFile the path to the credentials file
+    * @param futRead         the [[Future]] for the read operation
+    * @param system          the actor system
+    * @return the extended [[Future]]
+    */
+  private def logReadOutcome(credentialsFile: Path, futRead: Future[Done])
+                            (using system: ActorSystem): Future[Done] =
+    futRead.andThen:
       case Success(_) =>
         log.info("Successfully loaded credentials from '{}'.", credentialsFile.getFileName)
       case Failure(exception) =>
@@ -152,5 +254,31 @@ end CloudArchiveCredentialsManager
   * the credential management.
   *
   * @param resolverFunc the function to resolve secret values
+  * @param setter       the object to set credentials
+  * @param system       the actor system
   */
-class CloudArchiveCredentialsManager(val resolverFunc: Credentials.ResolverFunc)
+class CloudArchiveCredentialsManager(val resolverFunc: Credentials.ResolverFunc,
+                                     setter: Credentials.CredentialSetter)
+                                    (using system: ActorSystem):
+  /**
+    * Sets credentials at the wrapped credentials manager. This function
+    * expects a [[Source]] with data in JSON format as described in the class
+    * comment. It parses the data and extracts the credentials. The idea is
+    * that this function is called with the entity of a client request that
+    * provides credentials to log into cloud archives.
+    *
+    * @param data the [[Source]] with credential information
+    * @return a [[Future]] with the result of the operation
+    */
+  def setCredentials(data: Source[ByteString, Any]): Future[Done] =
+    readCredentials(data, setter)
+
+  /**
+    * Returns a [[Set]] with the keys of credentials that are currently pending
+    * to be set. These are valid keys that could be set via [[setCredentials]].
+    *
+    * @return a [[Future]] with the keys of pending credentials
+    */
+  def pendingCredentials: Future[Set[String]] =
+    setter.credentialKeys map : keyInfo =>
+      keyInfo.filter(_.pending).map(_.key)
