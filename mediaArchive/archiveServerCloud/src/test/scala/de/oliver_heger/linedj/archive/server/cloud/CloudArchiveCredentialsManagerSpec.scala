@@ -112,7 +112,8 @@ class CloudArchiveCredentialsManagerSpec(testSystem: ActorSystem) extends TestKi
     * @return a [[Future]] that completes when this credential is no longer
     *         available
     */
-  private def waitForCredentialReset(manager: CloudArchiveCredentialsManager, key: String): Future[Done] =
+  private def waitForCredentialReset(manager: CloudArchiveCredentialsManager,
+                                     key: CloudArchiveCredentialsManager.CredentialKey): Future[Done] =
     manager.pendingCredentials flatMap : keys =>
       if keys.contains(key) then
         waitForCredentialReset(manager, key)
@@ -147,7 +148,7 @@ class CloudArchiveCredentialsManagerSpec(testSystem: ActorSystem) extends TestKi
     copyCryptTestFile()
     val credentialsManager = CloudArchiveCredentialsManager(testDirectory, implicitly, "cryptFile")
 
-    val credentials = Map(CryptFileName -> CryptFileSecret)
+    val credentials = Map("file://" + CryptFileName -> CryptFileSecret)
     for
       _ <- credentialsManager.setCredentials(toCredentialSource(credentials))
       secret <- credentialsManager.resolverFunc("foo")
@@ -158,12 +159,26 @@ class CloudArchiveCredentialsManagerSpec(testSystem: ActorSystem) extends TestKi
     copyCryptTestFile()
     val credentialsManager = CloudArchiveCredentialsManager(testDirectory, implicitly, "cryptFileInvalidSecret")
 
-    val invalidCredentials = Map(CryptFileName -> "anIncorrectSecret")
-    val credentials = Map(CryptFileName -> CryptFileSecret)
+    val invalidCredentials = Map("file://" + CryptFileName -> "anIncorrectSecret")
+    val credentials = Map("file://" + CryptFileName -> CryptFileSecret)
+    val fileKey = CloudArchiveCredentialsManager.CredentialKey(
+      CryptFileName,
+      CloudArchiveCredentialsManager.CredentialKeyType.File
+    )
     for
       _ <- credentialsManager.setCredentials(toCredentialSource(invalidCredentials))
-      _ <- waitForCredentialReset(credentialsManager, CryptFileName)
+      _ <- waitForCredentialReset(credentialsManager, fileKey)
       _ <- credentialsManager.setCredentials(toCredentialSource(credentials))
       secret <- credentialsManager.resolverFunc("foo")
     yield
       secret.secret should be("bar")
+
+  it should "provide information about pending credential keys" in :
+    val credentialsManager = CloudArchiveCredentialsManager(testDirectory, implicitly, "credentialKeys")
+    val archiveCredentials = List("test.user", "test.password", "my-test-archive")
+    archiveCredentials.foreach(credentialsManager.resolverFunc.apply)
+
+    credentialsManager.pendingCredentials map : keys =>
+      val expectedKeys = archiveCredentials.map: k =>
+        CloudArchiveCredentialsManager.CredentialKey(k, CloudArchiveCredentialsManager.CredentialKeyType.Archive)
+      keys should contain theSameElementsAs expectedKeys

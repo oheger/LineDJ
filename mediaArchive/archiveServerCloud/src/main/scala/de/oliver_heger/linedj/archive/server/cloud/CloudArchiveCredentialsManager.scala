@@ -20,7 +20,7 @@ import com.github.cloudfiles.core.http.Secret
 import com.github.cloudfiles.crypt.alg.aes.Aes
 import com.github.cloudfiles.crypt.service.CryptService
 import de.oliver_heger.linedj.archive.cloud.auth.Credentials
-import de.oliver_heger.linedj.archive.server.cloud.CloudArchiveCredentialsManager.readCredentials
+import de.oliver_heger.linedj.archive.server.cloud.CloudArchiveCredentialsManager.{CredentialKey, CredentialKeyType, FileCredentialPrefix, readCredentials}
 import de.oliver_heger.linedj.io.LocalFsUtils
 import de.oliver_heger.linedj.io.parser.JsonStreamParser
 import de.oliver_heger.linedj.shared.actors.ActorFactory
@@ -48,6 +48,9 @@ object CloudArchiveCredentialsManager:
   /** The suffix to detect an encrypted file based on its extension. */
   private val CryptCredentialsFileSuffix = "." + CryptCredentialsFileExtension
 
+  /** A prefix for credential keys for encrypted files. */
+  private val FileCredentialPrefix = "file://"
+
   /**
     * A set with the extensions of file to search for in the configured
     * directory with credentials files.
@@ -56,6 +59,43 @@ object CloudArchiveCredentialsManager:
 
   /** The logger. */
   private val log = LogManager.getLogger(classOf[CloudArchiveCredentialsManager])
+
+  /**
+    * An enumeration class that defines several types of keys for credentials.
+    * [[CloudArchiveCredentialsManager]] has to deal with credentials for
+    * different purposes: there are credentials required to access cloud
+    * archives, and credentials to decrypt files that contain other
+    * credentials. This enumeration is intended to be used by clients that
+    * prompt end users for credential values, so that they can filter for
+    * specific types or provide additional information about the keys when
+    * querying users for their values.
+    */
+  enum CredentialKeyType:
+    /**
+      * The key type for credentials required to access cloud archives. Secrets
+      * falling into this category are usernames, passwords, and secrets to
+      * decrypt the content of archives.
+      */
+    case Archive
+
+    /**
+      * The key type for secrets to decrypt credential files. Such secrets are
+      * kind of master passwords that typically make a number of secrets of
+      * type [[Archive]] available.
+      */
+    case File
+
+  /**
+    * A data class storing information about a single credential key that
+    * needs to be provided to gain access to a cloud archive. Typically, end
+    * users have to enter the secret values for these keys, so that data can be
+    * loaded from cloud archives.
+    *
+    * @param key     the name of the key
+    * @param keyType the type of this key
+    */
+  final case class CredentialKey(key: String,
+                                 keyType: CredentialKeyType)
 
   /**
     * An internal data class modeling credential information in a JSON
@@ -151,7 +191,7 @@ object CloudArchiveCredentialsManager:
                                               credentialsSetter: Credentials.CredentialSetter,
                                               resolver: Credentials.ResolverFunc)
                                              (using system: ActorSystem): Unit =
-    val fileKey = credentialsFile.getFileName.toString.stripSuffix(CryptCredentialsFileSuffix)
+    val fileKey = FileCredentialPrefix + credentialsFile.getFileName.toString.stripSuffix(CryptCredentialsFileSuffix)
     resolver(fileKey).map: secret =>
       credentialsSetter.clearCredential(fileKey) // Clear directly, in case the secret is invalid.
       log.info("Got secret to decrypt credentials file '{}'.", credentialsFile)
@@ -274,11 +314,15 @@ class CloudArchiveCredentialsManager(val resolverFunc: Credentials.ResolverFunc,
     readCredentials(data, setter)
 
   /**
-    * Returns a [[Set]] with the keys of credentials that are currently pending
-    * to be set. These are valid keys that could be set via [[setCredentials]].
+    * Returns a [[Set]] with information about the keys of credentials that are
+    * currently pending to be set. These are valid keys that could be set via
+    * [[setCredentials]]. The type of the keys is provided as well.
     *
     * @return a [[Future]] with the keys of pending credentials
     */
-  def pendingCredentials: Future[Set[String]] =
+  def pendingCredentials: Future[Set[CredentialKey]] =
     setter.credentialKeys map : keyInfo =>
-      keyInfo.filter(_.pending).map(_.key)
+      keyInfo.filter(_.pending).map: key =>
+        val credentialType = if key.key.startsWith(FileCredentialPrefix) then CredentialKeyType.File
+        else CredentialKeyType.Archive
+        CredentialKey(key.key.stripPrefix(FileCredentialPrefix), credentialType)
