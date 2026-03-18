@@ -26,6 +26,7 @@ import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
 import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
+import java.io.IOException
 import java.nio.file.{Files, Path, Paths}
 import scala.concurrent.Future
 
@@ -136,6 +137,13 @@ class CloudArchiveCredentialsManagerSpec(testSystem: ActorSystem) extends TestKi
     Future.sequence(futResolved) map : pairs =>
       pairs should contain theSameElementsAs credentials.toList
 
+  it should "complete the initFuture when the object has been initialized" in :
+    copyCryptTestFile()
+    val credentialsManager = CloudArchiveCredentialsManager(testDirectory, implicitly, "initFuture")
+
+    credentialsManager.initFuture map : d =>
+      d should be(Done)
+
   it should "handle an invalid credentials directory" in :
     val nonExistingPath = Paths.get("a", "non", "existing", "directory")
     val credentialsManager = CloudArchiveCredentialsManager(nonExistingPath, implicitly, "invalidDir")
@@ -143,6 +151,13 @@ class CloudArchiveCredentialsManagerSpec(testSystem: ActorSystem) extends TestKi
     // We can only test that an initialized credentials manager is returned.
     credentialsManager should not be null
     credentialsManager.resolverFunc should not be null
+
+  it should "fail the initFuture if there is an initialization error" in :
+    val nonExistingPath = Paths.get("a", "non", "existing", "directory")
+    val credentialsManager = CloudArchiveCredentialsManager(nonExistingPath, implicitly, "failedInit")
+
+    recoverToExceptionIf[IOException](credentialsManager.initFuture) map : exception =>
+      exception.getMessage should include(nonExistingPath.toString)
 
   it should "handle encrypted JSON files in the credentials directory" in :
     copyCryptTestFile()
@@ -174,11 +189,19 @@ class CloudArchiveCredentialsManagerSpec(testSystem: ActorSystem) extends TestKi
       secret.secret should be("bar")
 
   it should "provide information about pending credential keys" in :
+    copyCryptTestFile()
     val credentialsManager = CloudArchiveCredentialsManager(testDirectory, implicitly, "credentialKeys")
     val archiveCredentials = List("test.user", "test.password", "my-test-archive")
     archiveCredentials.foreach(credentialsManager.resolverFunc.apply)
 
-    credentialsManager.pendingCredentials map : keys =>
-      val expectedKeys = archiveCredentials.map: k =>
+    for
+      _ <- credentialsManager.initFuture
+      keys <- credentialsManager.pendingCredentials
+    yield
+      val fileKey = CloudArchiveCredentialsManager.CredentialKey(
+        CryptFileName,
+        CloudArchiveCredentialsManager.CredentialKeyType.File
+      )
+      val expectedKeys = fileKey :: archiveCredentials.map: k =>
         CloudArchiveCredentialsManager.CredentialKey(k, CloudArchiveCredentialsManager.CredentialKeyType.Archive)
       keys should contain theSameElementsAs expectedKeys

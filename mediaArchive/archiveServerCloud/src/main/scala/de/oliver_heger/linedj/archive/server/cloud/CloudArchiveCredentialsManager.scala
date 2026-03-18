@@ -131,15 +131,17 @@ object CloudArchiveCredentialsManager:
 
     val (setter, resolver) = Credentials.setUpCredentialsManager(factory, credentialsActorName)
 
-    LocalFsUtils.listFolder(credentialDirectory, factory.actorSystem, FileExtensions)
-      .onComplete:
-        case Success(files) =>
-          files.foreach: file =>
-            processCredentialsFile(file, setter, resolver)
-        case Failure(exception) =>
-          log.error("Could not load credential files from directory '{}'.", credentialDirectory, exception)
+    val futInit = LocalFsUtils.listFolder(credentialDirectory, factory.actorSystem, FileExtensions) map : files =>
+      files.foreach: file =>
+        processCredentialsFile(file, setter, resolver)
 
-    new CloudArchiveCredentialsManager(resolver, setter)
+    futInit.onComplete:
+      case Success(files) =>
+        log.info("Credentials directory has been processed.")
+      case Failure(exception) =>
+        log.error("Could not load credential files from directory '{}'.", credentialDirectory, exception)
+
+    new CloudArchiveCredentialsManager(resolver, setter, futInit.map(_ => Done))
 
   /**
     * Processes a file with credentials that has been found in the credential
@@ -295,10 +297,15 @@ end CloudArchiveCredentialsManager
   *
   * @param resolverFunc the function to resolve secret values
   * @param setter       the object to set credentials
+  * @param initFuture   a [[Future]] that completes when this instance has been
+  *                     initialized; this can be used to check when the
+  *                     instance is ready and whether initialization was
+  *                     successful
   * @param system       the actor system
   */
 class CloudArchiveCredentialsManager(val resolverFunc: Credentials.ResolverFunc,
-                                     setter: Credentials.CredentialSetter)
+                                     setter: Credentials.CredentialSetter,
+                                     val initFuture: Future[Done])
                                     (using system: ActorSystem):
   /**
     * Sets credentials at the wrapped credentials manager. This function
