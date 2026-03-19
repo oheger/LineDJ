@@ -104,20 +104,22 @@ class CloudArchiveCredentialsManagerSpec(testSystem: ActorSystem) extends TestKi
 
   /**
     * Queries the given credential manager for a given credential key
-    * repeatedly until there is no value for this credential. This is needed by
-    * some test cases that check whether an incorrect credential has been
-    * reset.
+    * repeatedly until it is present or not, depending on the passed in flag.
+    * This is needed by some test cases that check whether an incorrect
+    * credential has been reset.
     *
     * @param manager the credential manager
     * @param key     the key of the affected credential
+    * @param present flag whether the key should be present or absent
     * @return a [[Future]] that completes when this credential is no longer
     *         available
     */
   private def waitForCredentialReset(manager: CloudArchiveCredentialsManager,
-                                     key: CloudArchiveCredentialsManager.CredentialKey): Future[Done] =
+                                     key: CloudArchiveCredentialsManager.CredentialKey,
+                                     present: Boolean): Future[Done] =
     manager.pendingCredentials flatMap : keys =>
-      if keys.contains(key) then
-        waitForCredentialReset(manager, key)
+      if keys.contains(key) != present then
+        waitForCredentialReset(manager, key, present)
       else
         Future.successful(Done)
 
@@ -163,8 +165,9 @@ class CloudArchiveCredentialsManagerSpec(testSystem: ActorSystem) extends TestKi
     copyCryptTestFile()
     val credentialsManager = CloudArchiveCredentialsManager(testDirectory, implicitly, "cryptFile")
 
-    val credentials = Map("file://" + CryptFileName -> CryptFileSecret)
+    val credentials = Map(CryptFileName -> CryptFileSecret)
     for
+      _ <- credentialsManager.initFuture
       _ <- credentialsManager.setCredentials(toCredentialSource(credentials))
       secret <- credentialsManager.resolverFunc("foo")
     yield
@@ -174,15 +177,17 @@ class CloudArchiveCredentialsManagerSpec(testSystem: ActorSystem) extends TestKi
     copyCryptTestFile()
     val credentialsManager = CloudArchiveCredentialsManager(testDirectory, implicitly, "cryptFileInvalidSecret")
 
-    val invalidCredentials = Map("file://" + CryptFileName -> "anIncorrectSecret")
+    val invalidCredentials = Map(CryptFileName -> "anIncorrectSecret")
     val credentials = Map("file://" + CryptFileName -> CryptFileSecret)
     val fileKey = CloudArchiveCredentialsManager.CredentialKey(
       CryptFileName,
       CloudArchiveCredentialsManager.CredentialKeyType.File
     )
     for
+      _ <- credentialsManager.initFuture
       _ <- credentialsManager.setCredentials(toCredentialSource(invalidCredentials))
-      _ <- waitForCredentialReset(credentialsManager, fileKey)
+      _ <- waitForCredentialReset(credentialsManager, fileKey, present = false)
+      _ <- waitForCredentialReset(credentialsManager, fileKey, present = true)
       _ <- credentialsManager.setCredentials(toCredentialSource(credentials))
       secret <- credentialsManager.resolverFunc("foo")
     yield
@@ -205,3 +210,26 @@ class CloudArchiveCredentialsManagerSpec(testSystem: ActorSystem) extends TestKi
       val expectedKeys = fileKey :: archiveCredentials.map: k =>
         CloudArchiveCredentialsManager.CredentialKey(k, CloudArchiveCredentialsManager.CredentialKeyType.Archive)
       keys should contain theSameElementsAs expectedKeys
+
+  it should "report the outcome of a setCredentials operation" in :
+    val pendingCredentials = List("archive.user", "archive.password", "passwords-file")
+    val credentialsManager = CloudArchiveCredentialsManager(testDirectory, implicitly, "setCredentialsResult")
+    pendingCredentials.foreach(credentialsManager.resolverFunc.apply)
+    val credentialsToSet = "unknown" :: "invalid" :: "don't-know" :: pendingCredentials
+    val credentials = credentialsToSet.map(key => key -> s"$key-value").toMap
+
+    credentialsManager.setCredentials(toCredentialSource(credentials)) map : result =>
+      result.totalCredentialsCount should be(credentials.size)
+      result.invalidKeys should contain theSameElementsAs credentialsToSet.filterNot(pendingCredentials.contains)
+
+  it should "not set invalid credentials" in :
+    val CredentialKey = "theCred"
+    val CredentialValue = "the-expected-value"
+    val credentialManager = CloudArchiveCredentialsManager(testDirectory, implicitly, "setInvalidCred")
+
+    credentialManager.setCredentials(toCredentialSource(Map(CredentialKey -> "wrong-value")))
+    val futValue = credentialManager.resolverFunc(CredentialKey)
+    credentialManager.setCredentials(toCredentialSource(Map(CredentialKey -> CredentialValue)))
+
+    futValue map : secret =>
+      secret.secret should be(CredentialValue)

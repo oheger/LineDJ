@@ -20,7 +20,7 @@ import com.github.cloudfiles.core.http.Secret
 import com.github.cloudfiles.crypt.alg.aes.Aes
 import com.github.cloudfiles.crypt.service.CryptService
 import de.oliver_heger.linedj.archive.cloud.auth.Credentials
-import de.oliver_heger.linedj.archive.server.cloud.CloudArchiveCredentialsManager.{CredentialKey, CredentialKeyType, FileCredentialPrefix, readCredentials}
+import de.oliver_heger.linedj.archive.server.cloud.CloudArchiveCredentialsManager.{CredentialKey, CredentialKeyType, FileCredentialPrefix, SetCredentialsResult, readCredentials}
 import de.oliver_heger.linedj.io.LocalFsUtils
 import de.oliver_heger.linedj.io.parser.JsonStreamParser
 import de.oliver_heger.linedj.shared.actors.ActorFactory
@@ -96,6 +96,24 @@ object CloudArchiveCredentialsManager:
     */
   final case class CredentialKey(key: String,
                                  keyType: CredentialKeyType)
+
+  /**
+    * A data class serving as the result of a ''setCredentials'' operation.
+    * When setting credentials, only those keys are processed which have been
+    * requested by consumers (which are pending to be set). An instance of this
+    * class holds the information how many credentials have been passed and
+    * which of those have not been pending and could therefore not be
+    * processed. This gives the caller feedback about invalid credentials.
+    *
+    * @param totalCredentialsCount the total number of passed in credentials
+    * @param invalidKeys           a [[Set]] with the keys that were not pending and thus
+    *                              rejected
+    */
+  final case class SetCredentialsResult(totalCredentialsCount: Int,
+                                        invalidKeys: Set[String])
+
+  /** Constant for an initial, empty result of a set credentials operation. */
+  private val EmptySetCredentialsResult = SetCredentialsResult(0, Set.empty)
 
   /**
     * An internal data class modeling credential information in a JSON
@@ -236,9 +254,10 @@ object CloudArchiveCredentialsManager:
     * @param futRead         the [[Future]] for the read operation
     * @param system          the actor system
     * @return the extended [[Future]]
+    * @tparam T the type of the [[Future]]
     */
-  private def logReadOutcome(credentialsFile: Path, futRead: Future[Done])
-                            (using system: ActorSystem): Future[Done] =
+  private def logReadOutcome[T](credentialsFile: Path, futRead: Future[T])
+                               (using system: ActorSystem): Future[T] =
     futRead.andThen:
       case Success(_) =>
         log.info("Successfully loaded credentials from '{}'.", credentialsFile.getFileName)
@@ -255,9 +274,19 @@ object CloudArchiveCredentialsManager:
     * @return a [[Future]] with the result
     */
   private def readCredentials(source: Source[ByteString, Any], credentialSetter: Credentials.CredentialSetter)
-                             (using system: ActorSystem): Future[Done] =
-    val setterSink = Sink.foreach[Credential](c => credentialSetter.setCredential(c.key, Secret(c.value)))
-    JsonStreamParser.parseStream[Credential, Any](source).runWith(setterSink)
+                             (using system: ActorSystem): Future[SetCredentialsResult] =
+    credentialSetter.credentialKeys flatMap : keys =>
+      val validKeys = keys.filter(_.pending).map(_.key)
+      val setterSink = Sink.fold[SetCredentialsResult, Credential](EmptySetCredentialsResult): (res, cred) =>
+        val fileKey = FileCredentialPrefix + cred.key
+        val key = if validKeys.contains(fileKey) then fileKey else cred.key
+        val nextInvalidKeys = if validKeys.contains(key) then
+          credentialSetter.setCredential(key, Secret(cred.value))
+          res.invalidKeys
+        else
+          res.invalidKeys + cred.key
+        SetCredentialsResult(res.totalCredentialsCount + 1, nextInvalidKeys)
+      JsonStreamParser.parseStream[Credential, Any](source).runWith(setterSink)
 end CloudArchiveCredentialsManager
 
 /**
@@ -314,10 +343,15 @@ class CloudArchiveCredentialsManager(val resolverFunc: Credentials.ResolverFunc,
     * that this function is called with the entity of a client request that
     * provides credentials to log into cloud archives.
     *
+    * From the parsed credentials, only those are processed for which consumers
+    * are waiting. These are valid keys, others are ignored. The return value
+    * of this function contains information about the credentials that were
+    * rejected.
+    *
     * @param data the [[Source]] with credential information
     * @return a [[Future]] with the result of the operation
     */
-  def setCredentials(data: Source[ByteString, Any]): Future[Done] =
+  def setCredentials(data: Source[ByteString, Any]): Future[SetCredentialsResult] =
     readCredentials(data, setter)
 
   /**
