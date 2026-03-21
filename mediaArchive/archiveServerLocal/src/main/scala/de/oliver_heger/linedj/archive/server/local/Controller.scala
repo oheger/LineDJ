@@ -30,7 +30,7 @@ import org.apache.pekko.actor as classics
 
 import scala.collection.immutable.Seq
 import scala.concurrent.Future
-import scala.util.Success
+import scala.util.{Success, Try}
 
 object Controller:
   /**
@@ -59,7 +59,7 @@ class Controller(metadataListenerFactory: ArchiveContentMetadataProcessingListen
   override type ArchiveConfig = Seq[MediaArchiveConfig]
 
   override protected def configLoader: ConfigLoader[ArchiveConfig] = config =>
-    MediaArchiveConfig.loadMediaArchiveConfigs(config)
+    Try(MediaArchiveConfig.loadMediaArchiveConfigs(config))
 
   override def fileResolverFunc(context: Context): FileResolverFunc =
     MediaFileResolverLocal.localFileResolverFunc(context.serverConfig.archiveConfig)

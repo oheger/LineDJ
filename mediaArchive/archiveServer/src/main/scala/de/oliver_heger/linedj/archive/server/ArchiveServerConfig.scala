@@ -24,6 +24,7 @@ import org.apache.commons.configuration2.{Configuration, XMLConfiguration}
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Try
 
 object ArchiveServerConfig:
   /** The default name of the configuration file loaded by this server. */
@@ -58,9 +59,10 @@ object ArchiveServerConfig:
 
   /**
     * Alias for a function that can extract a concrete server configuration
-    * from a passed in [[Configuration]] instance.
+    * from a passed in [[Configuration]] instance. The function returns a
+    * [[Try]], since the configuration may be invalid.
     */
-  type ConfigLoader[CONF] = Configuration => CONF
+  type ConfigLoader[CONF] = Configuration => Try[CONF]
 
   /**
     * Loads the configuration for the archive server from the given
@@ -72,7 +74,39 @@ object ArchiveServerConfig:
     */
   def apply[CONF](configFileName: String)
                  (loader: ConfigLoader[CONF])
-                 (using ec: ExecutionContext): Future[ArchiveServerConfig[CONF]] = Future:
+                 (using ec: ExecutionContext): Future[ArchiveServerConfig[CONF]] =
+    loadConfiguration(configFileName) flatMap : config =>
+      apply(config)(loader)
+
+  /**
+    * Extracts the configuration for the archive server from the given
+    * configuration object.
+    *
+    * @param config the configuration to process
+    * @param loader the object to load the archive configuration
+    * @param ec     the execution context
+    * @tparam CONF the type of the concrete archive configuration
+    * @return a [[Future]] with the extracted [[ArchiveServerConfig]]
+    */
+  def apply[CONF](config: Configuration)
+                 (loader: ConfigLoader[CONF])
+                 (using ec: ExecutionContext): Future[ArchiveServerConfig[CONF]] =
+    Future.fromTry(loader(config)) map : archiveConfig =>
+      new ArchiveServerConfig(
+        serverPort = config.getInt(PropServerPort, DefaultServerPort),
+        timeout = parseTimeout(config),
+        archiveConfig = archiveConfig
+      )
+
+  /**
+    * Loads the server configuration from the specified configuration file.
+    *
+    * @param configFileName the name of the configuration file
+    * @param ec             the execution context
+    * @return a [[Future]] with the loaded configuration
+    */
+  private def loadConfiguration(configFileName: String)
+                               (using ec: ExecutionContext): Future[Configuration] = Future:
     import scala.jdk.CollectionConverters.*
     val params = new Parameters
     val locationStrategies = List(
@@ -86,24 +120,7 @@ object ArchiveServerConfig:
           .setFileName(configFileName)
           .setLocationStrategy(new CombinedLocationStrategy(locationStrategies.asJava))
       )
-
-    apply(builder.getConfiguration)(loader)
-
-  /**
-    * Extracts the configuration for the archive server from the given
-    * configuration object.
-    *
-    * @param config the configuration to process
-    * @param loader the object to load the archive configuration
-    * @tparam CONF the type of the concrete archive configuration
-    * @return the extracted [[ArchiveServerConfig]]
-    */
-  def apply[CONF](config: Configuration)(loader: ConfigLoader[CONF]): ArchiveServerConfig[CONF] =
-    new ArchiveServerConfig(
-      serverPort = config.getInt(PropServerPort, DefaultServerPort),
-      timeout = parseTimeout(config),
-      archiveConfig = loader(config)
-    )
+    builder.getConfiguration
 
   /**
     * Obtains the value of the [[PropServerTimeout]] property from the given

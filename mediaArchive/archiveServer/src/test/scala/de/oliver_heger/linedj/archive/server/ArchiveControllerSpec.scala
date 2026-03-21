@@ -32,6 +32,8 @@ import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
+import scala.util.Try
+
 /**
   * Test class for [[ArchiveController]].
   */
@@ -159,7 +161,7 @@ class ArchiveControllerSpec(testSystem: classics.ActorSystem) extends TestKit(te
           *             test configuration.
           */
         override protected def configLoader: ConfigLoader[ArchiveConfig] = config =>
-          config.getInt("test.value")
+          Try(config.getInt("test.value"))
 
         override def fileResolverFunc(context: Context): FileResolverFunc =
           throw new UnsupportedOperationException("Unexpected call.")

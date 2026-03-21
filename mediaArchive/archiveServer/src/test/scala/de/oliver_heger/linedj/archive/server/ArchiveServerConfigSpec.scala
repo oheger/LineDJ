@@ -26,11 +26,12 @@ import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration.DurationInt
+import scala.util.Try
 
 object ArchiveServerConfigSpec:
   /** The name of the test configuration file used by this test suite. */
   private val TestConfigFile = "test-base-archive-server-config.xml"
-  
+
   /**
     * The name of a property that is loaded from the test configuration by the
     * test config loader implementation.
@@ -40,11 +41,12 @@ object ArchiveServerConfigSpec:
   /**
     * A function used as test config loader. The function extracts a test
     * property of type ''Int''.
+    *
     * @param config the input configuration
     * @return the value extracted by the loader
     */
-  def loadArchiveConfig(config: Configuration): Int =
-    config.getInt(CustomProperty)
+  def loadArchiveConfig(config: Configuration): Try[Int] =
+    Try(config.getInt(CustomProperty))
 end ArchiveServerConfigSpec
 
 /**
@@ -57,8 +59,8 @@ class ArchiveServerConfigSpec(testSystem: ActorSystem) extends TestKit(testSyste
   override protected def afterAll(): Unit =
     TestKit.shutdownActorSystem(system)
     super.afterAll()
-    
-  import ArchiveServerConfigSpec.* 
+
+  import ArchiveServerConfigSpec.*
 
   /**
     * Loads the test configuration file and parses it to a [[Configuration]]
@@ -87,24 +89,21 @@ class ArchiveServerConfigSpec(testSystem: ActorSystem) extends TestKit(testSyste
     val config = loadTestConfig()
     config.clearProperty(ArchiveServerConfig.PropServerPort)
 
-    val serverConfig = ArchiveServerConfig(config)(loadArchiveConfig)
-
-    serverConfig.serverPort should be(ArchiveServerConfig.DefaultServerPort)
-    serverConfig.timeout should be(ArchiveServerConfig.DefaultServerTimeout)
+    ArchiveServerConfig(config)(loadArchiveConfig) map: serverConfig =>
+      serverConfig.serverPort should be(ArchiveServerConfig.DefaultServerPort)
+      serverConfig.timeout should be(ArchiveServerConfig.DefaultServerTimeout)
 
   it should "parse a numeric timeout" in :
     val TimeoutSecs = 27
     val config = loadTestConfig()
     config.setProperty(ArchiveServerConfig.PropServerTimeout, TimeoutSecs)
 
-    val serverConfig = ArchiveServerConfig(config)(loadArchiveConfig)
-
-    serverConfig.timeout should be(TimeoutSecs.seconds)
+    ArchiveServerConfig(config)(loadArchiveConfig) map: serverConfig =>
+      serverConfig.timeout should be(TimeoutSecs.seconds)
 
   it should "parse a timeout with a unit" in :
     val config = loadTestConfig()
     config.setProperty(ArchiveServerConfig.PropServerTimeout, "2min")
 
-    val serverConfig = ArchiveServerConfig(config)(loadArchiveConfig)
-
-    serverConfig.timeout should be(120.seconds)
+    ArchiveServerConfig(config)(loadArchiveConfig) map: serverConfig =>
+      serverConfig.timeout should be(120.seconds)

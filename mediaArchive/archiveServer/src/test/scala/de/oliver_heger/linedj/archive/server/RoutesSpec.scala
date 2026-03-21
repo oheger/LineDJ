@@ -42,6 +42,7 @@ import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, OptionValues}
 import java.nio.file.{Path, Paths}
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Future, Promise}
+import scala.util.Success
 
 object RoutesSpec:
   /** The configuration used by tests per default. */
@@ -120,7 +121,7 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with BeforeAndAfterE
         context.serverConfig should be(config)
         resolver
 
-      override protected def configLoader: ConfigLoader[Unit] = _ => ()
+      override protected def configLoader: ConfigLoader[Unit] = _ => Success(())
 
     val context = ArchiveController.ArchiveServerContext(
       serverConfig = config,
