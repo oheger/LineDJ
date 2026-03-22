@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!--
+
+    Copyright 2015-2026 The Developers Team.
+
+    Licensed under the Apache License, Version 2.0 (the "License")
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<!--
+  Test configuration file for the cloud archive server.
+-->
+<configuration>
+    <media>
+        <cloudArchives>
+            <credentialsDirectory>/data/credentials</credentialsDirectory>
+            <cacheDirectory>/tmp/cloud-archives/cache</cacheDirectory>
+            
+            <cloudArchive>
+                <name>Rock in the cloud</name>
+                <baseUri>https://music.example.com/rock</baseUri>
+                <authMethod>Basic</authMethod>
+                <authRealm>rock-realm</authRealm>
+                <contentPath>meta/toc.json</contentPath>
+                <mediaPath>meta/media</mediaPath>
+                <metadataPath>meta/mdt</metadataPath>
+                <parallelism>3</parallelism>
+                <maxContentSize>128000</maxContentSize>
+                <requestQueueSize>19</requestQueueSize>
+                <timeout>2min</timeout>
+                <cryptCacheSize>111</cryptCacheSize>
+                <cryptChunkSize>127</cryptChunkSize>
+            </cloudArchive>
+            
+            <cloudArchive>
+                <name>AllDefaults</name>
+                <baseUri>https://music.example.com/defaults</baseUri>
+                <authMethod>OAUTH</authMethod>
+                <authRealm>default-realm</authRealm>
+            </cloudArchive>
+            
+            <cloudArchive encrypted="true">
+                <name>Encrypted</name>
+                <baseUri>https://crypt.example.com</baseUri>
+                <authMethod>basic</authMethod>
+                <authRealm>test</authRealm>
+                <timeout>42</timeout>
+            </cloudArchive>
+            
+            <cloudArchive encrypted="false">
+                <name>NonEncrypted</name>
+                <baseUri>https://no-crypt.example.com</baseUri>
+                <authMethod>OAuth</authMethod>
+                <authRealm>foo</authRealm>
+                <cryptCacheSize>112</cryptCacheSize>
+                <cryptChunkSize>126</cryptChunkSize>
+            </cloudArchive>
+        </cloudArchives>
+    </media>
+</configuration>
