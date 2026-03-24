@@ -21,8 +21,19 @@ import com.github.cloudfiles.core.delegate.ExtensibleFileSystem
 import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystemFactory.CloudArchiveFileSystem
 import org.apache.pekko.util.Timeout
 
-import scala.util.Try
+import java.util.{Locale, ServiceLoader}
+import scala.util.{Failure, Try}
 
+/**
+  * An object providing declarations related to file system factories and
+  * functionality to manage concrete [[CloudArchiveFileSystemFactory]]
+  * implementations via Java's service loader mechanism.
+  *
+  * This object manages a service loader for [[CloudArchiveFileSystemFactory]]
+  * objects and allows access to specific instances by their name. That way,
+  * such factories can be used dynamically in a straight-forward way also in
+  * non-OSGi applications.
+  */
 object CloudArchiveFileSystemFactory:
   /**
     * A type alias to define a file system from ''CloudFiles'' in the flavor as
@@ -30,6 +41,61 @@ object CloudArchiveFileSystemFactory:
     */
   type CloudArchiveFileSystem[ID, FILE <: Model.File[ID], FOLDER <: Model.Folder[ID]] =
     ExtensibleFileSystem[ID, FILE, FOLDER, Model.FolderContent[ID, FILE, FOLDER]]
+
+  /**
+    * Stores a map with all [[CloudArchiveFileSystemFactory]] instances that
+    * have been found on the classpath.
+    */
+  private val factories = loadFactories()
+
+  /**
+    * Returns a flag whether a [[CloudArchiveFileSystemFactory]] with the given
+    * name (case-insensitive) exists on the classpath.
+    *
+    * @param name the name of the factory (ignoring case)
+    * @return a flag whether this factory is available
+    */
+  def existsFactory(name: String): Boolean =
+    factories.contains(factoryName(name))
+
+  /**
+    * Returns the [[CloudArchiveFileSystemFactory]] instance with the given
+    * name or throws an exception if it does not exist.
+    *
+    * @param name the name of the factory (ignoring case)
+    * @return the [[CloudArchiveFileSystemFactory]] instance with this name
+    */
+  def getFactory(name: String): CloudArchiveFileSystemFactory =
+    Try:
+      factories(factoryName(name))
+    .recoverWith:
+      case _: NoSuchElementException =>
+        Failure(new NoSuchElementException(s"Unknown CloudArchiveFileSystemFactory: $name."))
+    .get
+
+  /**
+    * Obtains all existing factory implementations on the classpath via the
+    * corresponding service loader. The factories are returned as a map using
+    * the names as keys in lowercase.
+    *
+    * @return a [[Map]] with the found factory objects
+    */
+  private def loadFactories(): Map[String, CloudArchiveFileSystemFactory] =
+    import scala.jdk.CollectionConverters.*
+    val loader = ServiceLoader.load(classOf[CloudArchiveFileSystemFactory])
+
+    loader.asScala.map: factory =>
+      factoryName(factory.name) -> factory
+    .toMap
+
+  /**
+    * Processes the given string to be used as a name of a factory, so that it
+    * can be used for comparisons ignoring case.
+    *
+    * @param s the string
+    * @return the processed string
+    */
+  private def factoryName(s: String): String = s.toLowerCase(Locale.ROOT)
 end CloudArchiveFileSystemFactory
 
 /**
