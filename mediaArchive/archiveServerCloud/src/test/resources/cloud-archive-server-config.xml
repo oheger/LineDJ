@@ -30,6 +30,7 @@
                 <baseUri>https://music.example.com/rock</baseUri>
                 <authMethod>Basic</authMethod>
                 <authRealm>rock-realm</authRealm>
+                <fileSystem>OneDrive</fileSystem>
                 <contentPath>meta/toc.json</contentPath>
                 <mediaPath>meta/media</mediaPath>
                 <metadataPath>meta/mdt</metadataPath>
@@ -46,6 +47,7 @@
                 <baseUri>https://music.example.com/defaults</baseUri>
                 <authMethod>OAUTH</authMethod>
                 <authRealm>default-realm</authRealm>
+                <fileSystem>WebDAV</fileSystem>
             </cloudArchive>
             
             <cloudArchive encrypted="true">
@@ -53,6 +55,7 @@
                 <baseUri>https://crypt.example.com</baseUri>
                 <authMethod>basic</authMethod>
                 <authRealm>test</authRealm>
+                <fileSystem>WebDav</fileSystem>
                 <timeout>42</timeout>
             </cloudArchive>
             
@@ -61,6 +64,7 @@
                 <baseUri>https://no-crypt.example.com</baseUri>
                 <authMethod>OAuth</authMethod>
                 <authRealm>foo</authRealm>
+                <fileSystem>oneDrive</fileSystem>
                 <cryptCacheSize>112</cryptCacheSize>
                 <cryptChunkSize>126</cryptChunkSize>
             </cloudArchive>

@@ -18,6 +18,7 @@ package de.oliver_heger.linedj.archive.server.cloud
 
 import de.oliver_heger.linedj.archive.cloud.{ArchiveCryptConfig, CloudArchiveConfig}
 import de.oliver_heger.linedj.archive.cloud.auth.{AuthMethod, BasicAuthMethod, OAuthMethod}
+import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystemFactory
 import de.oliver_heger.linedj.shared.config.ConfigExtensions.toDuration
 import org.apache.commons.configuration2.Configuration
 import org.apache.commons.configuration2.ex.ConfigurationException
@@ -37,6 +38,8 @@ import scala.util.Try
   * @param archiveBaseUri      the base URI for this archive
   * @param archiveName         a human-readable name for this archive
   * @param authMethod          the method to authenticate against this archive
+  * @param fileSystem          the type of the file system to access this
+  *                            archive
   * @param optContentPath      the optional path to the archive's content
   *                            document if it differs from the default
   * @param optMediaPath        the optional root path for media files if it
@@ -59,6 +62,7 @@ import scala.util.Try
 case class ArchiveConfig(archiveBaseUri: String,
                          archiveName: String,
                          authMethod: AuthMethod,
+                         fileSystem: String,
                          optContentPath: Option[String],
                          optMediaPath: Option[String],
                          optMetadataPath: Option[String],
@@ -115,6 +119,13 @@ object CloudArchiveServerConfig:
     * [[AuthMethod]] object.
     */
   private val PropAuthRealm = "authRealm"
+
+  /**
+    * The name of the configuration property defining the type of the
+    * ''CloudFiles'' file system to access the cloud archive. The value must be
+    * the name of a factory that is available on the classpath (ignoring case).
+    */
+  private val PropFileSystem = "fileSystem"
 
   /**
     * The name of the optional configuration property to set the path to the
@@ -233,6 +244,7 @@ object CloudArchiveServerConfig:
       archiveName = mandatoryProperty(archiveConfig, PropArchiveName),
       archiveBaseUri = mandatoryProperty(archiveConfig, PropArchiveUri),
       authMethod = parseAuthMethod(archiveConfig),
+      fileSystem = parseFileSystem(archiveConfig),
       optContentPath = optionalStringProperty(archiveConfig, PropContentPath),
       optMediaPath = optionalStringProperty(archiveConfig, PropMediaPath),
       optMetadataPath = optionalStringProperty(archiveConfig, PropMetadataPath),
@@ -306,6 +318,20 @@ object CloudArchiveServerConfig:
       case "basic" => BasicAuthMethod(realm)
       case "oauth" => OAuthMethod(realm)
       case _ => throw new ConfigurationException(s"Invalid value for '$PropAuthMethod': '$methodType'.")
+
+  /**
+    * Extracts the type of the file system to be used for this archive from the
+    * configuration and checks whether the specified type is valid. Throws an
+    * exception if this declaration is invalid.
+    *
+    * @param config the configuration
+    * @return the type of the file system for this archive
+    */
+  private def parseFileSystem(config: Configuration): String =
+    val fileSystem = mandatoryProperty(config, PropFileSystem)
+    if !CloudArchiveFileSystemFactory.existsFactory(fileSystem) then
+      throw new ConfigurationException(s"Invalid file system type: '$fileSystem'.")
+    fileSystem
 
   /**
     * Parses the configuration related to encryption for a specific cloud

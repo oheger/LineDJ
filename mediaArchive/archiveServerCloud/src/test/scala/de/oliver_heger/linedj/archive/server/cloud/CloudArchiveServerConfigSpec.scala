@@ -92,6 +92,7 @@ class CloudArchiveServerConfigSpec extends AnyFlatSpec, Matchers, TryValues:
     archiveBaseUri should be("https://music.example.com/rock")
     archiveName should be("Rock in the cloud")
     authMethod should be(BasicAuthMethod("rock-realm"))
+    fileSystem should be("OneDrive")
 
   it should "handle undefined optional properties" in :
     val config = parseTestConfig()
@@ -127,7 +128,7 @@ class CloudArchiveServerConfigSpec extends AnyFlatSpec, Matchers, TryValues:
     config.archives(2).authMethod should be(BasicAuthMethod("test"))
 
   it should "return a failure if a mandatory property of an archive is missing" in :
-    val properties = List("name", "baseUri", "authMethod", "authRealm")
+    val properties = List("name", "baseUri", "authMethod", "authRealm", "fileSystem")
     forEvery(properties): property =>
       val config = loadTestConfig()
       config.clearProperty("media.cloudArchives.cloudArchive(1)." + property)
@@ -146,6 +147,16 @@ class CloudArchiveServerConfigSpec extends AnyFlatSpec, Matchers, TryValues:
 
     result.failure.exception shouldBe a[ConfigurationException]
     result.failure.exception.getMessage should include(unsupportedAuthMethod)
+
+  it should "return a failure for an invalid file system" in :
+    val unknownFileSystem = "nonExistingFileSystem"
+    val config = loadTestConfig()
+    config.setProperty("media.cloudArchives.cloudArchive(0).fileSystem", unknownFileSystem)
+
+    val result = CloudArchiveServerConfig.parseConfig(config)
+
+    result.failure.exception shouldBe a[ConfigurationException]
+    result.failure.exception.getMessage should include(unknownFileSystem)
 
   it should "provide a crypt config if the corresponding options are set" in :
     val config = parseTestConfig()

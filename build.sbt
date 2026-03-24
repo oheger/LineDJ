@@ -423,7 +423,7 @@ lazy val archiveServerCloud = (project in file("mediaArchive/archiveServerCloud"
     libraryDependencies ++= pekkoHttpDependencies,
     libraryDependencies += commonsConfig2Dependency,
     Compile / mainClass := Some("de.oliver_heger.linedj.archive.server.cloud.Server"),
-  ) dependsOn(shared % "compile->compile;test->test", cloudAccess, archiveServer)
+  ) dependsOn(shared % "compile->compile;test->test", cloudAccess, archiveServer, protocolOneDrive, protocolWebDav)
 
 /**
   * The WebDav protocol project. This is a module adding support for WebDav
