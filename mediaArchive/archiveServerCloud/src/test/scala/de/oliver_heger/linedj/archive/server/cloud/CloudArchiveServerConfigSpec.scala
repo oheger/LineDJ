@@ -16,12 +16,15 @@
 
 package de.oliver_heger.linedj.archive.server.cloud
 
+import com.github.cloudfiles.core.http.HttpRequestSender
 import de.oliver_heger.linedj.archive.cloud.{ArchiveCryptConfig, CloudArchiveConfig}
 import de.oliver_heger.linedj.archive.cloud.auth.{BasicAuthMethod, OAuthMethod}
+import de.oliver_heger.linedj.archive.protocol.webdav.WebDavFileSystemFactory
 import de.oliver_heger.linedj.archive.server.cloud.CloudArchiveServerConfigSpec.loadTestConfig
 import org.apache.commons.configuration2.Configuration
 import org.apache.commons.configuration2.builder.fluent.Configurations
 import org.apache.commons.configuration2.ex.ConfigurationException
+import org.apache.pekko.http.scaladsl.model.Uri
 import org.apache.pekko.util.Timeout
 import org.scalatest.Inspectors.forEvery
 import org.scalatest.TryValues
@@ -172,3 +175,87 @@ class CloudArchiveServerConfigSpec extends AnyFlatSpec, Matchers, TryValues:
     val config = parseTestConfig()
 
     config.archives(3).optCryptConfig shouldBe empty
+
+  "Conversion to CloudArchiveConfig" should "set defined properties" in :
+    val cryptConfig = ArchiveCryptConfig(
+      cryptCacheSize = 85,
+      cryptChunkSize = 77
+    )
+    val archiveConfig = ArchiveConfig(
+      archiveName = "TestArchive",
+      archiveBaseUri = "https://archive.example.com/my/archive",
+      authMethod = BasicAuthMethod("test-basic-realm"),
+      fileSystem = "oneDrive",
+      optContentPath = Some("archive-content.toc"),
+      optMediaPath = Some("path/to/media"),
+      optMetadataPath = Some("path/to/metadata"),
+      optParallelism = Some(7),
+      optMaxContentSize = Some(65536),
+      optRequestQueueSize = Some(11),
+      optTimeout = Some(Timeout(3.minutes)),
+      optCryptConfig = Some(cryptConfig)
+    )
+
+    val cloudArchiveConfig: CloudArchiveConfig = archiveConfig
+
+    cloudArchiveConfig.archiveName should be(archiveConfig.archiveName)
+    cloudArchiveConfig.archiveBaseUri should be(Uri(archiveConfig.archiveBaseUri))
+    cloudArchiveConfig.authMethod should be(archiveConfig.authMethod)
+    cloudArchiveConfig.contentPath should be(Uri.Path(archiveConfig.optContentPath.get))
+    cloudArchiveConfig.mediaPath should be(Uri.Path(archiveConfig.optMediaPath.get))
+    cloudArchiveConfig.metadataPath should be(Uri.Path(archiveConfig.optMetadataPath.get))
+    cloudArchiveConfig.parallelism should be(archiveConfig.optParallelism.get)
+    cloudArchiveConfig.maxContentSize should be(archiveConfig.optMaxContentSize.get)
+    cloudArchiveConfig.requestQueueSize should be(archiveConfig.optRequestQueueSize.get)
+    cloudArchiveConfig.timeout should be(archiveConfig.optTimeout.get)
+    cloudArchiveConfig.optCryptConfig should be(archiveConfig.optCryptConfig)
+
+  it should "set default values for undefined optional properties" in :
+    val archiveConfig = ArchiveConfig(
+      archiveName = "TestOptionalArchive",
+      archiveBaseUri = "https://archive.example.com/my/optional-archive",
+      authMethod = OAuthMethod("test-oauth-realm"),
+      fileSystem = "WebDAV",
+      optContentPath = None,
+      optMediaPath = None,
+      optMetadataPath = None,
+      optParallelism = None,
+      optMaxContentSize = None,
+      optRequestQueueSize = None,
+      optTimeout = None,
+      optCryptConfig = None
+    )
+
+    val cloudArchiveConfig: CloudArchiveConfig = archiveConfig
+
+    cloudArchiveConfig.archiveName should be(archiveConfig.archiveName)
+    cloudArchiveConfig.archiveBaseUri should be(Uri(archiveConfig.archiveBaseUri))
+    cloudArchiveConfig.authMethod should be(archiveConfig.authMethod)
+    cloudArchiveConfig.contentPath should be(CloudArchiveConfig.DefaultContentPath)
+    cloudArchiveConfig.mediaPath should be(CloudArchiveConfig.DefaultMediaPath)
+    cloudArchiveConfig.metadataPath should be(CloudArchiveConfig.DefaultMetadataPath)
+    cloudArchiveConfig.parallelism should be(CloudArchiveConfig.DefaultParallelism)
+    cloudArchiveConfig.maxContentSize should be(CloudArchiveConfig.DefaultMaxContentSize)
+    cloudArchiveConfig.requestQueueSize should be(HttpRequestSender.DefaultQueueSize)
+    cloudArchiveConfig.timeout should be(CloudArchiveConfig.DefaultArchiveTimeout)
+    cloudArchiveConfig.optCryptConfig shouldBe empty
+
+  it should "convert the file system factory" in :
+    val archiveConfig = ArchiveConfig(
+      archiveName = "TestArchiveFileSystem",
+      archiveBaseUri = "https://archive.example.com/my/file-system-archive",
+      authMethod = OAuthMethod("test-oauth-realm"),
+      fileSystem = "WebDAV",
+      optContentPath = None,
+      optMediaPath = None,
+      optMetadataPath = None,
+      optParallelism = None,
+      optMaxContentSize = None,
+      optRequestQueueSize = None,
+      optTimeout = None,
+      optCryptConfig = None
+    )
+
+    val cloudArchiveConfig: CloudArchiveConfig = archiveConfig
+
+    cloudArchiveConfig.fileSystemFactory shouldBe a[WebDavFileSystemFactory]

@@ -16,17 +16,44 @@
 
 package de.oliver_heger.linedj.archive.server.cloud
 
+import com.github.cloudfiles.core.http.HttpRequestSender
 import de.oliver_heger.linedj.archive.cloud.{ArchiveCryptConfig, CloudArchiveConfig}
 import de.oliver_heger.linedj.archive.cloud.auth.{AuthMethod, BasicAuthMethod, OAuthMethod}
 import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystemFactory
 import de.oliver_heger.linedj.shared.config.ConfigExtensions.toDuration
 import org.apache.commons.configuration2.Configuration
 import org.apache.commons.configuration2.ex.ConfigurationException
+import org.apache.pekko.http.scaladsl.model.Uri
 import org.apache.pekko.util.Timeout
 
 import java.nio.file.{Path, Paths}
 import java.util.Locale
 import scala.util.Try
+
+object ArchiveConfig:
+  /**
+    * An implicit conversion that creates a [[CloudArchiveConfig]] from an
+    * [[ArchiveConfig]] mapping the properties as appropriate. Note that this
+    * function assumes that the properties in the source configuration are
+    * valid; so no specific error handling is done.
+    */
+  given Conversion[ArchiveConfig, CloudArchiveConfig] with
+    override def apply(c: ArchiveConfig): CloudArchiveConfig =
+      CloudArchiveConfig(
+        archiveBaseUri = Uri(c.archiveBaseUri),
+        archiveName = c.archiveName,
+        authMethod = c.authMethod,
+        contentPath = c.optContentPath.map(p => Uri.Path(p)).getOrElse(CloudArchiveConfig.DefaultContentPath),
+        mediaPath = c.optMediaPath.map(Uri.Path(_)).getOrElse(CloudArchiveConfig.DefaultMediaPath),
+        metadataPath = c.optMetadataPath.map(Uri.Path(_)).getOrElse(CloudArchiveConfig.DefaultMetadataPath),
+        parallelism = c.optParallelism.getOrElse(CloudArchiveConfig.DefaultParallelism),
+        maxContentSize = c.optMaxContentSize.getOrElse(CloudArchiveConfig.DefaultMaxContentSize),
+        requestQueueSize = c.optRequestQueueSize.getOrElse(HttpRequestSender.DefaultQueueSize),
+        timeout = c.optTimeout.getOrElse(CloudArchiveConfig.DefaultArchiveTimeout),
+        optCryptConfig = c.optCryptConfig,
+        fileSystemFactory = CloudArchiveFileSystemFactory.getFactory(c.fileSystem)
+      )
+end ArchiveConfig
 
 /**
   * A data class storing the configuration properties of a single cloud archive
