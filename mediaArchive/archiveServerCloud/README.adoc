@@ -1,0 +1,187 @@
+:toc:
+:toc-placement!:
+:toclevels: 3
+= Cloud Archive Server
+
+A module implementing an HTTP server that provides a REST API for browsing media archives located on cloud servers. The application uses the https://github.com/oheger/cloud-files[Cloud Files] library to access the archives to be managed. So, all server types supported by this library can be used to host media archives.
+
+toc::[]
+
+== Building
+The application can be built as a fat jar from the SBT shell using the command
+
+ archiveServerCloud / assembly
+
+which produces a jar file with all required dependencies in the `mediaArchive/archiveServerCloud/target/scala-XXX` subfolder. This is an executable jar that can be passed to the `java` command via the `-jar` option.
+
+[#sec_credentials_management]
+== Credentials management
+TODO
+
+[#sec_config]
+== Configuration
+The behavior of the application is determined by a configuration file that it reads when it starts. Per default, the name of this file is `cloud-archive-server-config.xml`, and it is looked up in the current user's home directory. This can be overridden on the command line by setting the `configFile` system property to the path of the configuration file to be loaded, such as:
+
+[source, bash]
+----
+java -DconfigFile=/path/to/my/config.xml -jar archive-server-cloud.jar
+----
+
+The configuration contains multiple sections to define the several components comprising the application. A major part contains the declaration of the cloud archives and their properties; but there are other configuration options related to the server configuration or local cache directories as well. Below is an example fragment that shows the most-relevant configuration options:
+
+[source,xml]
+----
+<configuration>
+    <server>
+      <port>8081</port>
+      <timeout>30sec</timeout>
+    </server>
+    <media>
+        <cloudArchives>
+            <credentialsDirectory>/data/credentials</credentialsDirectory>
+            <cacheDirectory>/tmp/cloud-archives/cache</cacheDirectory>
+
+            <cloudArchive>
+                <name>Rock in the cloud</name>
+                <baseUri>https://music.example.com/rock</baseUri>
+                <authMethod>Basic</authMethod>
+                <authRealm>rock-realm</authRealm>
+                <fileSystem>OneDrive</fileSystem>
+                <contentPath>meta/toc.json</contentPath>
+                <mediaPath>meta/media</mediaPath>
+                <metadataPath>meta/mdt</metadataPath>
+                <parallelism>3</parallelism>
+                <maxContentSize>128</maxContentSize>
+                <requestQueueSize>19</requestQueueSize>
+                <timeout>2min</timeout>
+                <cryptCacheSize>111</cryptCacheSize>
+                <cryptChunkSize>127</cryptChunkSize>
+            </cloudArchive>
+
+            <cloudArchive>
+                <name>AllDefaults</name>
+                <baseUri>https://music.example.com/defaults</baseUri>
+                <authMethod>OAUTH</authMethod>
+                <authRealm>default-realm</authRealm>
+                <fileSystem>WebDAV</fileSystem>
+            </cloudArchive>
+
+            <cloudArchive encrypted="true">
+                <name>Encrypted</name>
+                <baseUri>https://crypt.example.com</baseUri>
+                <authMethod>basic</authMethod>
+                <authRealm>test</authRealm>
+                <fileSystem>WebDav</fileSystem>
+                <timeout>42</timeout>
+            </cloudArchive>
+        </cloudArchives>
+    </media>
+</configuration>
+----
+
+The settings can be divided into properties for the server and properties for the archive management. They are described in the following sections.
+
+=== Server properties
+The configuration file can contain an optional section named `server` that defines some aspects of the server application. Table <<tab_config_server>> lists the properties in this category.
+
+[#tab_config_server]
+.Server-related properties
+[cols="1,3",options="header"]
+|====
+| Setting | Description
+
+| port
+| Defines the port on which the server listens for incoming requests. If not specified, the default port 8080 is used. Note that the server always binds to the interface "0.0.0.0".
+
+| timeout
+| Here, a timeout for the interaction with actors during request processing can be specified. The value can be a number with a unit, such as "10s" or "1min". The default timeout is 3 seconds; on slower machines, it may be necessary to increase it.
+|====
+
+=== Properties related to archive management
+The second category of configuration properties defines the cloud archives to be managed by this application and how they are accessed. It is located in the section `media / cloudArchives`. The section contains some global properties controlling different aspects of remote archive management. Then, for each cloud archive, there is a `cloudArchive` element with properties for a specific archive. The following subsections describe the available configuration options in detail.
+
+==== Global properties
+These properties define some global settings that apply to all managed cloud archives. They are typically related to the way how the application loads data from these archives. Table <<tab_config_global>> lists the options in this group. Note that these are mandatory settings; if one of them is missing, the application fails to start.
+
+[#tab_config_global]
+.Global configuration options (not related to specific archives)
+[cols="1,3",options="header"]
+|====
+| Setting | Description
+| credentialsDirectory
+| The path (on the local disk) in which files with credentials are expected. Refer to section <<sec_credentials_management>> for further information about the files to be placed in this folder and their purpose.
+
+| cacheDirectory
+| To manage cloud archives, the application needs information about the media contained in an archive and the songs located on those. Loading this information on every start can take some time and produce significant network traffic. Therefore, the application uses a local cache to store this information. On startup, it only has to read the main table of content file for each archive to figure out whether the data in the cache is still up-to-date. It then loads only missing or outdated data from the remote archive and updates the cache. This property defines the root directory of the local cache to be used for this purpose. Below this folder, the application creates various subfolders for the different archives.
+
+_Note_: The size of this cache should be moderate, since it contains only metadata about media and their songs. Actual media files are not cached locally.
+|====
+
+==== Settings for cloud archives
+For each cloud archive, the configuration contains a `cloudArchive` element defining the properties of the corresponding archive. The settings basically control how to download files from this archive. Table <<tab_config_archive>> lists them.
+
+[#tab_config_archive]
+.Configuration options for cloud archives
+[cols="1,3,1",options="header"]
+|====
+| Setting | Description | Default
+| name
+| A name for this archive, intended to be displayed to users. This is a mandatory property.
+| None
+
+| baseUri
+| The base URI of this archive. When downloading a file from this archive with a specific path, the application resolves this path relative to this base URI. This is a mandatory property.
+| None
+
+| authMethod
+| Defines the method to authenticate against this archive. Valid values are _Basic_ or _OAuth_ (ignoring case). This is a mandatory property.
+| None.
+
+| authRealm
+| Together with `authMethod`, this property defines the authentication against the archive. The realm selects the credentials to be used. This is a mandatory property.
+| None
+
+| fileSystem
+| Defines the file system type from the https://github.com/oheger/cloud-files[Cloud Files] library to use for this archive, such as _OneDrive_ or _WebDAV_ (ignoring case). The file system types available depend on the classpath of the application, since the corresponding factories are loaded dynamically via a service loader mechanism. This is a mandatory property.
+|None
+
+| contentPath
+| The relative path to the document defining the table of content of this archive. The application loads this document on every startup to sync the archive's metadata with its local cache.
+| _content.json_
+
+| mediaPath
+| The relative root path for media information in this archive. In the expected structure, for each medium hosted in the archive, there must be a subfolder below this path. The application uses this property to locate description files for media and to resolve media files.
+| _media_
+
+| metadataPath
+| The relative path which stores the metadata information for the media contained in the archive. These are files listing the songs on each medium with their properties like title, artist, album, duration, etc. The expected convention is that this folder must contain a file for each medium with the medium ID as name and the extension _.mdt_.
+| _mdt_
+
+| parallelism
+| Defines the degree of parallelism when downloading metadata from this archive. This corresponds to the number of media that can be accessed concurrently (where for each medium the description and the song information is also loaded in parallel).
+| 4
+
+| maxContentSize
+| The maximum size of a document (in kilobytes) to be accepted when downloading metadata files. If a document exceeds this limit, the download is aborted, and the application skips (and ignores) the corresponding medium.
+| 64
+
+| requestQueueSize
+| Controls the size of the request queue for sending requests to this archive. This is the maximum number of requests that can be sent to this archive in parallel.
+| 16
+
+| timeout
+| A timeout value when interacting with this archive. The value can be a number with an optional unit, like 30s or 1min. If no unit is specified, the default is "seconds".
+| 30 seconds
+
+| cryptCacheSize
+| If this archive is encrypted, this property defines the size of the cache for decrypted file names.
+| 1024
+
+| cryptChunkSize
+| If this archive is encrypted, this property defines the chunk size for decrypt operations on file names.
+| 32
+
+| encrypted
+| This property can be specified as an attribute of the owning `cloudArchive` element. It controls whether the archive is encrypted. (Encrypted means that both file names and file content are encrypted.) If the value is *true*, the properties for encryption are defined by the `cryptXXX` properties listed here, or the corresponding default values are used for missing properties. If the value is *false*, the archive is considered to be not encrypted, and properties related to encryption are ignored.
+| absent
+|====
