@@ -28,6 +28,7 @@ import org.scalatest.matchers.should.Matchers
 
 import java.io.IOException
 import java.nio.file.{Files, Path, Paths}
+import java.util.concurrent.TimeUnit
 import scala.concurrent.Future
 
 object CloudArchiveCredentialsManagerSpec:
@@ -106,7 +107,9 @@ class CloudArchiveCredentialsManagerSpec(testSystem: ActorSystem) extends TestKi
     * Queries the given credential manager for a given credential key
     * repeatedly until it is present or not, depending on the passed in flag.
     * This is needed by some test cases that check whether an incorrect
-    * credential has been reset.
+    * credential has been reset. To avoid an infinite waiting loop, the
+    * function gives up after some time. This also helps dealing with race
+    * conditions where a state change is missed.
     *
     * @param manager the credential manager
     * @param key     the key of the affected credential
@@ -114,14 +117,18 @@ class CloudArchiveCredentialsManagerSpec(testSystem: ActorSystem) extends TestKi
     * @return a [[Future]] that completes when this credential is no longer
     *         available
     */
-  private def waitForCredentialReset(manager: CloudArchiveCredentialsManager,
+  private def waitForCredentialState(manager: CloudArchiveCredentialsManager,
                                      key: CloudArchiveCredentialsManager.CredentialKey,
                                      present: Boolean): Future[Done] =
-    manager.pendingCredentials flatMap : keys =>
-      if keys.contains(key) != present then
-        waitForCredentialReset(manager, key, present)
-      else
-        Future.successful(Done)
+    val startTime = System.nanoTime()
+    def waiting(): Future[Done] =
+      manager.pendingCredentials flatMap : keys =>
+        if System.nanoTime() - startTime < TimeUnit.SECONDS.toNanos(1) && keys.contains(key) != present then
+          waiting()
+        else
+          Future.successful(Done)
+
+    waiting()
 
   "A CloudArchiveCredentialsManager" should "read JSON files in the credentials directory" in :
     val credentials = Map(
@@ -183,13 +190,14 @@ class CloudArchiveCredentialsManagerSpec(testSystem: ActorSystem) extends TestKi
       CryptFileName,
       CloudArchiveCredentialsManager.CredentialKeyType.File
     )
+    val futSecret = credentialsManager.resolverFunc("foo")
     for
       _ <- credentialsManager.initFuture
       _ <- credentialsManager.setCredentials(toCredentialSource(invalidCredentials))
-      _ <- waitForCredentialReset(credentialsManager, fileKey, present = false)
-      _ <- waitForCredentialReset(credentialsManager, fileKey, present = true)
+      _ <- waitForCredentialState(credentialsManager, fileKey, present = false)
+      _ <- waitForCredentialState(credentialsManager, fileKey, present = true)
       _ <- credentialsManager.setCredentials(toCredentialSource(credentials))
-      secret <- credentialsManager.resolverFunc("foo")
+      secret <- futSecret
     yield
       secret.secret should be("bar")
 
