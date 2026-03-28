@@ -39,9 +39,17 @@ import org.scalatestplus.mockito.MockitoSugar
 
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicReference
-import scala.concurrent.Future
+import scala.concurrent.duration.DurationInt
+import scala.concurrent.{Future, Promise}
 
 object CloudArchiveContentLoaderSpec:
+  /**
+    * Alias for a function that provides the data to mock a download operation.
+    * It is invoked when a download from the archive is requested and has to
+    * return the [[Source]] for the content of the response.
+    */
+  private type SourceProvider = () => Future[Source[ByteString, Any]]
+
   /**
     * A data class for storing media files passed to the content actor.
     *
@@ -217,6 +225,42 @@ class CloudArchiveContentLoaderSpec(testSystem: classic.ActorSystem) extends Tes
         .verifyUpdatedCacheEntries()
         .verifyArchiveContent()
 
+  it should "take the parallelism into account" in :
+    val archiveContent = ArchiveContentTestHelper.archiveContent(2)
+    val probeSource = typedTestKit.createTestProbe[String]()
+    val promiseDesc1 = Promise[Source[ByteString, Any]]()
+    val promiseDesc2 = Promise[Source[ByteString, Any]]()
+    val promiseMetadata1 = Promise[Source[ByteString, Any]]()
+    val promiseMetadata2 = Promise[Source[ByteString, Any]]()
+
+    def notifyingSourceProvider(promSource: Promise[Source[ByteString, Any]]): SourceProvider = () =>
+      probeSource.ref ! s"request at ${System.nanoTime()}"
+      promSource.future
+
+    val helper = new LoaderTestHelper
+    helper.initCacheContent(CloudArchiveContent(Map.empty))
+      .initArchiveContent(archiveContent)
+      .expectDescriptionDownload(
+        mediumDescriptionPath(ArchiveContentTestHelper.testMediumID(1))
+      )(notifyingSourceProvider(promiseDesc1))
+      .expectDescriptionDownload(
+        mediumDescriptionPath(ArchiveContentTestHelper.testMediumID(2))
+      )(notifyingSourceProvider(promiseDesc2))
+      .expectMetadataDownload(ArchiveContentTestHelper.testMediumID(1))(notifyingSourceProvider(promiseMetadata1))
+      .expectMetadataDownload(ArchiveContentTestHelper.testMediumID(2))(notifyingSourceProvider(promiseMetadata2))
+
+    val futLoad = helper.load(parallelism = 2)
+
+    (1 to 4).foreach(_ => probeSource.expectMessageType[String])
+    probeSource.expectNoMessage(250.millis)
+
+    promiseDesc1.success(toSource(ArchiveContentTestHelper.testMediumDescription(1)))
+    promiseMetadata1.success(toSource(ArchiveContentTestHelper.testMediumMetadata(1)))
+    promiseDesc2.success(toSource(ArchiveContentTestHelper.testMediumDescription(2)))
+    promiseMetadata2.success(toSource(ArchiveContentTestHelper.testMediumMetadata(2)))
+    futLoad map : result =>
+      result should be(Done)
+
   /**
     * A test helper class to manage the object under test and its dependencies.
     */
@@ -254,6 +298,32 @@ class CloudArchiveContentLoaderSpec(testSystem: classic.ActorSystem) extends Tes
       this
 
     /**
+      * Prepares the mock for the content downloader to return a medium
+      * description document for a given path. The content of the document is
+      * obtained from a [[SourceProvider]] function.
+      *
+      * @param path the requested path to be handled
+      * @param src  the [[SourceProvider]] function
+      * @return this test helper
+      */
+    def expectDescriptionDownload(path: String)(src: SourceProvider): LoaderTestHelper =
+      when(downloader.loadMediumDescription(path)).thenAnswer((invocation: InvocationOnMock) => src())
+      this
+
+    /**
+      * Prepares the mock for the content downloader to return a medium
+      * metadata document for a given medium ID. The content of the document is
+      * otained from a [[SourceProvider]] function.
+      *
+      * @param mediumID the requested medium ID to be handled
+      * @param src      the [[SourceProvider]] function
+      * @return this test helper
+      */
+    def expectMetadataDownload(mediumID: Checksums.MediumChecksum)(src: SourceProvider): LoaderTestHelper =
+      when(downloader.loadMediumMetadata(mediumID)).thenAnswer((invocation: InvocationOnMock) => src())
+      this
+
+    /**
       * Prepares the mock for the content downloader to return generated
       * documents for the test media with the provided indices.
       *
@@ -266,8 +336,8 @@ class CloudArchiveContentLoaderSpec(testSystem: classic.ActorSystem) extends Tes
         val path = mediumDescriptionPath(mediumID)
         val description = ArchiveContentTestHelper.testMediumDescription(index)
         val metadata = ArchiveContentTestHelper.testMediumMetadata(index)
-        when(downloader.loadMediumDescription(path)).thenReturn(toDownloadResult(description))
-        when(downloader.loadMediumMetadata(mediumID)).thenReturn(toDownloadResult(metadata))
+        expectDescriptionDownload(path)(() => toDownloadResult(description))
+        expectMetadataDownload(mediumID)(() => toDownloadResult(metadata))
       this
 
     /**
@@ -300,12 +370,13 @@ class CloudArchiveContentLoaderSpec(testSystem: classic.ActorSystem) extends Tes
       * Performs a load operation with a test archive loader using the prepared
       * dependencies managed by this object.
       *
+      * @param parallelism the value for the parallelism parameter
       * @return the [[Future]] with the outcome of this operation
       */
-    def load(): Future[Done] =
+    def load(parallelism: Int = 1): Future[Done] =
       val loader = new CloudArchiveContentLoader
       val actor = typedTestKit.spawn(contentActor())
-      loader.loadContent(downloader, cache, ArchiveContentTestHelper.TestArchiveName, actor)
+      loader.loadContent(downloader, cache, ArchiveContentTestHelper.TestArchiveName, actor, parallelism)
 
     /**
       * Verifies that the content of the cache was updated as expected. To test

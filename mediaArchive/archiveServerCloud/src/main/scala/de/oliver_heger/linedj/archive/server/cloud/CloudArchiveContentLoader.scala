@@ -134,12 +134,14 @@ class CloudArchiveContentLoader(using system: classic.ActorSystem):
     * @param cache        the local cache for the archive's metadata
     * @param archiveName  the name of the archive
     * @param contentActor the content actor to populate
+    * @param parallelism  the number of media to process in parallel
     * @return a [[Future]] with the result of the load operation
     */
   def loadContent(downloader: ContentDownloader,
                   cache: CloudArchiveCache,
                   archiveName: String,
-                  contentActor: ActorRef[ArchiveCommands.UpdateArchiveContentCommand]): Future[Done] =
+                  contentActor: ActorRef[ArchiveCommands.UpdateArchiveContentCommand],
+                  parallelism: Int): Future[Done] =
     val futCacheContent = cache.loadAndValidateContent
     val futSourceArchiveContent = downloader.loadContentDocument()
     for
@@ -150,6 +152,7 @@ class CloudArchiveContentLoader(using system: classic.ActorSystem):
         cache,
         archiveName,
         contentActor,
+        parallelism,
         cacheContent,
         sourceArchiveContent
       )
@@ -165,6 +168,7 @@ class CloudArchiveContentLoader(using system: classic.ActorSystem):
     * @param cache            the local cache for the archive's metadata
     * @param archiveName      the name of the archive
     * @param contentActor     the content actor to populate
+    * @param parallelism      the number of media to process in parallel
     * @param cacheContent     the content of the local cache
     * @param archiveTocSource the source for the archive's content document
     * @return a [[Future]] with the result of the operation
@@ -173,12 +177,13 @@ class CloudArchiveContentLoader(using system: classic.ActorSystem):
                                         cache: CloudArchiveCache,
                                         archiveName: String,
                                         contentActor: ActorRef[ArchiveCommands.UpdateArchiveContentCommand],
+                                        parallelism: Int,
                                         cacheContent: CloudArchiveContent,
                                         archiveTocSource: Source[ByteString, Any]): Future[Done] =
     val archiveTocSink = Sink.fold[Map[Checksums.MediumChecksum, MediumEntry], MediumEntry](Map.empty): (map, e) =>
       map + (e.id -> e)
     val tocReader = ArchiveTocSerializer.reader()
-    tocReader.readToc(archiveTocSource).mapAsync(1): tocEntry =>
+    tocReader.readToc(archiveTocSource).mapAsync(parallelism): tocEntry =>
       processMedium(
         downloader,
         cache,
