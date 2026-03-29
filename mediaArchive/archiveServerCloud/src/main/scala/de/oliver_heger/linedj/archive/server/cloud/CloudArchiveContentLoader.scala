@@ -25,8 +25,8 @@ import de.oliver_heger.linedj.shared.archive.media.{MediumDescription, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.Checksums
 import org.apache.logging.log4j.LogManager
 import org.apache.pekko.actor.typed.ActorRef
-import org.apache.pekko.stream.ClosedShape
-import org.apache.pekko.stream.scaladsl.{Broadcast, Flow, GraphDSL, RunnableGraph, Sink, Source}
+import org.apache.pekko.stream.{ActorAttributes, ClosedShape, Supervision}
+import org.apache.pekko.stream.scaladsl.{Broadcast, Flow, GraphDSL, Keep, RunnableGraph, Sink, Source}
 import org.apache.pekko.util.ByteString
 import org.apache.pekko.{Done, NotUsed, actor as classic}
 
@@ -43,6 +43,16 @@ object CloudArchiveContentLoader:
 
   /** The logger. */
   private val log = LogManager.getLogger(CloudArchiveContentLoader.getClass)
+
+  /**
+    * A supervision strategy to be applied to streams that download metadata
+    * documents from cloud archives. The strategy causes the affected documents
+    * to be skipped, while the stream continues processing with the next
+    * elements.
+    */
+  private val loadContentStreamDecider: Supervision.Decider = ex =>
+    log.error("Download from cloud archive failed.", ex)
+    Supervision.resume
 
   /**
     * Returns a [[Sink]] that passes update commands to a specific content 
@@ -183,7 +193,7 @@ class CloudArchiveContentLoader(using system: classic.ActorSystem):
     val archiveTocSink = Sink.fold[Map[Checksums.MediumChecksum, MediumEntry], MediumEntry](Map.empty): (map, e) =>
       map + (e.id -> e)
     val tocReader = ArchiveTocSerializer.reader()
-    tocReader.readToc(archiveTocSource).mapAsync(parallelism): tocEntry =>
+    val loaderStream = tocReader.readToc(archiveTocSource).mapAsync(parallelism): tocEntry =>
       processMedium(
         downloader,
         cache,
@@ -192,7 +202,10 @@ class CloudArchiveContentLoader(using system: classic.ActorSystem):
         cacheContent,
         tocEntry
       )
-    .runWith(archiveTocSink).flatMap: mediaData =>
+    .toMat(archiveTocSink)(Keep.right)
+
+    val supervisedStream = loaderStream.withAttributes(ActorAttributes.supervisionStrategy(loadContentStreamDecider))
+    supervisedStream.run().flatMap: mediaData =>
       if mediaData == cacheContent.media then
         Future.successful(Done)
       else

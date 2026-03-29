@@ -261,6 +261,35 @@ class CloudArchiveContentLoaderSpec(testSystem: classic.ActorSystem) extends Tes
     futLoad map : result =>
       result should be(Done)
 
+  it should "handle failed downloads from the archive" in :
+    val archiveContent = ArchiveContentTestHelper.archiveContent(TestMediaCount)
+    val FailedIndex = 2
+    val failedMediumID = ArchiveContentTestHelper.testMediumID(FailedIndex)
+    val helper = new LoaderTestHelper
+    helper.initCacheContent(CloudArchiveContent(Map.empty))
+      .initArchiveContent(archiveContent)
+      .initMediaDocuments(1 to TestMediaCount *)
+      .expectMetadataDownload(failedMediumID): () =>
+        Future.failed(new IllegalArgumentException("Test exception: Download failed."))
+
+    helper.load() map : _ =>
+      val expectedCacheContent = CloudArchiveContent(archiveContent.media - failedMediumID)
+      val expectedUpdatedEntries = Set(
+        entryKey(ArchiveContentTestHelper.testMediumID(1), CloudArchiveCache.EntryType.MediumDescription),
+        entryKey(ArchiveContentTestHelper.testMediumID(2), CloudArchiveCache.EntryType.MediumDescription),
+        entryKey(ArchiveContentTestHelper.testMediumID(3), CloudArchiveCache.EntryType.MediumDescription),
+        entryKey(ArchiveContentTestHelper.testMediumID(4), CloudArchiveCache.EntryType.MediumDescription),
+        entryKey(ArchiveContentTestHelper.testMediumID(1), CloudArchiveCache.EntryType.MediumSongs),
+        entryKey(ArchiveContentTestHelper.testMediumID(3), CloudArchiveCache.EntryType.MediumSongs),
+        entryKey(ArchiveContentTestHelper.testMediumID(4), CloudArchiveCache.EntryType.MediumSongs)
+      )
+      helper.verifyUpdatedCacheContent(expectedCacheContent)
+        .verifyUpdatedCacheEntries(expectedUpdatedEntries)
+      val allProcessedMedia = archiveContent.media.keySet
+      val expectedProcessedMediaWithSongs = allProcessedMedia - failedMediumID
+      helper.addedFilesContent.map(_.mediumID).toSet should contain theSameElementsAs expectedProcessedMediaWithSongs
+      helper.addedMediaContent.map(_.id).toSet should contain theSameElementsAs allProcessedMedia
+
   /**
     * A test helper class to manage the object under test and its dependencies.
     */
@@ -285,6 +314,22 @@ class CloudArchiveContentLoaderSpec(testSystem: classic.ActorSystem) extends Tes
 
     /** Stores a list of song metadata passed to the content actor. */
     private val refAddedFilesContent = AtomicReference(List.empty[MediaFileData])
+
+    /**
+      * Returns a list with the medium details that have been passed to the
+      * content actor.
+      *
+      * @return the media details passed to the content actor
+      */
+    def addedMediaContent: List[ArchiveModel.MediumDetails] = refAddedMediaContent.get()
+
+    /**
+      * Returns a list with the song metadata objects passed to the content
+      * actor.
+      *
+      * @return the song metadata passed to the content actor
+      */
+    def addedFilesContent: List[MediaFileData] = refAddedFilesContent.get()
 
     /**
       * Prepares the mock for the content downloader to return a content
@@ -404,6 +449,16 @@ class CloudArchiveContentLoaderSpec(testSystem: classic.ActorSystem) extends Tes
         val metadata = ArchiveContentTestHelper.testMediumMetadata(index)
         updatedEntries.get(entryKey(mediumID, CloudArchiveCache.EntryType.MediumDescription)) should be(description)
         updatedEntries.get(entryKey(mediumID, CloudArchiveCache.EntryType.MediumSongs)) should be(metadata)
+      this
+
+    /**
+      * Verifies that exactly the given cache entries have been updated.
+      *
+      * @param entries the expected updated entries
+      * @return this test helper
+      */
+    def verifyUpdatedCacheEntries(entries: Set[String]): LoaderTestHelper =
+      updatedEntries.keySet() should contain theSameElementsAs entries
       this
 
     /**
