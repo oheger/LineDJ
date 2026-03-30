@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.archive.server.cloud
 
+import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.archive.server.model.{ArchiveCommands, ArchiveModel}
 import de.oliver_heger.linedj.shared.archive.media.MediaFileUri
 import de.oliver_heger.linedj.shared.archive.metadata.{Checksums, MediaMetadata}
@@ -74,8 +75,9 @@ object CloudArchiveContentLoaderSpec:
     * A collection of data objects for songs that are expected to be passed to
     * the content actor.
     */
-  private val TestMediaFiles = (1 to TestMediaCount).flatMap(ArchiveContentTestHelper.testSongDataForMedium)
-    .map(mps => MediaFileData(Checksums.MediumChecksum(mps.mediumID.archiveComponentID), mps.uri, mps.metadata))
+  private val TestMediaFiles = (1 to TestMediaCount).flatMap: idx =>
+    ArchiveContentTestHelper.testSongDataForMedium(idx)
+      .map(mps => MediaFileData(Checksums.MediumChecksum(mps.mediumID.archiveComponentID), mps.uri, mps.metadata))
 
   /**
     * Generates the description path for a test medium in the archive.
@@ -290,6 +292,37 @@ class CloudArchiveContentLoaderSpec(testSystem: classic.ActorSystem) extends Tes
       helper.addedFilesContent.map(_.mediumID).toSet should contain theSameElementsAs expectedProcessedMediaWithSongs
       helper.addedMediaContent.map(_.id).toSet should contain theSameElementsAs allProcessedMedia
 
+  it should "restrict the size of medium description files" in :
+    val archiveContent = ArchiveContentTestHelper.archiveContent(TestMediaCount)
+    val mediumID = ArchiveContentTestHelper.testMediumID(2)
+    val bigDescription = ArchiveContentTestHelper.testMediumDescription(
+      2,
+      Some(FileTestHelper.TestData.replace('\n', ' ') * 5)
+    )
+    val helper = new LoaderTestHelper
+    helper.initCacheContent(CloudArchiveContent(Map.empty))
+      .initArchiveContent(archiveContent)
+      .initMediaDocuments(1 to TestMediaCount *)
+      .expectDescriptionDownload(mediumDescriptionPath(mediumID)): () =>
+        toDownloadResult(bigDescription)
+
+    helper.load() map : _ =>
+      helper.addedMediaContent.map(_.id) should not contain mediumID
+
+  it should "restrict the size of song metadata files" in :
+    val archiveContent = ArchiveContentTestHelper.archiveContent(TestMediaCount)
+    val mediumID = ArchiveContentTestHelper.testMediumID(3)
+    val bigMetadata = ArchiveContentTestHelper.testMediumMetadata(3, Some(100))
+    val helper = new LoaderTestHelper
+    helper.initCacheContent(CloudArchiveContent(Map.empty))
+      .initArchiveContent(archiveContent)
+      .initMediaDocuments(1 to TestMediaCount *)
+      .expectMetadataDownload(mediumID): () =>
+        toDownloadResult(bigMetadata)
+
+    helper.load() map : _ =>
+      helper.addedFilesContent.count(_.mediumID == mediumID) should be < 100
+
   /**
     * A test helper class to manage the object under test and its dependencies.
     */
@@ -421,7 +454,13 @@ class CloudArchiveContentLoaderSpec(testSystem: classic.ActorSystem) extends Tes
     def load(parallelism: Int = 1): Future[Done] =
       val loader = new CloudArchiveContentLoader
       val actor = typedTestKit.spawn(contentActor())
-      loader.loadContent(downloader, cache, ArchiveContentTestHelper.TestArchiveName, actor, parallelism)
+      loader.loadContent(
+        downloader, cache,
+        ArchiveContentTestHelper.TestArchiveName,
+        actor,
+        parallelism,
+        1
+      )
 
     /**
       * Verifies that the content of the cache was updated as expected. To test

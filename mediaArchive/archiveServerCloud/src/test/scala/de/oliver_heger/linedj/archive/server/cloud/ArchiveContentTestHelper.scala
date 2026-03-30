@@ -77,14 +77,16 @@ object ArchiveContentTestHelper:
   /**
     * Generates a valid medium description for a test medium.
     *
-    * @param index the index of the test medium
+    * @param index          the index of the test medium
+    * @param optDescription an optional description
     * @return the medium description for this test medium
     */
-  def testMediumDescription(index: Int): String =
+  def testMediumDescription(index: Int, optDescription: Option[String] = None): String =
     val details = testMediumDetails(index)
+    val description = optDescription.getOrElse(details.description)
     s"""
        |{
-       |  "description": "${details.description}",
+       |  "description": "$description",
        |  "name": "${details.title}",
        |  "orderMode": "${details.orderMode.get}"
        |}
@@ -94,12 +96,14 @@ object ArchiveContentTestHelper:
     * Generates a number of data objects to simulate metadata for the songs of
     * a test medium.
     *
-    * @param index the index of the test medium
+    * @param index    the index of the test medium
+    * @param optCount the optional number of songs to generate
     * @return data about the songs on this test medium
     */
-  def testSongDataForMedium(index: Int): List[MetadataProcessingSuccess] =
+  def testSongDataForMedium(index: Int, optCount: Option[Int] = None): List[MetadataProcessingSuccess] =
     val mediumID = MediumID("someUri" + index, Some("someDescription" + index), testMediumID(index).checksum)
-    (1 to index).map: track =>
+    val count = optCount.getOrElse(index)
+    (1 to count).map: track =>
       MetadataProcessingSuccess(
         mediumID = mediumID,
         uri = MediaFileUri(s"/medium_$index/songs/$track"),
@@ -116,11 +120,12 @@ object ArchiveContentTestHelper:
     * Generates valid metadata for a test medium consisting of a number of test
     * songs.
     *
-    * @param index the index of the test medium
+    * @param index    the index of the test medium
+    * @param optCount the optional number of songs to generate
     * @return the metadata for this test medium
     */
-  def testMediumMetadata(index: Int): String =
-    testSongDataForMedium(index).map(metadataToJson).mkString(start = "[", sep = ",", end = "]")
+  def testMediumMetadata(index: Int, optCount: Option[Int] = None): String =
+    testSongDataForMedium(index, optCount).map(metadataToJson).mkString(start = "[", sep = ",", end = "]")
 
   /**
     * Generates a [[CloudArchiveContent]] object with the given number of test

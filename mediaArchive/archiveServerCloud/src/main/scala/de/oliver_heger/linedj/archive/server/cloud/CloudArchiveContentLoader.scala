@@ -20,6 +20,7 @@ import de.oliver_heger.linedj.archive.metadata.persistence.ArchiveTocSerializer
 import de.oliver_heger.linedj.archive.server.model.{ArchiveCommands, ArchiveModel}
 import de.oliver_heger.linedj.archivecommon.parser.MetadataParser
 import de.oliver_heger.linedj.io.parser.JsonStreamParser
+import de.oliver_heger.linedj.io.stream.StreamSizeRestrictionStage
 import de.oliver_heger.linedj.shared.actors.ActorFactory.executionContext
 import de.oliver_heger.linedj.shared.archive.media.{MediumDescription, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.Checksums
@@ -140,18 +141,20 @@ class CloudArchiveContentLoader(using system: classic.ActorSystem):
     * [[ContentDownloader]] and populates the given content actor with this
     * data.
     *
-    * @param downloader   the object to download content from the archive
-    * @param cache        the local cache for the archive's metadata
-    * @param archiveName  the name of the archive
-    * @param contentActor the content actor to populate
-    * @param parallelism  the number of media to process in parallel
+    * @param downloader       the object to download content from the archive
+    * @param cache            the local cache for the archive's metadata
+    * @param archiveName      the name of the archive
+    * @param contentActor     the content actor to populate
+    * @param parallelism      the number of media to process in parallel
+    * @param maxContentSizeKb the maximum size of downloaded documents
     * @return a [[Future]] with the result of the load operation
     */
   def loadContent(downloader: ContentDownloader,
                   cache: CloudArchiveCache,
                   archiveName: String,
                   contentActor: ActorRef[ArchiveCommands.UpdateArchiveContentCommand],
-                  parallelism: Int): Future[Done] =
+                  parallelism: Int,
+                  maxContentSizeKb: Int): Future[Done] =
     val futCacheContent = cache.loadAndValidateContent
     val futSourceArchiveContent = downloader.loadContentDocument()
     for
@@ -163,6 +166,7 @@ class CloudArchiveContentLoader(using system: classic.ActorSystem):
         archiveName,
         contentActor,
         parallelism,
+        maxContentSizeKb,
         cacheContent,
         sourceArchiveContent
       )
@@ -179,6 +183,7 @@ class CloudArchiveContentLoader(using system: classic.ActorSystem):
     * @param archiveName      the name of the archive
     * @param contentActor     the content actor to populate
     * @param parallelism      the number of media to process in parallel
+    * @param maxContentSizeKb the maximum size of downloaded documents
     * @param cacheContent     the content of the local cache
     * @param archiveTocSource the source for the archive's content document
     * @return a [[Future]] with the result of the operation
@@ -188,6 +193,7 @@ class CloudArchiveContentLoader(using system: classic.ActorSystem):
                                         archiveName: String,
                                         contentActor: ActorRef[ArchiveCommands.UpdateArchiveContentCommand],
                                         parallelism: Int,
+                                        maxContentSizeKb: Int,
                                         cacheContent: CloudArchiveContent,
                                         archiveTocSource: Source[ByteString, Any]): Future[Done] =
     val archiveTocSink = Sink.fold[Map[Checksums.MediumChecksum, MediumEntry], MediumEntry](Map.empty): (map, e) =>
@@ -198,6 +204,7 @@ class CloudArchiveContentLoader(using system: classic.ActorSystem):
         downloader,
         cache,
         archiveName,
+        maxContentSizeKb,
         contentActor,
         cacheContent,
         tocEntry
@@ -217,17 +224,19 @@ class CloudArchiveContentLoader(using system: classic.ActorSystem):
     * the local cache. If so, it is obtained from there. Otherwise, the 
     * function loads the data from the archive and writes it to the cache.
     *
-    * @param downloader   the object to download content from the archive
-    * @param cache        the local cache for the archive's metadata
-    * @param archiveName  the name of the archive
-    * @param contentActor the content actor to populate
-    * @param cacheContent the content of the local cache
-    * @param mediumEntry  the entry for the current medium
+    * @param downloader       the object to download content from the archive
+    * @param cache            the local cache for the archive's metadata
+    * @param archiveName      the name of the archive
+    * @param maxContentSizeKb the maximum size of downloaded documents
+    * @param contentActor     the content actor to populate
+    * @param cacheContent     the content of the local cache
+    * @param mediumEntry      the entry for the current medium
     * @return a [[Future]] with information about the processed medium
     */
   private def processMedium(downloader: ContentDownloader,
                             cache: CloudArchiveCache,
                             archiveName: String,
+                            maxContentSizeKb: Int,
                             contentActor: ActorRef[ArchiveCommands.UpdateArchiveContentCommand],
                             cacheContent: CloudArchiveContent,
                             mediumEntry: ArchiveTocSerializer.MediumEntry): Future[MediumEntry] =
@@ -235,7 +244,7 @@ class CloudArchiveContentLoader(using system: classic.ActorSystem):
     val futMedium = if cacheContent.media.get(mediumID).exists(_.timestamp == mediumEntry.changedAt) then
       readMediumFromCache(cache, contentActor, mediumID, archiveName)
     else
-      readMediumFromArchive(downloader, cache, contentActor, mediumEntry, archiveName)
+      readMediumFromArchive(downloader, cache, contentActor, mediumEntry, archiveName, maxContentSizeKb)
 
     futMedium map : _ =>
       MediumEntry(mediumID, mediumEntry.changedAt)
@@ -272,21 +281,26 @@ class CloudArchiveContentLoader(using system: classic.ActorSystem):
     * downloader) and passes it to the archive content actor. The data is also
     * stored in the local cache.
     *
-    * @param downloader   the object to load content from the archive
-    * @param cache        the local cache for the archive's metadata
-    * @param contentActor the content actor to populate
-    * @param mediumEntry  the entry for the current medium
-    * @param archiveName  the name of the archive
+    * @param downloader       the object to load content from the archive
+    * @param cache            the local cache for the archive's metadata
+    * @param contentActor     the content actor to populate
+    * @param mediumEntry      the entry for the current medium
+    * @param archiveName      the name of the archive
+    * @param maxContentSizeKb the maximum size of downloaded documents
     * @return a [[Future]] with the result of the operation
     */
   private def readMediumFromArchive(downloader: ContentDownloader,
                                     cache: CloudArchiveCache,
                                     contentActor: ActorRef[ArchiveCommands.UpdateArchiveContentCommand],
                                     mediumEntry: ArchiveTocSerializer.MediumEntry,
-                                    archiveName: String): Future[Any] =
+                                    archiveName: String,
+                                    maxContentSizeKb: Int): Future[Any] =
     val mediumID = Checksums.MediumChecksum(mediumEntry.checksum)
-    val futDescriptionSource = downloader.loadMediumDescription(mediumEntry.mediumDescriptionPath)
-    val futSongsSource = downloader.loadMediumMetadata(mediumID)
+    val futDescriptionSource = restrictedSource(
+      downloader.loadMediumDescription(mediumEntry.mediumDescriptionPath),
+      maxContentSizeKb
+    )
+    val futSongsSource = restrictedSource(downloader.loadMediumMetadata(mediumID), maxContentSizeKb)
     val descriptionEntry = cache.entryFor(mediumID, CloudArchiveCache.EntryType.MediumDescription)
     val songsEntry = cache.entryFor(mediumID, CloudArchiveCache.EntryType.MediumSongs)
     val futDescription = futDescriptionSource flatMap : source =>
@@ -308,6 +322,20 @@ class CloudArchiveContentLoader(using system: classic.ActorSystem):
       _ <- futDescription
       _ <- futSongs
     yield Done
+
+  /**
+    * Modifies the given [[Future]] with a [[Source]] to restrict the size of
+    * this source to the given value. This prevents huge documents to be loaded
+    * from the archive.
+    *
+    * @param futSource the [[Future]] with the [[Source]] to restrict
+    * @param maxSizeKb the maximum size (in kilobytes)
+    * @return the modified [[Source]]
+    */
+  private def restrictedSource(futSource: Future[Source[ByteString, Any]],
+                               maxSizeKb: Int): Future[Source[ByteString, Any]] =
+    futSource map : source =>
+      source.via(StreamSizeRestrictionStage(maxSizeKb * 1024))
 
   /**
     * Processes a single content document from the cloud archive from a 
