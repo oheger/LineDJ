@@ -159,7 +159,7 @@ For each cloud archive, the configuration contains a `cloudArchive` element defi
 
 | parallelism
 | Defines the degree of parallelism when downloading metadata from this archive. This corresponds to the number of media that can be accessed concurrently (where for each medium the description and the song information is also loaded in parallel).
-| 4
+| 2
 
 | maxContentSize
 | The maximum size of a document (in kilobytes) to be accepted when downloading metadata files. If a document exceeds this limit, the download is aborted, and the application skips (and ignores) the corresponding medium.

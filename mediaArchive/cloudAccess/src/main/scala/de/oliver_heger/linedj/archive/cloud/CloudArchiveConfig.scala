@@ -37,7 +37,7 @@ object CloudArchiveConfig:
   /**
     * The default value of the parallelism property for cloud archives.
     */
-  final val DefaultParallelism = 4
+  final val DefaultParallelism = 2
 
   /**
     * The default maximum size for content files loaded from a cloud archive
