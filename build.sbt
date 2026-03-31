@@ -49,7 +49,7 @@ lazy val VersionTritonus = "0.3.7.4"
 
 /** Test dependencies. */
 lazy val VersionDisruptor = "4.0.0"
-lazy val VersionScalaTest = "3.2.19"
+lazy val VersionScalaTest = "3.2.20"
 lazy val VersionScalaTestMockito = "3.2.19.0"
 
 ThisBuild / scalacOptions ++= scala3Options
