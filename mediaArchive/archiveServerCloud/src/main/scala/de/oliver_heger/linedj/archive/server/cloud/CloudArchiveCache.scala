@@ -87,6 +87,24 @@ object CloudArchiveCache:
     def sink: Sink[ByteString, Future[Any]]
 
   /**
+    * A trait that allows creating instances of this class.
+    */
+  trait Factory:
+    /**
+      * Creates a new instance of [[CloudArchiveCache]].
+      *
+      * @param cacheFolder the folder where to store the data locally
+      * @return the newly created instance
+      */
+    def apply(cacheFolder: Path): CloudArchiveCache
+
+  /**
+    * A default [[Factory]] instance that can be used to creating new
+    * instances.
+    */
+  final val newInstance: Factory = (cacheFolder: Path) => CloudArchiveCache(cacheFolder)
+
+  /**
     * An internal representation of a medium entry that is used for JSON
     * serialization. It uses a plain String as ID type.
     *

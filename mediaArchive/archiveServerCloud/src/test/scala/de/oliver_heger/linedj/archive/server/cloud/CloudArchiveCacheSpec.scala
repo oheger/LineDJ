@@ -53,7 +53,7 @@ class CloudArchiveCacheSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     *
     * @return the new cache instance
     */
-  private def createCache(): CloudArchiveCache = CloudArchiveCache(testDirectory)
+  private def createCache(): CloudArchiveCache = CloudArchiveCache.newInstance(testDirectory)
 
   /**
     * Creates an entry in the cache for a specific medium.
