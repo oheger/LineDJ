@@ -47,8 +47,8 @@ end ContentDownloader
   * @param archiveConfig  the configuration for the affected archive
   * @param fileDownloader the downloader to access this archive
   */
-class ContentDownloader(archiveConfig: CloudArchiveConfig,
-                        fileDownloader: CloudFileDownloader):
+class ContentDownloader(val archiveConfig: CloudArchiveConfig,
+                        val fileDownloader: CloudFileDownloader):
   /**
     * Returns a source to download the content document of the associated cloud
     * archive.
