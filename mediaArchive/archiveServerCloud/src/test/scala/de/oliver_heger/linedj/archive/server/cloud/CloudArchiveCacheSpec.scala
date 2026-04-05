@@ -210,3 +210,17 @@ class CloudArchiveCacheSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       )
       forEvery(deletedPaths): p =>
         Files.exists(p) shouldBe false
+
+  "The factory" should "set the cache folder based on the archive name" in :
+    val archiveName = "testArchive"
+    val cache = CloudArchiveCache.newInstance(testDirectory, archiveName)
+
+    cache.cacheFolder.getFileName.toString should be(archiveName)
+    cache.cacheFolder.getParent should be(testDirectory)
+
+  it should "encode the archive name" in :
+    val archiveName = "test & archive"
+    val encodedArchiveName = "test%20%26%20archive"
+    val cache = CloudArchiveCache.newInstance(testDirectory, archiveName)
+
+    cache.cacheFolder.getFileName.toString should be(encodedArchiveName)

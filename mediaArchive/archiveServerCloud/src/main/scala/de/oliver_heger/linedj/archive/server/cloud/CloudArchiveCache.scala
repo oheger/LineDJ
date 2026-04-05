@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.archive.server.cloud
 
+import com.github.cloudfiles.core.http.UriEncodingHelper
 import de.oliver_heger.linedj.archive.server.cloud.CloudArchiveCache.CacheEntry
 import de.oliver_heger.linedj.io.LocalFsUtils
 import de.oliver_heger.linedj.io.parser.JsonStreamParser
@@ -97,6 +98,18 @@ object CloudArchiveCache:
       * @return the newly created instance
       */
     def apply(cacheFolder: Path): CloudArchiveCache
+
+    /**
+      * Creates a new instance of [[CloudArchiveCache]] that determines the
+      * cache folder from the given root path and archive name. The archive
+      * name is encoded to deal with special characters.
+      *
+      * @param rootFolder  the root folder for all local caches
+      * @param archiveName the name of the archive the cache is for
+      * @return the newly created instance
+      */
+    def apply(rootFolder: Path, archiveName: String): CloudArchiveCache =
+      apply(rootFolder.resolve(UriEncodingHelper.encode(archiveName)))
 
   /**
     * A default [[Factory]] instance that can be used to creating new

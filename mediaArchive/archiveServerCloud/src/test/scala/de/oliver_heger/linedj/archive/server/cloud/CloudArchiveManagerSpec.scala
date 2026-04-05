@@ -189,7 +189,7 @@ class CloudArchiveManagerSpec(testSystem: ActorSystem) extends TestKit(testSyste
       * @return this test helper
       */
     def startTestArchive(optFailure: Option[Throwable] = None): ArchiveManagerTestHelper =
-      when(cacheFactory.apply(TestServerConfig.cacheDirectory.resolve(TestArchiveName))).thenReturn(cache)
+      when(cacheFactory.apply(TestServerConfig.cacheDirectory, TestArchiveName)).thenReturn(cache)
       when(contentLoader.loadContent(any(), any(), any(), any(), anyInt(), anyInt()))
         .thenReturn(Future.successful(Done))
 

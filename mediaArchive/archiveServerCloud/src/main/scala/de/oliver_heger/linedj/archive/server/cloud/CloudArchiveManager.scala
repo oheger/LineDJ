@@ -67,18 +67,16 @@ object CloudArchiveManager:
       * @param config            the configuration of this server application;
       *                          this includes the configuration of the
       *                          managed archives
-      *
       * @param downloaderFactory the factory to create a downloader for an
       *                          archive
-      *
       * @param credentialSetter  the object to set credentials
       * @param contentLoader     the object to load metadata from cloud
       *                          archives
-      *
       * @param cacheFactory      a factory to create local caches for the
       *                          metadata of cloud archives
+      *
       * @param system            the actor system
-      * @return the newly created archive manager
+      * @return                  the newly created archive manager
       */
     def apply(actorFactory: ActorFactory,
               contentActor: ActorRef[ArchiveCommands.UpdateArchiveContentCommand],
@@ -113,7 +111,6 @@ object CloudArchiveManager:
       *
       * @param exception the last error that occurred when loading the
       *                  archive
-      *
       * @param attempts  the number of attempts that were made to
       *                  load the archive
       */
@@ -224,7 +221,7 @@ object CloudArchiveManager:
                                 (using system: ActorSystem): Unit =
     val cloudArchiveConfig: CloudArchiveConfig = archiveConfig
     downloaderFactory.createDownloader(cloudArchiveConfig).flatMap: downloader =>
-      val cache = cacheFactory(cacheDirectory.resolve(archiveConfig.archiveName))
+      val cache = cacheFactory(cacheDirectory, archiveConfig.archiveName)
       contentLoader.loadContent(
         new ContentDownloader(archiveConfig, downloader),
         cache,
