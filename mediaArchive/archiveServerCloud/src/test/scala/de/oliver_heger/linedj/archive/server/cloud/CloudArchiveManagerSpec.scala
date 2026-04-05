@@ -16,16 +16,17 @@
 
 package de.oliver_heger.linedj.archive.server.cloud
 
-import de.oliver_heger.linedj.archive.cloud.{CloudArchiveConfig, CloudFileDownloader, CloudFileDownloaderFactory}
+import de.oliver_heger.linedj.archive.cloud.{ArchiveCryptConfig, CloudArchiveConfig, CloudFileDownloader, CloudFileDownloaderFactory}
 import de.oliver_heger.linedj.archive.cloud.auth.{BasicAuthMethod, Credentials}
 import de.oliver_heger.linedj.archive.server.cloud.CloudArchiveManagerSpec.{TestArchiveIndex, TestArchiveName, TestServerConfig}
 import de.oliver_heger.linedj.archive.server.model.ArchiveCommands
 import de.oliver_heger.linedj.shared.actors.{ActorFactory, ManagingActorFactory}
 import de.oliver_heger.linedj.shared.actors.ActorFactory.executionContext
 import org.apache.pekko.Done
-import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.actor.typed.ActorRef
-import org.apache.pekko.testkit.TestKit
+import org.apache.pekko.actor.{ActorSystem, typed}
+import org.apache.pekko.actor.typed.{ActorRef, Behavior}
+import org.apache.pekko.actor.typed.scaladsl.adapter.*
+import org.apache.pekko.testkit.{TestKit, TestProbe}
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.{any, anyInt, eq as argEq}
 import org.mockito.Mockito.*
@@ -35,7 +36,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import java.nio.file.Paths
-import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import scala.concurrent.{Future, Promise}
 import scala.util.Using
 
@@ -75,7 +76,7 @@ object CloudArchiveManagerSpec:
       optMaxContentSize = Some(10 * index),
       optRequestQueueSize = None,
       optTimeout = None,
-      optCryptConfig = None
+      optCryptConfig = Some(ArchiveCryptConfig(100 + index, 64 + index))
     )
 end CloudArchiveManagerSpec
 
@@ -111,6 +112,28 @@ class CloudArchiveManagerSpec(testSystem: ActorSystem) extends TestKit(testSyste
         .waitForStatus(CloudArchiveManager.CloudArchiveState.Loaded)
         .verifyContentLoaded()
 
+  it should "handle a failure when starting a cloud archive" in :
+    val loadException = new IllegalStateException("Test exception: Cannot load archive.")
+    archiveManagerTest: helper =>
+      helper.startTestArchive(optFailure = Some(loadException))
+        .waitForStatus(CloudArchiveManager.CloudArchiveState.Failure(loadException, 1))
+
+  it should "reset credentials after a failed start of an archive" in :
+    val loadException = new IllegalStateException("Test exception: Invalid credentials for archive.")
+    archiveManagerTest: helper =>
+      helper.startTestArchive(optFailure = Some(loadException))
+        .waitForStatus(CloudArchiveManager.CloudArchiveState.Failure(loadException, 1))
+        .verifyCredentialsReset()
+
+  it should "support further attempts to start an archive after a failure" in :
+    val loadException1 = new IllegalStateException("Test exception: Failure (1).")
+    val loadException2 = new IllegalStateException("Test exception: Repeated failure to load archive.")
+    archiveManagerTest: helper =>
+      helper.startTestArchive(optFailure = Some(loadException1))
+        .waitForStatus(CloudArchiveManager.CloudArchiveState.Failure(loadException1, 1))
+        .startTestArchive(optFailure = Some(loadException2))
+        .waitForStatus(CloudArchiveManager.CloudArchiveState.Failure(loadException2, 2))
+
   /**
     * A test helper class managing an instance under test and its 
     * dependencies.
@@ -120,13 +143,13 @@ class CloudArchiveManagerSpec(testSystem: ActorSystem) extends TestKit(testSyste
       * The actor factory used by tests. It needs to be cleaned up after each
       * test case to make sure that the archive manager actor gets stopped.
       */
-    private val actorFactory = ManagingActorFactory.newDefaultManagingActorFactory
+    private val actorFactory = new ActorFactoryWaitForTermination
 
     /** Mock for the content actor. */
     private val contentActor = mock[ActorRef[ArchiveCommands.UpdateArchiveContentCommand]]
 
     /** The mock for the downloader factory. */
-    private val downloaderFactory = mock[CloudFileDownloaderFactory]
+    private val downloaderFactory = createDownloaderFactory()
 
     /** The mock for the downloader for the test archive. */
     private val downloader = mock[CloudFileDownloader]
@@ -143,14 +166,19 @@ class CloudArchiveManagerSpec(testSystem: ActorSystem) extends TestKit(testSyste
     /** Mock for the cache for the test archive. */
     private val cache = mock[CloudArchiveCache]
 
-    /** The promise that yields the downloader for the test archive. */
-    private val promiseDownloader = Promise[CloudFileDownloader]()
+    /**
+      * A reference to the promise that yields the downloader for the test
+      * archive. This is returned by the stub implementation of the downloader
+      * factory, so that it is possible to update the promise dynamically. This
+      * allows testing multiple attempts to start the archive.
+      */
+    private val refPromiseDownloader = AtomicReference(Promise[CloudFileDownloader]())
 
     /** The archive manager under test. */
     private val archiveManager = createArchiveManager()
 
     override def close(): Unit =
-      actorFactory.stopActors()
+      actorFactory.close()
 
     /**
       * Triggers the start of the test archive which can be either successful
@@ -158,7 +186,6 @@ class CloudArchiveManagerSpec(testSystem: ActorSystem) extends TestKit(testSyste
       *
       * @param optFailure an [[Option]] with an exception to simulate a failure
       *                   to start the archive
-      *
       * @return this test helper
       */
     def startTestArchive(optFailure: Option[Throwable] = None): ArchiveManagerTestHelper =
@@ -166,6 +193,9 @@ class CloudArchiveManagerSpec(testSystem: ActorSystem) extends TestKit(testSyste
       when(contentLoader.loadContent(any(), any(), any(), any(), anyInt(), anyInt()))
         .thenReturn(Future.successful(Done))
 
+      val promiseDownloader = refPromiseDownloader.get()
+      // Set another promise to allow further attempts to load the test archive.
+      refPromiseDownloader.set(Promise())
       optFailure match
         case Some(exception) => promiseDownloader.failure(exception)
         case None => promiseDownloader.success(downloader)
@@ -193,6 +223,19 @@ class CloudArchiveManagerSpec(testSystem: ActorSystem) extends TestKit(testSyste
       this
 
     /**
+      * Verifies that after a failed attempt to start the test archive, its
+      * credentials are reset.
+      *
+      * @return this test helper
+      */
+    def verifyCredentialsReset(): ArchiveManagerTestHelper =
+      val testArchiveConfig = TestServerConfig.archives(TestArchiveIndex)
+      verify(credentialSetter).clearCredential(testArchiveConfig.authMethod.realm + ".username")
+      verify(credentialSetter).clearCredential(testArchiveConfig.authMethod.realm + ".password")
+      verify(credentialSetter).clearCredential(TestArchiveName)
+      this
+
+    /**
       * Waits until the expected state is reached for the test archive.
       *
       * @param expectedState the expected state
@@ -212,16 +255,26 @@ class CloudArchiveManagerSpec(testSystem: ActorSystem) extends TestKit(testSyste
       this
 
     /**
+      * Returns a stub implementation for a downloader factory that returns a 
+      * specific [[Future]] for the test archive. The test helper allows 
+      * setting this future, so that successful and failed starts of the test
+      * archive can be simulated.
+      *
+      * @return the stub [[CloudFileDownloaderFactory]]
+      */
+    private def createDownloaderFactory(): CloudFileDownloaderFactory =
+      (archiveConfig: CloudArchiveConfig) =>
+        if archiveConfig.archiveName == TestArchiveName then
+          refPromiseDownloader.get().future
+        else
+          Promise().future
+
+    /**
       * Creates the archive manager to be tested.
       *
       * @return the test instance
       */
     private def createArchiveManager(): CloudArchiveManager =
-      val unusedPromise = Promise[CloudFileDownloader]()
-      TestServerConfig.archives foreach : archive =>
-        val futDownloader = if archive.archiveName == TestArchiveName then promiseDownloader.future
-        else unusedPromise.future
-        when(downloaderFactory.createDownloader(archive)).thenReturn(futDownloader)
       CloudArchiveManager.newInstance(
         actorFactory = actorFactory,
         contentActor = contentActor,
@@ -231,3 +284,38 @@ class CloudArchiveManagerSpec(testSystem: ActorSystem) extends TestKit(testSyste
         contentLoader = contentLoader,
         cacheFactory = cacheFactory
       )
+  end ArchiveManagerTestHelper
+
+  /**
+    * A specialized implementation of [[ActorFactory]] which makes sure that
+    * the archive manager actor actually terminates. This is necessary to
+    * prevent non-unique actor name exceptions.
+    */
+  private class ActorFactoryWaitForTermination extends ActorFactory, AutoCloseable:
+    /** The underlying factory to create actors. */
+    private val wrappedFactory = ManagingActorFactory.newDefaultManagingActorFactory
+
+    /** Stores the single actor created by this factory. */
+    private val refActor = new AtomicReference[ActorRef[?]]
+
+    export wrappedFactory.{createTypedActor as oldCreateTypedActor, *}
+
+    override def createTypedActor[T](behavior: Behavior[T],
+                                     name: String,
+                                     props: typed.Props = typed.Props.empty,
+                                     optStopCommand: Option[T] = None): typed.ActorRef[T] =
+      val newActor = wrappedFactory.createTypedActor(behavior, name, props, optStopCommand)
+      refActor.compareAndSet(null, newActor) shouldBe true
+      newActor
+
+    /**
+      * @inheritdoc This implementation stops all managed actors and waits for
+      *             the termination of the archive manager actor.
+      */
+    override def close(): Unit =
+      wrappedFactory.stopActors()
+      val managerActor = refActor.get().toClassic
+      val probe = TestProbe()
+      probe.watch(managerActor)
+      probe.expectTerminated(managerActor)
+  end ActorFactoryWaitForTermination

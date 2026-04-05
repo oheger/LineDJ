@@ -16,23 +16,23 @@
 
 package de.oliver_heger.linedj.archive.server.cloud
 
-import de.oliver_heger.linedj.archive.cloud.{CloudArchiveConfig, CloudFileDownloaderFactory}
 import de.oliver_heger.linedj.archive.cloud.auth.Credentials
+import de.oliver_heger.linedj.archive.cloud.{CloudArchiveConfig, CloudFileDownloaderFactory, DefaultCloudFileDownloaderFactory}
 import de.oliver_heger.linedj.archive.server.model.ArchiveCommands
 import de.oliver_heger.linedj.shared.actors.ActorFactory
 import de.oliver_heger.linedj.shared.actors.ActorFactory.executionContext
 import org.apache.pekko.actor as classic
-import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.actor.typed
-import org.apache.pekko.actor.typed.scaladsl.adapter.*
+import org.apache.pekko.actor.{ActorSystem, typed}
 import org.apache.pekko.actor.typed.scaladsl.AskPattern.{Askable, schedulerFromActorSystem}
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
+import org.apache.pekko.actor.typed.scaladsl.adapter.*
 import org.apache.pekko.actor.typed.{ActorRef, Behavior}
 import org.apache.pekko.util.Timeout
 
 import java.nio.file.Path
 import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
+import scala.util.{Failure, Success}
 
 /**
   * A module providing a component to manage the startup of cloud archives.
@@ -67,16 +67,18 @@ object CloudArchiveManager:
       * @param config            the configuration of this server application;
       *                          this includes the configuration of the
       *                          managed archives
+      *
       * @param downloaderFactory the factory to create a downloader for an
       *                          archive
+      *
       * @param credentialSetter  the object to set credentials
       * @param contentLoader     the object to load metadata from cloud
       *                          archives
+      *
       * @param cacheFactory      a factory to create local caches for the
       *                          metadata of cloud archives
-      *
       * @param system            the actor system
-      * @return                  the newly created archive manager
+      * @return the newly created archive manager
       */
     def apply(actorFactory: ActorFactory,
               contentActor: ActorRef[ArchiveCommands.UpdateArchiveContentCommand],
@@ -111,6 +113,7 @@ object CloudArchiveManager:
       *
       * @param exception the last error that occurred when loading the
       *                  archive
+      *
       * @param attempts  the number of attempts that were made to
       *                  load the archive
       */
@@ -163,7 +166,7 @@ object CloudArchiveManager:
                        credentialSetter: Credentials.CredentialSetter,
                        contentLoader: CloudArchiveContentLoader,
                        cacheFactory: CloudArchiveCache.Factory)
-                      (using system: ActorSystem): CloudArchiveManager = 
+                      (using system: ActorSystem): CloudArchiveManager =
       given typed.ActorSystem[_] = system.toTyped
 
       // A short timeout to query the state actor.
@@ -185,6 +188,7 @@ object CloudArchiveManager:
           config.cacheDirectory,
           archive,
           downloaderFactory,
+          credentialSetter,
           contentLoader,
           cacheFactory
         )
@@ -204,6 +208,7 @@ object CloudArchiveManager:
     * @param cacheDirectory    the root directory for local caches
     * @param archiveConfig     the configuration for the archive
     * @param downloaderFactory the factory for creating downloader objects
+    * @param credentialSetter  the object to set credentials
     * @param contentLoader     the object to load the archives content
     * @param cacheFactory      the factory to create local caches
     * @param system            the actor system
@@ -213,6 +218,7 @@ object CloudArchiveManager:
                                  cacheDirectory: Path,
                                  archiveConfig: ArchiveConfig,
                                  downloaderFactory: CloudFileDownloaderFactory,
+                                 credentialSetter: Credentials.CredentialSetter,
                                  contentLoader: CloudArchiveContentLoader,
                                  cacheFactory: CloudArchiveCache.Factory)
                                 (using system: ActorSystem): Unit =
@@ -227,8 +233,23 @@ object CloudArchiveManager:
         cloudArchiveConfig.parallelism,
         cloudArchiveConfig.maxContentSize
       )
-    .foreach: _ =>
-      stateActor ! StateActorCommand.UpdateArchiveState(archiveConfig.archiveName, CloudArchiveState.Loaded)
+    .onComplete:
+      case Success(_) =>
+        stateActor ! StateActorCommand.UpdateArchiveState(archiveConfig.archiveName, CloudArchiveState.Loaded)
+      case Failure(exception) =>
+        clearCredentials(credentialSetter, cloudArchiveConfig)
+        val archiveState = CloudArchiveState.Failure(exception, 1)
+        stateActor ! StateActorCommand.UpdateArchiveState(archiveConfig.archiveName, archiveState)
+        prepareLoadArchive(
+          stateActor,
+          contentActor,
+          cacheDirectory,
+          archiveConfig,
+          downloaderFactory,
+          credentialSetter,
+          contentLoader,
+          cacheFactory
+        )
 
   /**
     * The command handler function of the state actor. This actor stores the
@@ -245,12 +266,42 @@ object CloudArchiveManager:
 
       case (ctx, StateActorCommand.UpdateArchiveState(archiveName, state)) =>
         ctx.log.info("Setting state for archive '{}' to {}.", archiveName, state)
-        val nextStates = states.state + (archiveName -> state)
+        val updatedState = state match
+          case CloudArchiveState.Failure(exception, _) =>
+            CloudArchiveState.Failure(exception, failedLoadAttempts(states, archiveName) + 1)
+          case s => s
+        val nextStates = states.state + (archiveName -> updatedState)
         handleStateActorCommand(ArchivesState(nextStates))
 
       case (ctx, StateActorCommand.Stop) =>
         ctx.log.info("Stopping state manager actor.")
         Behaviors.stopped
+
+  /**
+    * Fetches the number of failed attempts to load an archive from the given
+    * object with archive states.
+    *
+    * @param states      the object with archive states
+    * @param archiveName the name of the affected archive
+    * @return the number of failed attempts to load this archive
+    */
+  private def failedLoadAttempts(states: ArchivesState, archiveName: String): Int =
+    states.state(archiveName) match
+      case CloudArchiveState.Failure(_, attempts) => attempts
+      case _ => 0
+
+  /**
+    * Clears the credentials used by the archive with the given configuration.
+    * This function is called when loading of an archive failed. Then its
+    * credentials need to be cleared, so that another attempt can be made
+    * later.
+    *
+    * @param credentialSetter the object to set credentials
+    * @param archiveConfig    the config of the affected archive
+    */
+  private def clearCredentials(credentialSetter: Credentials.CredentialSetter,
+                               archiveConfig: CloudArchiveConfig): Unit =
+    DefaultCloudFileDownloaderFactory.credentialKeys(archiveConfig).foreach(credentialSetter.clearCredential)
 end CloudArchiveManager
 
 /**
