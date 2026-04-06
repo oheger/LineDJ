@@ -18,6 +18,7 @@ package de.oliver_heger.linedj.archive.server.cloud
 
 import de.oliver_heger.linedj.archive.cloud.{CloudArchiveConfig, CloudFileDownloader}
 import de.oliver_heger.linedj.archive.server.cloud.ContentDownloader.metadataFileName
+import de.oliver_heger.linedj.shared.archive.media.MediaFileUri
 import de.oliver_heger.linedj.shared.archive.metadata.Checksums
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.util.ByteString
@@ -59,14 +60,14 @@ class ContentDownloader(val archiveConfig: CloudArchiveConfig,
     fileDownloader.downloadFile(archiveConfig.contentPath)
 
   /**
-    * Returns a source to download the description of a medium at the given
-    * path from the associated cloud archive.
+    * Returns a source to download a file from a medium with the given relative
+    * URI from the associated cloud archive.
     *
-    * @param descriptionPath the relative description path of the medium
-    * @return a [[Future]] with the [[Source]] of this description document
+    * @param fileUri the URI to the file (relative to the media directory)
+    * @return a [[Future]] with the [[Source]] of this media file
     */
-  def loadMediumDescription(descriptionPath: String): Future[Source[ByteString, Any]] =
-    fileDownloader.downloadFile(archiveConfig.mediaPath, descriptionPath)
+  def loadMediaFile(fileUri: MediaFileUri): Future[Source[ByteString, Any]] =
+    fileDownloader.downloadFile(archiveConfig.mediaPath, fileUri.uri)
 
   /**
     * Returns a source to download the metadata document of a specific medium

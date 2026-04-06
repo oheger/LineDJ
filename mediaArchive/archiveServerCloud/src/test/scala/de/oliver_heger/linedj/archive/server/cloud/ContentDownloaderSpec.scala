@@ -18,6 +18,7 @@ package de.oliver_heger.linedj.archive.server.cloud
 
 import de.oliver_heger.linedj.archive.cloud.{CloudArchiveConfig, CloudFileDownloader}
 import de.oliver_heger.linedj.archive.cloud.auth.BasicAuthMethod
+import de.oliver_heger.linedj.shared.archive.media.MediaFileUri
 import de.oliver_heger.linedj.shared.archive.metadata.Checksums
 import org.apache.pekko.http.scaladsl.model.Uri
 import org.apache.pekko.stream.scaladsl.Source
@@ -74,7 +75,7 @@ class ContentDownloaderSpec extends AnyFlatSpec, Matchers, MockitoSugar:
 
     contentDownloader.loadContentDocument() should be(result)
 
-  it should "return a source for the description of a medium" in :
+  it should "return a source for a file on a medium" in :
     val MediumDescriptionPath = "nice-medium/my-description.json"
     val downloader = mock[CloudFileDownloader]
     val result = createResult()
@@ -82,7 +83,7 @@ class ContentDownloaderSpec extends AnyFlatSpec, Matchers, MockitoSugar:
 
     val contentDownloader = ContentDownloader(TestArchiveConfig, downloader)
 
-    contentDownloader.loadMediumDescription(MediumDescriptionPath) should be(result)
+    contentDownloader.loadMediaFile(MediaFileUri(MediumDescriptionPath)) should be(result)
 
   it should "return a source for the metadata document of a medium" in :
     val MediumID = Checksums.MediumChecksum("test-medium-id")

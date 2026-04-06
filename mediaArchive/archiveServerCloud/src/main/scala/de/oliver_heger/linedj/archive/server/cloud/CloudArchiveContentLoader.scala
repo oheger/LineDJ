@@ -22,7 +22,7 @@ import de.oliver_heger.linedj.archivecommon.parser.MetadataParser
 import de.oliver_heger.linedj.io.parser.JsonStreamParser
 import de.oliver_heger.linedj.io.stream.StreamSizeRestrictionStage
 import de.oliver_heger.linedj.shared.actors.ActorFactory.executionContext
-import de.oliver_heger.linedj.shared.archive.media.{MediumDescription, MediumID}
+import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumDescription, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.Checksums
 import org.apache.logging.log4j.LogManager
 import org.apache.pekko.actor.typed.ActorRef
@@ -297,7 +297,7 @@ class CloudArchiveContentLoader(using system: classic.ActorSystem):
                                     maxContentSizeKb: Int): Future[Any] =
     val mediumID = Checksums.MediumChecksum(mediumEntry.checksum)
     val futDescriptionSource = restrictedSource(
-      downloader.loadMediumDescription(mediumEntry.mediumDescriptionPath),
+      downloader.loadMediaFile(MediaFileUri(mediumEntry.mediumDescriptionPath)),
       maxContentSizeKb
     )
     val futSongsSource = restrictedSource(downloader.loadMediumMetadata(mediumID), maxContentSizeKb)

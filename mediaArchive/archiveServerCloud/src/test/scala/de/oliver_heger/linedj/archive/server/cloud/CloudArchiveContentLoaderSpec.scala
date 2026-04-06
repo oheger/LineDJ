@@ -385,7 +385,7 @@ class CloudArchiveContentLoaderSpec(testSystem: classic.ActorSystem) extends Tes
       * @return this test helper
       */
     def expectDescriptionDownload(path: String)(src: SourceProvider): LoaderTestHelper =
-      when(downloader.loadMediumDescription(path)).thenAnswer((invocation: InvocationOnMock) => src())
+      when(downloader.loadMediaFile(MediaFileUri(path))).thenAnswer((invocation: InvocationOnMock) => src())
       this
 
     /**
