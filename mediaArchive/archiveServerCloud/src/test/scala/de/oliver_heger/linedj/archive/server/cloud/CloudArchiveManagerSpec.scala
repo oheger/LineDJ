@@ -109,7 +109,7 @@ class CloudArchiveManagerSpec(testSystem: ActorSystem) extends TestKit(testSyste
   it should "successfully start a cloud archive" in :
     archiveManagerTest: helper =>
       helper.startTestArchive()
-        .waitForStatus(CloudArchiveManager.CloudArchiveState.Loaded)
+        .waitForLoadedStatus()
         .verifyContentLoaded()
 
   it should "handle a failure when starting a cloud archive" in :
@@ -186,6 +186,7 @@ class CloudArchiveManagerSpec(testSystem: ActorSystem) extends TestKit(testSyste
       *
       * @param optFailure an [[Option]] with an exception to simulate a failure
       *                   to start the archive
+      *
       * @return this test helper
       */
     def startTestArchive(optFailure: Option[Throwable] = None): ArchiveManagerTestHelper =
@@ -242,9 +243,32 @@ class CloudArchiveManagerSpec(testSystem: ActorSystem) extends TestKit(testSyste
       * @return this test helper
       */
     def waitForStatus(expectedState: CloudArchiveManager.CloudArchiveState): ArchiveManagerTestHelper =
+      waitForStatus(_ == expectedState)
+
+    /**
+      * Waits until the archive state indicates that the test archive has been
+      * loaded.
+      *
+      * @return this test helper
+      */
+    def waitForLoadedStatus(): ArchiveManagerTestHelper =
+      waitForStatus: state =>
+        state match
+          case CloudArchiveManager.CloudArchiveState.Loaded(loader) if loader.fileDownloader == downloader =>
+            true
+          case _ => false
+
+    /**
+      * Waits until a state is reached for the test archive for which the given
+      * comparison function returns '''true'''.
+      *
+      * @param comparison the comparison function
+      * @return this test helper
+      */
+    private def waitForStatus(comparison: CloudArchiveManager.CloudArchiveState => Boolean): ArchiveManagerTestHelper =
       def checkStatus(): Future[Boolean] =
         archiveManager.archivesState.flatMap: state =>
-          if state.state(TestArchiveName) == expectedState then
+          if comparison(state.state(TestArchiveName)) then
             Future.successful(true)
           else
             checkStatus()

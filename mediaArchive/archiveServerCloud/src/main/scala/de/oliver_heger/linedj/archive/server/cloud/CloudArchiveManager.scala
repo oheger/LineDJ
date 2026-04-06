@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.archive.server.cloud
 
 import de.oliver_heger.linedj.archive.cloud.auth.Credentials
-import de.oliver_heger.linedj.archive.cloud.{CloudArchiveConfig, CloudFileDownloaderFactory, DefaultCloudFileDownloaderFactory}
+import de.oliver_heger.linedj.archive.cloud.{CloudArchiveConfig, CloudFileDownloader, CloudFileDownloaderFactory, DefaultCloudFileDownloaderFactory}
 import de.oliver_heger.linedj.archive.server.model.ArchiveCommands
 import de.oliver_heger.linedj.shared.actors.ActorFactory
 import de.oliver_heger.linedj.shared.actors.ActorFactory.executionContext
@@ -100,9 +100,11 @@ object CloudArchiveManager:
 
     /**
       * The data from the archive has been loaded. It can be accessed, media
-      * files can be downloaded.
+      * files can be downloaded using the contained [[ContentDownloader]].
+      *
+      * @param downloader the [[ContentDownloader]] for this archive
       */
-    case Loaded
+    case Loaded(downloader: ContentDownloader)
 
     /**
       * Loading of the archive has failed. The state stores the latest error
@@ -111,6 +113,7 @@ object CloudArchiveManager:
       *
       * @param exception the last error that occurred when loading the
       *                  archive
+      *
       * @param attempts  the number of attempts that were made to
       *                  load the archive
       */
@@ -220,19 +223,22 @@ object CloudArchiveManager:
                                  cacheFactory: CloudArchiveCache.Factory)
                                 (using system: ActorSystem): Unit =
     val cloudArchiveConfig: CloudArchiveConfig = archiveConfig
-    downloaderFactory.createDownloader(cloudArchiveConfig).flatMap: downloader =>
-      val cache = cacheFactory(cacheDirectory, archiveConfig.archiveName)
-      contentLoader.loadContent(
-        new ContentDownloader(archiveConfig, downloader),
+    (for
+      downloader <- downloaderFactory.createDownloader(cloudArchiveConfig)
+      contentDownloader <- createContentDownloader(cloudArchiveConfig, downloader)
+      cache = cacheFactory(cacheDirectory, archiveConfig.archiveName)
+      _ <- contentLoader.loadContent(
+        contentDownloader,
         cache,
         archiveConfig.archiveName,
         contentActor,
         cloudArchiveConfig.parallelism,
         cloudArchiveConfig.maxContentSize
       )
-    .onComplete:
-      case Success(_) =>
-        stateActor ! StateActorCommand.UpdateArchiveState(archiveConfig.archiveName, CloudArchiveState.Loaded)
+    yield contentDownloader).onComplete:
+      case Success(contentDownloader) =>
+        val state = CloudArchiveState.Loaded(contentDownloader)
+        stateActor ! StateActorCommand.UpdateArchiveState(archiveConfig.archiveName, state)
       case Failure(exception) =>
         clearCredentials(credentialSetter, cloudArchiveConfig)
         val archiveState = CloudArchiveState.Failure(exception, 1)
@@ -247,6 +253,19 @@ object CloudArchiveManager:
           contentLoader,
           cacheFactory
         )
+
+  /**
+    * Creates a [[ContentDownloader]] from the passed in parameters and returns
+    * it as a [[Future]], so that the value can be combined with other future
+    * results.
+    *
+    * @param archiveConfig the configuration for the affected archive
+    * @param downloader    the [[CloudFileDownloader]] to be used
+    * @return a [[Future]] with the new [[ContentDownloader]]
+    */
+  private def createContentDownloader(archiveConfig: CloudArchiveConfig,
+                                      downloader: CloudFileDownloader): Future[ContentDownloader] =
+    Future.successful(new ContentDownloader(archiveConfig, downloader))
 
   /**
     * The command handler function of the state actor. This actor stores the
