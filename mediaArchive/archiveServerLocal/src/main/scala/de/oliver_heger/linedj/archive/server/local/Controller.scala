@@ -58,8 +58,14 @@ class Controller(metadataListenerFactory: ArchiveContentMetadataProcessingListen
 
   override type ArchiveConfig = Seq[MediaArchiveConfig]
 
+  override type CustomContext = Unit
+
   override protected def configLoader: ConfigLoader[ArchiveConfig] = config =>
     Try(MediaArchiveConfig.loadMediaArchiveConfigs(config))
+
+  override def createCustomContext(context: ArchiveController.ArchiveServerContext[ArchiveConfig, Unit])
+                                  (using services: ServerController.ServerServices): Future[Unit] =
+    Future.successful(())
 
   override def fileResolverFunc(context: Context): FileResolverFunc =
     MediaFileResolverLocal.localFileResolverFunc(context.serverConfig.archiveConfig)

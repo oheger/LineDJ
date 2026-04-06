@@ -32,6 +32,7 @@ import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
+import scala.concurrent.Future
 import scala.util.Try
 
 /**
@@ -90,6 +91,7 @@ class ArchiveControllerSpec(testSystem: classics.ActorSystem) extends TestKit(te
       context.contentActor should be(helper.contentActor)
       context.serverConfig.serverPort should be(8080)
       context.serverConfig.archiveConfig should be(42)
+      context.customContext should be("testCustomContext")
 
   it should "load the configuration from an alternative location" in :
     val ConfigFileName = "test-base-archive-server-config.xml"
@@ -113,7 +115,8 @@ class ArchiveControllerSpec(testSystem: classics.ActorSystem) extends TestKit(te
     )
     val context = ArchiveController.ArchiveServerContext(
       serverConfig = config,
-      contentActor = helper.contentActor
+      contentActor = helper.contentActor,
+      customContext = ()
     ).asInstanceOf[helper.controller.Context]
 
     helper.controller.serverParameters(context)(using helper.services) map : params =>
@@ -156,12 +159,20 @@ class ArchiveControllerSpec(testSystem: classics.ActorSystem) extends TestKit(te
 
         override type ArchiveConfig = Int
 
+        override type CustomContext = String
+
         /**
           * @inheritdoc This implementation simply returns a value from the
           *             test configuration.
           */
         override protected def configLoader: ConfigLoader[ArchiveConfig] = config =>
           Try(config.getInt("test.value"))
+
+        override def createCustomContext(context: ArchiveController.ArchiveServerContext[ArchiveConfig, Unit])
+                                        (using services: ServerController.ServerServices): Future[String] =
+          context.serverConfig.archiveConfig should be(42)
+          context.contentActor should not be null
+          Future.successful("testCustomContext")
 
         override def fileResolverFunc(context: Context): FileResolverFunc =
           throw new UnsupportedOperationException("Unexpected call.")

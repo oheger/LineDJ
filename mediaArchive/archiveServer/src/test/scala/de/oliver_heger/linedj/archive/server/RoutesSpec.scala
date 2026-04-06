@@ -117,15 +117,22 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with BeforeAndAfterE
     val controller = new ArchiveController with SystemPropertyAccess:
       override type ArchiveConfig = Unit
 
+      override type CustomContext = Unit
+
       override def fileResolverFunc(context: Context): FileResolverFunc =
         context.serverConfig should be(config)
         resolver
 
       override protected def configLoader: ConfigLoader[Unit] = _ => Success(())
 
+      override def createCustomContext(context: ArchiveController.ArchiveServerContext[ArchiveConfig, Unit])
+                                      (using services: ServerController.ServerServices): Future[Unit] =
+        Future.successful(())
+
     val context = ArchiveController.ArchiveServerContext(
       serverConfig = config,
-      contentActor = contentActor
+      contentActor = contentActor,
+      customContext = ()
     )
     val services = ServerController.ServerServices(system, ManagingActorFactory.newDefaultManagingActorFactory)
     val shutdownPromise = Promise[Done]()

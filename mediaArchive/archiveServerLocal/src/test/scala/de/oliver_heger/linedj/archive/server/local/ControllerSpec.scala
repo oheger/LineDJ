@@ -156,6 +156,7 @@ class ControllerSpec(testSystem: classics.ActorSystem) extends TestKit(testSyste
       refGroupActorCreated.get() shouldBe true
       context.contentActor should be(contentActor.ref)
       context.serverConfig.serverPort should be(8080)
+      context.customContext should be(())
 
   it should "provide a correct media file resolver" in :
     val archiveConfig = createArchiveConfigWithRootPath("testArchive")
@@ -171,7 +172,8 @@ class ControllerSpec(testSystem: classics.ActorSystem) extends TestKit(testSyste
     )
     val context = ArchiveController.ArchiveServerContext(
       serverConfig = serverConfig,
-      contentActor = typedTestKit.spawn(ArchiveContentActor.behavior())
+      contentActor = typedTestKit.spawn(ArchiveContentActor.behavior()),
+      customContext = ()
     )
     val controller = new Controller() with SystemPropertyAccess {}
 
