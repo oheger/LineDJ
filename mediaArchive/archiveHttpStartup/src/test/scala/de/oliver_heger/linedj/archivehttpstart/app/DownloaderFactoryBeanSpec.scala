@@ -28,6 +28,7 @@ import org.apache.commons.configuration.PropertiesConfiguration
 import org.apache.pekko.actor as classic
 import org.apache.pekko.http.scaladsl.model.Uri
 import org.apache.pekko.testkit.TestKit
+import org.mockito.ArgumentMatchers.{any, eq as argEq}
 import org.mockito.Mockito
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AsyncFlatSpecLike
@@ -94,9 +95,12 @@ class DownloaderFactoryBeanSpec(testSystem: classic.ActorSystem) extends TestKit
       clientSecret = clientSecret,
       initTokenData = tokenData
     )
-    Mockito.when(storageService.loadConfig(storageConfig)).thenReturn(Future.successful(oauthConfig))
-    Mockito.when(storageService.loadClientSecret(storageConfig)).thenReturn(Future.successful(clientSecret))
-    Mockito.when(storageService.loadTokens(storageConfig)).thenReturn(Future.successful(tokenData))
+    Mockito.when(storageService.loadConfig(argEq(storageConfig))(using any(), any()))
+      .thenReturn(Future.successful(oauthConfig))
+    Mockito.when(storageService.loadClientSecret(argEq(storageConfig))(using any(), any()))
+      .thenReturn(Future.successful(clientSecret))
+    Mockito.when(storageService.loadTokens(argEq(storageConfig))(using any(), any()))
+      .thenReturn(Future.successful(tokenData))
     val credentialSetter = bean.credentialSetter()
     credentialSetter.setCredential(storageConfig.baseName, oauthSecret)
 

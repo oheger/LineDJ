@@ -20,10 +20,11 @@ import com.github.cloudfiles.core.http.Secret
 import com.github.cloudfiles.core.http.auth.{AuthConfig, BasicAuthConfig, OAuthTokenData, OAuthConfig as CloudOAuthConfig}
 import de.oliver_heger.linedj.archive.cloud.CloudArchiveConfig
 import de.oliver_heger.linedj.archive.cloud.auth.oauth.{OAuthConfig, OAuthStorageConfig, OAuthStorageService}
+import de.oliver_heger.linedj.shared.actors.ActorFactory.executionContext
 import org.apache.pekko.actor.ActorSystem
 
 import java.nio.file.Path
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
 /**
   * A default implementation of the [[AuthConfigFactory]] trait.
@@ -47,13 +48,12 @@ import scala.concurrent.{ExecutionContext, Future}
   * @param storageService the service to load OAuth configurations and tokens
   * @param storagePath    the path where OAuth configurations are stored
   * @param resolverFunc   the function to resolve credentials
-  * @param ec             the execution context
   */
-class DefaultAuthConfigFactory(storageService:
+class DefaultAuthConfigFactory(val storageService:
                                OAuthStorageService[OAuthStorageConfig, OAuthConfig, Secret, OAuthTokenData],
-                               storagePath: Path)
-                              (resolverFunc: Credentials.ResolverFunc)
-                              (using ec: ExecutionContext, system: ActorSystem) extends AuthConfigFactory:
+                               val storagePath: Path,
+                               override val resolverFunc: Credentials.ResolverFunc)
+                              (using system: ActorSystem) extends AuthConfigFactory:
   override def createAuthConfig(config: CloudArchiveConfig): Future[AuthConfig] =
     config.authMethod match
       case basic: BasicAuthMethod =>

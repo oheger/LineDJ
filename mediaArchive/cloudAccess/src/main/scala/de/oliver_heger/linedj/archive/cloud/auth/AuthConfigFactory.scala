@@ -27,9 +27,20 @@ import scala.concurrent.Future
   *
   * An implementation is responsible to evaluate the [[CloudArchiveConfig]] of
   * the archive to figure out the required [[AuthMethod]] and obtain the
-  * corresponding credentials.
+  * corresponding credentials. Credentials are resolved via a resolver function
+  * that is also managed by an implementation.
   */
 trait AuthConfigFactory:
+  /**
+    * Returns the [[Credentials.ResolverFunc]] that is used to obtain the
+    * credentials for authentication. This function is also used at other
+    * places in the process of accessing cloud archives, for instance, when
+    * encrypted archives are involved. Therefore, it makes sense to expose it
+    * here.
+    * @return
+    */
+  def resolverFunc: Credentials.ResolverFunc
+  
   /**
     * Creates the [[AuthConfig]] to be used when connecting to the cloud
     * archive described by the passed in configuration. This includes obtaining

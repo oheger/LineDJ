@@ -22,6 +22,7 @@ import de.oliver_heger.linedj.archive.cloud.CloudArchiveConfig
 import de.oliver_heger.linedj.archive.cloud.auth.oauth.{OAuthConfig, OAuthStorageConfig, OAuthStorageService}
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.testkit.TestKit
+import org.mockito.ArgumentMatchers.{any, eq as argEq}
 import org.mockito.Mockito.*
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AsyncFlatSpecLike
@@ -103,7 +104,7 @@ class DefaultAuthConfigFactorySpec(testSystem: ActorSystem) extends TestKit(test
     )
     val resolver = resolverFunc(credentials)
 
-    val factory = new DefaultAuthConfigFactory(createStorageServiceMock(), TestStoragePath)(resolver)
+    val factory = new DefaultAuthConfigFactory(createStorageServiceMock(), TestStoragePath, resolver)
     factory.createAuthConfig(createArchiveConfig(authMethod)) map : authConfig =>
       authConfig should be(BasicAuthConfig(Username.secret, Password))
 
@@ -117,7 +118,7 @@ class DefaultAuthConfigFactorySpec(testSystem: ActorSystem) extends TestKit(test
       requestedCredentials.offer(key)
       Promise().future
 
-    val factory = new DefaultAuthConfigFactory(createStorageServiceMock(), TestStoragePath)(resolver)
+    val factory = new DefaultAuthConfigFactory(createStorageServiceMock(), TestStoragePath, resolver)
     factory.createAuthConfig(createArchiveConfig(authMethod))
     requestedCredentials.poll(3, TimeUnit.SECONDS)
     requestedCredentials.poll(3, TimeUnit.SECONDS) should not be null
@@ -145,10 +146,13 @@ class DefaultAuthConfigFactorySpec(testSystem: ActorSystem) extends TestKit(test
       clientSecret = TestClientSecret,
       initTokenData = tokenData
     )
-    when(storageService.loadConfig(storageConfig)).thenReturn(Future.successful(oauthConfig))
-    when(storageService.loadClientSecret(storageConfig)).thenReturn(Future.successful(TestClientSecret))
-    when(storageService.loadTokens(storageConfig)).thenReturn(Future.successful(tokenData))
+    when(storageService.loadConfig(argEq(storageConfig))(using any(), any()))
+      .thenReturn(Future.successful(oauthConfig))
+    when(storageService.loadClientSecret(argEq(storageConfig))(using any(), any()))
+      .thenReturn(Future.successful(TestClientSecret))
+    when(storageService.loadTokens(argEq(storageConfig))(using any(), any()))
+      .thenReturn(Future.successful(tokenData))
 
-    val factory = new DefaultAuthConfigFactory(storageService, TestStoragePath)(resolver)
+    val factory = new DefaultAuthConfigFactory(storageService, TestStoragePath, resolver)
     factory.createAuthConfig(createArchiveConfig(authMethod)) map : authConfig =>
       authConfig should be(expConfig)

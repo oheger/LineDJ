@@ -83,8 +83,9 @@ case class DownloaderFactoryBean(actorSystem: ActorSystem,
 
     val authFactory = DefaultAuthConfigFactory(
       storageService = storageService,
-      storagePath = Paths.get(clientApplicationContext.managementConfiguration.getString(PropOAuthStoragePath))
-    )(credentialsResolverData._2)
+      storagePath = Paths.get(clientApplicationContext.managementConfiguration.getString(PropOAuthStoragePath)),
+      resolverFunc = credentialsResolverData._2
+    )
     DefaultCloudFileDownloaderFactory(authFactory, senderFactory)(credentialsResolverData._2)
 
   /**
