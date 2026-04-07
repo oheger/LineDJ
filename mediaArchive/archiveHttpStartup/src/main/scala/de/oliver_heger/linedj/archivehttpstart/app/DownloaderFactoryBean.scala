@@ -86,7 +86,7 @@ case class DownloaderFactoryBean(actorSystem: ActorSystem,
       storagePath = Paths.get(clientApplicationContext.managementConfiguration.getString(PropOAuthStoragePath)),
       resolverFunc = credentialsResolverData._2
     )
-    DefaultCloudFileDownloaderFactory(authFactory, senderFactory)(credentialsResolverData._2)
+    DefaultCloudFileDownloaderFactory(authFactory, senderFactory)
 
   /**
     * Returns the credentials setter object that is connected to the downloader

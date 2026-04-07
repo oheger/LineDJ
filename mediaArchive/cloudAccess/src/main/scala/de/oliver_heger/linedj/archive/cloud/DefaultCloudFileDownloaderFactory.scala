@@ -25,6 +25,7 @@ import com.github.cloudfiles.crypt.fs.resolver.CachePathComponentsResolver
 import com.github.cloudfiles.crypt.fs.{CryptConfig, CryptContentFileSystem, CryptNamesConfig, CryptNamesFileSystem}
 import de.oliver_heger.linedj.archive.cloud.auth.{AuthConfigFactory, Credentials}
 import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystemFactory.CloudArchiveFileSystem
+import de.oliver_heger.linedj.shared.actors.ActorFactory.executionContext
 import de.oliver_heger.linedj.shared.archive.media.UriHelper
 import org.apache.pekko.actor.typed.scaladsl.adapter.*
 import org.apache.pekko.actor.{ActorSystem, typed}
@@ -116,14 +117,11 @@ end DefaultCloudFileDownloaderFactory
   *
   * @param authConfigFactory    the factory for the authentication config
   * @param requestSenderFactory the factory to create a request sender actor
-  * @param resolver             the function to resolve credentials
-  * @param ec                   the execution context
   * @param system               the actor system
   */
 class DefaultCloudFileDownloaderFactory(val authConfigFactory: AuthConfigFactory,
                                         val requestSenderFactory: HttpRequestSenderFactory)
-                                       (resolver: Credentials.ResolverFunc)
-                                       (using ec: ExecutionContext, system: ActorSystem)
+                                       (using system: ActorSystem)
   extends CloudFileDownloaderFactory:
 
   import DefaultCloudFileDownloaderFactory.*
@@ -132,7 +130,7 @@ class DefaultCloudFileDownloaderFactory(val authConfigFactory: AuthConfigFactory
     for
       authConfig <- authConfigFactory.createAuthConfig(config)
       fs <- Future.fromTry(config.fileSystemFactory.createFileSystem(config.archiveBaseUri.toString, config.timeout))
-      fsCrypt <- wrapWithCryptFileSystem(fs, config)(resolver)
+      fsCrypt <- wrapWithCryptFileSystem(fs, config)(authConfigFactory.resolverFunc)
     yield
       val senderConfig = createSenderConfig(config, authConfig)
       val spawner: Spawner = system

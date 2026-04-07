@@ -315,7 +315,7 @@ class DefaultCloudFileDownloaderFactorySpec(testSystem: ActorSystem) extends Tes
 
     /** The downloader factory to be tested. */
     private val downloaderFactory =
-      new DefaultCloudFileDownloaderFactory(authConfigFactory, requestSenderFactory)(createResolverFunc())
+      new DefaultCloudFileDownloaderFactory(authConfigFactory, requestSenderFactory)
 
     /**
       * Creates a [[CloudArchiveConfig]] with default settings and the provided
@@ -433,7 +433,9 @@ class DefaultCloudFileDownloaderFactorySpec(testSystem: ActorSystem) extends Tes
       */
     private def createAuthConfigFactory(): AuthConfigFactory =
       val authFactory = mock[AuthConfigFactory]
+      val resolverFunc = createResolverFunc()
       when(authFactory.createAuthConfig(any())).thenReturn(Future.successful(TestAuthConfig))
+      when(authFactory.resolverFunc).thenReturn(resolverFunc)
       authFactory
 
     /**
