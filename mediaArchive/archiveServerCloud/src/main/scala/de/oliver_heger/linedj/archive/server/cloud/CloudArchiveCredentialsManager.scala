@@ -132,34 +132,48 @@ object CloudArchiveCredentialsManager:
   private given random: SecureRandom = SecureRandom()
 
   /**
-    * Creates a new instance of [[CloudArchiveCredentialsManager]] that
-    * searches for credential files in the specified directory.
-    *
-    * @param credentialDirectory  the directory storing credential files
-    * @param factory              the actor factory
-    * @param credentialsActorName the name of the credential manager actor
-    * @param timeout              the timeout for ask operations
-    * @return the new [[CloudArchiveCredentialsManager]] object
+    * A factory trait for creating new instances of
+    * [[CloudArchiveCredentialsManager]].
     */
-  def apply(credentialDirectory: Path,
-            factory: ActorFactory,
-            credentialsActorName: String = Credentials.CredentialsManagerName)
-           (using timeout: Timeout): CloudArchiveCredentialsManager =
-    given ActorSystem = factory.actorSystem
+  trait Factory:
+    /**
+      * Creates a new instance of [[CloudArchiveCredentialsManager]] that
+      * searches for credential files in the specified directory.
+      *
+      * @param credentialDirectory  the directory storing credential files
+      * @param factory              the actor factory
+      * @param credentialsActorName the name of the credential manager actor
+      * @param timeout              the timeout for ask operations
+      * @return the new [[CloudArchiveCredentialsManager]] object
+      */
+    def apply(credentialDirectory: Path,
+              factory: ActorFactory,
+              credentialsActorName: String = Credentials.CredentialsManagerName)
+             (using timeout: Timeout): CloudArchiveCredentialsManager
 
-    val (setter, resolver) = Credentials.setUpCredentialsManager(factory, credentialsActorName)
+  /**
+    * A default factory object for creating new instances of this class.
+    */
+  final val newInstance: Factory = new Factory:
+    override def apply(credentialDirectory: Path,
+                       factory: ActorFactory,
+                       credentialsActorName: String)
+                      (using timeout: Timeout): CloudArchiveCredentialsManager =
+      given ActorSystem = factory.actorSystem
 
-    val futInit = LocalFsUtils.listFolder(credentialDirectory, factory.actorSystem, FileExtensions) map : files =>
-      files.foreach: file =>
-        processCredentialsFile(file, setter, resolver)
+      val (setter, resolver) = Credentials.setUpCredentialsManager(factory, credentialsActorName)
 
-    futInit.onComplete:
-      case Success(files) =>
-        log.info("Credentials directory has been processed.")
-      case Failure(exception) =>
-        log.error("Could not load credential files from directory '{}'.", credentialDirectory, exception)
+      val futInit = LocalFsUtils.listFolder(credentialDirectory, factory.actorSystem, FileExtensions) map : files =>
+        files.foreach: file =>
+          processCredentialsFile(file, setter, resolver)
 
-    new CloudArchiveCredentialsManager(resolver, setter, futInit.map(_ => Done))
+      futInit.onComplete:
+        case Success(files) =>
+          log.info("Credentials directory has been processed.")
+        case Failure(exception) =>
+          log.error("Could not load credential files from directory '{}'.", credentialDirectory, exception)
+
+      new CloudArchiveCredentialsManager(resolver, setter, futInit.map(_ => Done))
 
   /**
     * Processes a file with credentials that has been found in the credential
@@ -333,7 +347,7 @@ end CloudArchiveCredentialsManager
   * @param system       the actor system
   */
 class CloudArchiveCredentialsManager(val resolverFunc: Credentials.ResolverFunc,
-                                     setter: Credentials.CredentialSetter,
+                                     val setter: Credentials.CredentialSetter,
                                      val initFuture: Future[Done])
                                     (using system: ActorSystem):
   /**

@@ -139,7 +139,7 @@ class CloudArchiveCredentialsManagerSpec(testSystem: ActorSystem) extends TestKi
     )
     writeFileContent(createPathInDirectory("plain-credentials.json"), toCredentialJson(credentials))
 
-    val credentialsManager = CloudArchiveCredentialsManager(testDirectory, implicitly)
+    val credentialsManager = CloudArchiveCredentialsManager.newInstance(testDirectory, implicitly)
     val futResolved = credentials.map: (key, _) =>
       credentialsManager.resolverFunc(key).map(key -> _.secret)
 
@@ -148,14 +148,14 @@ class CloudArchiveCredentialsManagerSpec(testSystem: ActorSystem) extends TestKi
 
   it should "complete the initFuture when the object has been initialized" in :
     copyCryptTestFile()
-    val credentialsManager = CloudArchiveCredentialsManager(testDirectory, implicitly, "initFuture")
+    val credentialsManager = CloudArchiveCredentialsManager.newInstance(testDirectory, implicitly, "initFuture")
 
     credentialsManager.initFuture map : d =>
       d should be(Done)
 
   it should "handle an invalid credentials directory" in :
     val nonExistingPath = Paths.get("a", "non", "existing", "directory")
-    val credentialsManager = CloudArchiveCredentialsManager(nonExistingPath, implicitly, "invalidDir")
+    val credentialsManager = CloudArchiveCredentialsManager.newInstance(nonExistingPath, implicitly, "invalidDir")
 
     // We can only test that an initialized credentials manager is returned.
     credentialsManager should not be null
@@ -163,14 +163,14 @@ class CloudArchiveCredentialsManagerSpec(testSystem: ActorSystem) extends TestKi
 
   it should "fail the initFuture if there is an initialization error" in :
     val nonExistingPath = Paths.get("a", "non", "existing", "directory")
-    val credentialsManager = CloudArchiveCredentialsManager(nonExistingPath, implicitly, "failedInit")
+    val credentialsManager = CloudArchiveCredentialsManager.newInstance(nonExistingPath, implicitly, "failedInit")
 
     recoverToExceptionIf[IOException](credentialsManager.initFuture) map : exception =>
       exception.getMessage should include(nonExistingPath.toString)
 
   it should "handle encrypted JSON files in the credentials directory" in :
     copyCryptTestFile()
-    val credentialsManager = CloudArchiveCredentialsManager(testDirectory, implicitly, "cryptFile")
+    val credentialsManager = CloudArchiveCredentialsManager.newInstance(testDirectory, implicitly, "cryptFile")
 
     val credentials = Map(CryptFileName -> CryptFileSecret)
     for
@@ -182,7 +182,11 @@ class CloudArchiveCredentialsManagerSpec(testSystem: ActorSystem) extends TestKi
 
   it should "support overriding a wrong secret for an encrypted credentials file" in :
     copyCryptTestFile()
-    val credentialsManager = CloudArchiveCredentialsManager(testDirectory, implicitly, "cryptFileInvalidSecret")
+    val credentialsManager = CloudArchiveCredentialsManager.newInstance(
+      testDirectory,
+      implicitly, 
+      "cryptFileInvalidSecret"
+    )
 
     val invalidCredentials = Map(CryptFileName -> "anIncorrectSecret")
     val credentials = Map("file://" + CryptFileName -> CryptFileSecret)
@@ -203,7 +207,7 @@ class CloudArchiveCredentialsManagerSpec(testSystem: ActorSystem) extends TestKi
 
   it should "provide information about pending credential keys" in :
     copyCryptTestFile()
-    val credentialsManager = CloudArchiveCredentialsManager(testDirectory, implicitly, "credentialKeys")
+    val credentialsManager = CloudArchiveCredentialsManager.newInstance(testDirectory, implicitly, "credentialKeys")
     val archiveCredentials = List("test.user", "test.password", "my-test-archive")
     archiveCredentials.foreach(credentialsManager.resolverFunc.apply)
 
@@ -221,7 +225,11 @@ class CloudArchiveCredentialsManagerSpec(testSystem: ActorSystem) extends TestKi
 
   it should "report the outcome of a setCredentials operation" in :
     val pendingCredentials = List("archive.user", "archive.password", "passwords-file")
-    val credentialsManager = CloudArchiveCredentialsManager(testDirectory, implicitly, "setCredentialsResult")
+    val credentialsManager = CloudArchiveCredentialsManager.newInstance(
+      testDirectory,
+      implicitly, 
+      "setCredentialsResult"
+    )
     pendingCredentials.foreach(credentialsManager.resolverFunc.apply)
     val credentialsToSet = "unknown" :: "invalid" :: "don't-know" :: pendingCredentials
     val credentials = credentialsToSet.map(key => key -> s"$key-value").toMap
@@ -233,7 +241,7 @@ class CloudArchiveCredentialsManagerSpec(testSystem: ActorSystem) extends TestKi
   it should "not set invalid credentials" in :
     val CredentialKey = "theCred"
     val CredentialValue = "the-expected-value"
-    val credentialManager = CloudArchiveCredentialsManager(testDirectory, implicitly, "setInvalidCred")
+    val credentialManager = CloudArchiveCredentialsManager.newInstance(testDirectory, implicitly, "setInvalidCred")
 
     credentialManager.setCredentials(toCredentialSource(Map(CredentialKey -> "wrong-value")))
     val futValue = credentialManager.resolverFunc(CredentialKey)
