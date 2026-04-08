@@ -165,7 +165,7 @@ class ArchiveControllerSpec(testSystem: classics.ActorSystem) extends TestKit(te
           * @inheritdoc This implementation simply returns a value from the
           *             test configuration.
           */
-        override protected def configLoader: ConfigLoader[ArchiveConfig] = config =>
+        override def configLoader: ConfigLoader[ArchiveConfig] = config =>
           Try(config.getInt("test.value"))
 
         override def createCustomContext(context: ArchiveController.ArchiveServerContext[ArchiveConfig, Unit])

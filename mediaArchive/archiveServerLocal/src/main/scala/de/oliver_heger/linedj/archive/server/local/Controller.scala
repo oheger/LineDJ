@@ -60,7 +60,7 @@ class Controller(metadataListenerFactory: ArchiveContentMetadataProcessingListen
 
   override type CustomContext = Unit
 
-  override protected def configLoader: ConfigLoader[ArchiveConfig] = config =>
+  override def configLoader: ConfigLoader[ArchiveConfig] = config =>
     Try(MediaArchiveConfig.loadMediaArchiveConfigs(config))
 
   override def createCustomContext(context: ArchiveController.ArchiveServerContext[ArchiveConfig, Unit])

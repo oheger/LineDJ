@@ -123,7 +123,7 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with BeforeAndAfterE
         context.serverConfig should be(config)
         resolver
 
-      override protected def configLoader: ConfigLoader[Unit] = _ => Success(())
+      override def configLoader: ConfigLoader[Unit] = _ => Success(())
 
       override def createCustomContext(context: ArchiveController.ArchiveServerContext[ArchiveConfig, Unit])
                                       (using services: ServerController.ServerServices): Future[Unit] =

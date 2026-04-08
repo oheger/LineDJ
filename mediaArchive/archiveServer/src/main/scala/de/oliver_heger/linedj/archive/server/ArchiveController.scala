@@ -98,7 +98,7 @@ trait ArchiveController extends ServerController:
     *
     * @return the loader for the archive configuration
     */
-  protected def configLoader: ArchiveServerConfig.ConfigLoader[ArchiveConfig]
+  def configLoader: ArchiveServerConfig.ConfigLoader[ArchiveConfig]
 
   /**
     * Returns the function to resolve media files. This is used by endpoints
