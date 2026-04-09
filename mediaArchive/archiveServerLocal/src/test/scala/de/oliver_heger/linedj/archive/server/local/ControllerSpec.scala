@@ -175,9 +175,10 @@ class ControllerSpec(testSystem: classics.ActorSystem) extends TestKit(testSyste
       contentActor = typedTestKit.spawn(ArchiveContentActor.behavior()),
       customContext = ()
     )
+    val services = ServerController.ServerServices(system, ManagingActorFactory.newDefaultManagingActorFactory)
     val controller = new Controller() with SystemPropertyAccess {}
 
-    val resolver = controller.fileResolverFunc(context)
+    val resolver = controller.fileResolverFunc(context)(using services)
     for
       source <- resolver("some-media-file-id", downloadInfo)
       content <- source.runFold(ByteString.empty)(_ ++ _)

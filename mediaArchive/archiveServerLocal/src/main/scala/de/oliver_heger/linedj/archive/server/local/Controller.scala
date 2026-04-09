@@ -67,7 +67,8 @@ class Controller(metadataListenerFactory: ArchiveContentMetadataProcessingListen
                                   (using services: ServerController.ServerServices): Future[Unit] =
     Future.successful(())
 
-  override def fileResolverFunc(context: Context): FileResolverFunc =
+  override def fileResolverFunc(context: Context)
+                               (using services: ServerController.ServerServices): FileResolverFunc =
     MediaFileResolverLocal.localFileResolverFunc(context.serverConfig.archiveConfig)
 
   override def createContext(using services: ServerController.ServerServices): Future[Context] =

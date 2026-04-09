@@ -174,7 +174,8 @@ class ArchiveControllerSpec(testSystem: classics.ActorSystem) extends TestKit(te
           context.contentActor should not be null
           Future.successful("testCustomContext")
 
-        override def fileResolverFunc(context: Context): FileResolverFunc =
+        override def fileResolverFunc(context: Context)
+                                     (using services: ServerController.ServerServices): FileResolverFunc =
           throw new UnsupportedOperationException("Unexpected call.")
 
         override def getSystemProperty(key: String): Option[String] = propertyAccess.getSystemProperty(key)

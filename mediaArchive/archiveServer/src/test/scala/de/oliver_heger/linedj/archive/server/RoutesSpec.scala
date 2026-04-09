@@ -119,7 +119,8 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with BeforeAndAfterE
 
       override type CustomContext = Unit
 
-      override def fileResolverFunc(context: Context): FileResolverFunc =
+      override def fileResolverFunc(context: Context)
+                                   (using services: ServerController.ServerServices): FileResolverFunc =
         context.serverConfig should be(config)
         resolver
 

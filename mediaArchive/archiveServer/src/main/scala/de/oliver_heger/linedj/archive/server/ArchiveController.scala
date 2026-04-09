@@ -104,10 +104,12 @@ trait ArchiveController extends ServerController:
     * Returns the function to resolve media files. This is used by endpoints
     * for downloading media files.
     *
-    * @param context the context object
+    * @param context  the context object
+    * @param services the object with server services
     * @return the function to resolve media files in the managed archive(s)
     */
-  def fileResolverFunc(context: Context): MediaFileResolver.FileResolverFunc
+  def fileResolverFunc(context: Context)
+                      (using services: ServerController.ServerServices): MediaFileResolver.FileResolverFunc
 
   /**
     * Creates the object for the custom context. This function is invoked when

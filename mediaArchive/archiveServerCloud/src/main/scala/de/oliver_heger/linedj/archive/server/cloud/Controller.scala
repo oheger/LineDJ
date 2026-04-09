@@ -46,8 +46,8 @@ class Controller(credentialsManagerFactory: CloudArchiveCredentialsManager.Facto
   override def configLoader: ConfigLoader[ArchiveConfig] =
     CloudArchiveServerConfig.parseConfig
 
-  override def fileResolverFunc(context: ArchiveController.ArchiveServerContext[ArchiveConfig, CustomContext]):
-  FileResolverFunc = ???
+  override def fileResolverFunc(context: Context)
+                               (using services: ServerController.ServerServices): FileResolverFunc = ???
 
   override def createCustomContext(context: ArchiveController.ArchiveServerContext[ArchiveConfig, Unit])
                                   (using services: ServerController.ServerServices):
