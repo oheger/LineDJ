@@ -16,13 +16,30 @@
 
 package de.oliver_heger.linedj.archive.server.cloud
 
+import com.github.cloudfiles.core.http.HttpRequestSender.FailedResponseException
 import de.oliver_heger.linedj.archive.server.ArchiveController
 import de.oliver_heger.linedj.archive.server.ArchiveServerConfig.ConfigLoader
-import de.oliver_heger.linedj.archive.server.MediaFileResolver.FileResolverFunc
+import de.oliver_heger.linedj.archive.server.MediaFileResolver.{FileResolverFunc, UnresolvableFileException}
+import de.oliver_heger.linedj.archive.server.cloud.Controller.CloudArchiveServerContext
 import de.oliver_heger.linedj.server.common.ServerController
+import de.oliver_heger.linedj.server.common.ServerController.given
 import de.oliver_heger.linedj.utils.SystemPropertyAccess
+import org.apache.pekko.http.scaladsl.model.StatusCodes
 
 import scala.concurrent.Future
+
+object Controller:
+  /**
+    * A data class representing the custom context of the cloud archive server
+    * application. This class holds components that implement specific
+    * functionality of this application.
+    *
+    * @param archiveManager     the archive manager
+    * @param credentialsManager the manager for credentials
+    */
+  final case class CloudArchiveServerContext(archiveManager: CloudArchiveManager,
+                                             credentialsManager: CloudArchiveCredentialsManager)
+end Controller
 
 /**
   * Implementation of an [[ArchiveController]] for the cloud archive server
@@ -41,14 +58,25 @@ class Controller(credentialsManagerFactory: CloudArchiveCredentialsManager.Facto
   this: SystemPropertyAccess =>
   override type ArchiveConfig = CloudArchiveServerConfig
 
-  override type CustomContext = Unit
+  override type CustomContext = CloudArchiveServerContext
 
   override def configLoader: ConfigLoader[ArchiveConfig] =
     CloudArchiveServerConfig.parseConfig
 
   override def fileResolverFunc(context: Context)
-                               (using services: ServerController.ServerServices): FileResolverFunc = ???
+                               (using services: ServerController.ServerServices): FileResolverFunc =
+    (id, downloadInfo) =>
+      context.customContext.archiveManager.archivesState flatMap : state =>
+        state.state(downloadInfo.archiveName) match
+          case CloudArchiveManager.CloudArchiveState.Loaded(downloader) =>
+            downloader.loadMediaFile(downloadInfo.fileUri).recoverWith:
+              case e: FailedResponseException if e.response.status == StatusCodes.NotFound =>
+                Future.failed(UnresolvableFileException(id))
+          case _ =>
+            // This should normally not happen; if the archive has not been loaded, there cannot be a
+            // download info object pointing to the archive.
+            Future.failed(new IllegalStateException(s"Archive '${downloadInfo.archiveName}' is not in Loaded state."))
 
   override def createCustomContext(context: ArchiveController.ArchiveServerContext[ArchiveConfig, Unit])
                                   (using services: ServerController.ServerServices):
-  Future[Unit] = ???
+  Future[CustomContext] = ???
