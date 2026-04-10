@@ -57,14 +57,16 @@ object Routes extends ArchiveModel.ArchiveJsonSupport:
   /**
     * Returns the top-level route of the archive server.
     *
-    * @param actorTimeout the timeout when querying actors
-    * @param contentActor the actor managing the content of the archive
-    * @param resolver     the function to resolve media files in the archive
+    * @param actorTimeout   the timeout when querying actors
+    * @param contentActor   the actor managing the content of the archive
+    * @param resolver       the function to resolve media files in the archive
+    * @param optCustomRoute an optional custom route to be inserted
     * @return the top-level route of the server
     */
   def route(actorTimeout: FiniteDuration,
             contentActor: ActorRef[ArchiveCommands.ArchiveQueryCommand],
-            resolver: MediaFileResolver.FileResolverFunc)
+            resolver: MediaFileResolver.FileResolverFunc,
+            optCustomRoute: Option[Route] = None)
            (using system: classics.ActorSystem): Route =
     given ActorSystem[Nothing] = system.toTyped
 
@@ -240,23 +242,27 @@ object Routes extends ArchiveModel.ArchiveJsonSupport:
         MediaFileResolver.toOptionalSource(resolver(fileID, downloadInfo)).map: optSource =>
           optSource.map(src => (downloadInfo, src))
 
-    pathPrefix("api"):
-      pathPrefix("archive"):
+    val baseRoute = concat(
+      pathPrefix("media"):
         concat(
-          pathPrefix("media"):
+          pathEnd:
+            mediaRoute,
+          pathPrefix(Segment): mediumID =>
             concat(
               pathEnd:
-                mediaRoute,
-              pathPrefix(Segment): mediumID =>
-                concat(
-                  pathEnd:
-                    mediumDetailsRoute(mediumID),
-                  pathPrefix("artists"):
-                    mediumArtistsRoutes(mediumID),
-                  pathPrefix("albums"):
-                    mediumAlbumRoutes(mediumID)
-                )
-            ),
-          pathPrefix("files" / Segment): fileID =>
-            mediaFilesRoute(fileID)
-        )
+                mediumDetailsRoute(mediumID),
+              pathPrefix("artists"):
+                mediumArtistsRoutes(mediumID),
+              pathPrefix("albums"):
+                mediumAlbumRoutes(mediumID)
+            )
+        ),
+      pathPrefix("files" / Segment): fileID =>
+        mediaFilesRoute(fileID)
+    )
+    val archiveRoute = optCustomRoute.fold(baseRoute): customRoute =>
+      concat(baseRoute, customRoute)
+
+    pathPrefix("api"):
+      pathPrefix("archive"):
+        archiveRoute

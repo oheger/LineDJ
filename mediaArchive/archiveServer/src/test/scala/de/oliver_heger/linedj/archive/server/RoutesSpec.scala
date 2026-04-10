@@ -32,6 +32,7 @@ import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import org.apache.pekko.actor.typed.{ActorRef, Behavior}
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.model.headers.{ContentDispositionTypes, `Content-Disposition`}
+import org.apache.pekko.http.scaladsl.server.Directives.*
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.stream.scaladsl.FileIO
@@ -96,7 +97,7 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with BeforeAndAfterE
     super.afterAll()
 
   override protected def afterEach(): Unit =
-    tearDownTestFile()  
+    tearDownTestFile()
     super.afterEach()
 
   import RoutesSpec.*
@@ -106,14 +107,16 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with BeforeAndAfterE
     * function obtains the route from the [[ArchiveController]], so that the
     * controller method creating the route is tested as well.
     *
-    * @param contentActor the content actor to use
-    * @param config       the optional server configuration
-    * @param resolver     the optional function to resolve files
+    * @param contentActor       the content actor to use
+    * @param config             the optional server configuration
+    * @param resolver           the optional function to resolve files
+    * @param optAdditionalRoute additional routing logic
     * @return the [[Route]] for being tested
     */
   private def testRoute(contentActor: ActorRef[ArchiveContentActor.ArchiveContentCommand],
                         config: ArchiveServerConfig[Unit] = TestServerConfig,
-                        resolver: MediaFileResolver.FileResolverFunc = DefaultFileResolverFunc): Route =
+                        resolver: MediaFileResolver.FileResolverFunc = DefaultFileResolverFunc,
+                        optAdditionalRoute: Option[Route] = None): Route =
     val controller = new ArchiveController with SystemPropertyAccess:
       override type ArchiveConfig = Unit
 
@@ -129,6 +132,12 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with BeforeAndAfterE
       override def createCustomContext(context: ArchiveController.ArchiveServerContext[ArchiveConfig, Unit])
                                       (using services: ServerController.ServerServices): Future[Unit] =
         Future.successful(())
+
+      override def customRoute(context: ArchiveController.ArchiveServerContext[Unit, Unit])
+                              (using services: ServerController.ServerServices): Option[Route] =
+        super.customRoute(context) shouldBe empty
+        context.serverConfig should be(config)
+        optAdditionalRoute
 
     val context = ArchiveController.ArchiveServerContext(
       serverConfig = config,
@@ -489,3 +498,14 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with BeforeAndAfterE
 
   it should "not skip metadata if the parameter has a non-true value" in :
     checkDownloadWithMetadata(s"/api/archive/files/$TestMediaFileID/download?stripMetadata=donotcare")
+
+  it should "support a custom route" in :
+    val contentActor = testKit.spawn(ArchiveContentActor.behavior())
+    val customRoute = pathPrefix("test"):
+      get:
+        complete("success")
+    val requestUri = "/api/archive/test"
+
+    Get(requestUri) ~> testRoute(contentActor, optAdditionalRoute = Some(customRoute)) ~> check:
+      status should be(StatusCodes.OK)
+      responseAs[String] should be("success")

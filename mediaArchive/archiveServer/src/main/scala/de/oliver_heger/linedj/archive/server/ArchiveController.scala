@@ -125,6 +125,18 @@ trait ArchiveController extends ServerController:
   def createCustomContext(context: ArchiveServerContext[ArchiveConfig, Unit])
                          (using services: ServerController.ServerServices): Future[CustomContext]
 
+  /**
+    * A hook to allow additional routing logic to be injected by a derived
+    * class. If a concrete implementation returns a [[Route]] via this
+    * function, it is made available under the "/api/archive" endpoint. So, the
+    * base API of the archive server can be extended.
+    *
+    * @param context  the context for this server application
+    * @param services the object with server services
+    * @return an [[Option]] with an additional [[Route]]
+    */
+  def customRoute(context: Context)(using services: ServerController.ServerServices): Option[Route] = None
+
   override def createContext(using services: ServerController.ServerServices): Future[Context] =
     val configFileName = getSystemProperty(PropConfigFileName).getOrElse(ArchiveServerConfig.DefaultConfigFileName)
     log.info("Loading configuration file from '{}'.", configFileName)
@@ -149,5 +161,6 @@ trait ArchiveController extends ServerController:
     Routes.route(
       context.serverConfig.timeout,
       context.contentActor,
-      fileResolverFunc(context)
+      fileResolverFunc(context),
+      optCustomRoute = customRoute(context)
     )
