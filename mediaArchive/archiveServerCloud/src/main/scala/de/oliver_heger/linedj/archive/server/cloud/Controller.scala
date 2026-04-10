@@ -17,6 +17,11 @@
 package de.oliver_heger.linedj.archive.server.cloud
 
 import com.github.cloudfiles.core.http.HttpRequestSender.FailedResponseException
+import com.github.cloudfiles.core.http.factory.HttpRequestSenderFactoryImpl
+import de.oliver_heger.linedj.archive.cloud.DefaultCloudFileDownloaderFactory
+import de.oliver_heger.linedj.archive.cloud.auth.Credentials.queryCredentialTimeout
+import de.oliver_heger.linedj.archive.cloud.auth.DefaultAuthConfigFactory
+import de.oliver_heger.linedj.archive.cloud.auth.oauth.OAuthStorageServiceImpl
 import de.oliver_heger.linedj.archive.server.ArchiveController
 import de.oliver_heger.linedj.archive.server.ArchiveServerConfig.ConfigLoader
 import de.oliver_heger.linedj.archive.server.MediaFileResolver.{FileResolverFunc, UnresolvableFileException}
@@ -79,4 +84,25 @@ class Controller(credentialsManagerFactory: CloudArchiveCredentialsManager.Facto
 
   override def createCustomContext(context: ArchiveController.ArchiveServerContext[ArchiveConfig, Unit])
                                   (using services: ServerController.ServerServices):
-  Future[CustomContext] = ???
+  Future[CustomContext] = Future:
+    val credentialsManager = credentialsManagerFactory(
+      credentialDirectory = context.serverConfig.archiveConfig.credentialsDirectory,
+      factory = services.managingActorFactory
+    )
+
+    val authFactory = new DefaultAuthConfigFactory(
+      storageService = OAuthStorageServiceImpl,
+      storagePath = context.serverConfig.archiveConfig.credentialsDirectory,
+      resolverFunc = credentialsManager.resolverFunc
+    )
+    val downloaderFactory = new DefaultCloudFileDownloaderFactory(authFactory, HttpRequestSenderFactoryImpl)
+    val archiveManager = archiveManagerFactory(
+      actorFactory = services.managingActorFactory,
+      contentActor = context.contentActor,
+      config = context.serverConfig.archiveConfig,
+      downloaderFactory = downloaderFactory,
+      credentialSetter = credentialsManager.setter,
+      contentLoader = new CloudArchiveContentLoader
+    )
+
+    CloudArchiveServerContext(archiveManager, credentialsManager)
