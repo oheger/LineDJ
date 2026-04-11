@@ -33,6 +33,7 @@ import org.scalatestplus.mockito.MockitoSugar
 import java.nio.file.Paths
 import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
+import scala.util.Success
 
 /**
   * Test class for the additional routes provided by the [[Controller]] class.
@@ -70,6 +71,20 @@ class CloudRoutesSpec extends AnyFlatSpec, BeforeAndAfterEach, Matchers, Scalate
     val controller = new Controller with SystemPropertyAccess {}
     controller.customRoute(context).get
 
+  /**
+    * Creates a credentials manager object. This is used to test setting of
+    * credential values to test the real interaction with this instance.
+    *
+    * @return the credentials manager instance
+    */
+  private def createCredentialsManager(): CloudArchiveCredentialsManager =
+    import de.oliver_heger.linedj.archive.cloud.auth.Credentials.queryCredentialTimeout
+    CloudArchiveCredentialsManager.newInstance(
+      testDirectory,
+      ManagingActorFactory.newDefaultManagingActorFactory,
+      credentialsActorName = "credentialsManager" + System.nanoTime() // Use a unique actor name.
+    )
+
   "Cloud routes" should "return information about pending credentials" in :
     val credentialsManager = mock[CloudArchiveCredentialsManager]
     val credentialKeys = Set(
@@ -87,4 +102,61 @@ class CloudRoutesSpec extends AnyFlatSpec, BeforeAndAfterEach, Matchers, Scalate
         archiveCredentials = Set("user", "pwd")
       )
       responseAs[CloudArchiveModel.CredentialsInfo] should be(expectedInfo)
-      
+
+  it should "use correct path prefixes" in :
+    Get("/unknown") ~> testRoute() ~> check:
+      handled shouldBe false
+
+  it should "support setting credentials" in :
+    val setCredentialsBody =
+      """[
+        |  {
+        |    "key": "validKey1",
+        |    "value": "secret1"
+        |  },
+        |  {
+        |    "key": "validKey3",
+        |    "value": "secret3"
+        |  },
+        |  {
+        |    "key": "otherKey",
+        |    "value": "ultra-secret"
+        |  }
+        |]""".stripMargin
+    val credentialsManager = createCredentialsManager()
+    credentialsManager.resolverFunc("validKey1")
+    credentialsManager.resolverFunc("validKey2")
+    val futKey3 = credentialsManager.resolverFunc("validKey3")
+
+    Put("/credentials", setCredentialsBody) ~> testRoute(credentialsManager) ~> check:
+      status should be(StatusCodes.OK)
+      val expectedInfo = CloudArchiveModel.CredentialsInfo(
+        fileCredentials = Set.empty,
+        archiveCredentials = Set("validKey2")
+      )
+      val expectedResponse = CloudArchiveModel.SetCredentialsResponse(
+        invalidKeys = Set("otherKey"),
+        info = expectedInfo
+      )
+      responseAs[CloudArchiveModel.SetCredentialsResponse] should be(expectedResponse)
+      futKey3.value.map(_.map(_.secret)) should be(Some(Success("secret3")))
+
+  it should "handle an invalid structure when setting credentials" in :
+    val setCredentialsBody =
+      """[
+        |  {
+        |    "foo": "fooValue",
+        |    "bar": "barValue
+        |  }
+        |]""".stripMargin
+    val credentialsManager = createCredentialsManager()
+
+    Put("/credentials", setCredentialsBody) ~> testRoute(credentialsManager) ~> check:
+      status should be(StatusCodes.BadRequest)
+
+  it should "handle a non-JSON body when setting credentials" in :
+    val setCredentialsBody = FileTestHelper.TestData
+    val credentialsManager = createCredentialsManager()
+
+    Put("/credentials", setCredentialsBody) ~> testRoute(credentialsManager) ~> check:
+      status should be(StatusCodes.BadRequest)

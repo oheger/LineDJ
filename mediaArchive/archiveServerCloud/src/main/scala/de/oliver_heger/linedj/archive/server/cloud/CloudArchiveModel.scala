@@ -37,9 +37,23 @@ object CloudArchiveModel:
                                    archiveCredentials: Set[String])
 
   /**
+    * A data class representing the response for an operation to set 
+    * credentials. The operation expects an arbitrary number of key-value
+    * pairs. The response lists the keys that were invalid, and it contains an
+    * updated [[CredentialsInfo]] structure.
+    *
+    * @param invalidKeys the invalid keys that could not be assigned
+    * @param info        updated credentials information
+    */
+  final case class SetCredentialsResponse(invalidKeys: Set[String],
+                                          info: CredentialsInfo)
+
+  /**
     * A trait providing JSON serialization support for the data classes 
     * defined in this model.
     */
   trait CloudArchiveJsonSupport extends SprayJsonSupport, DefaultJsonProtocol:
     given credentialsInfoFormat: RootJsonFormat[CredentialsInfo] = jsonFormat2(CredentialsInfo.apply)
-    
+
+    given credentialsResponseFormat: RootJsonFormat[SetCredentialsResponse] =
+      jsonFormat2(SetCredentialsResponse.apply)

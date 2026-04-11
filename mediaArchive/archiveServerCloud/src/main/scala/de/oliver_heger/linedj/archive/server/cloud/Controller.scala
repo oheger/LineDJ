@@ -29,9 +29,11 @@ import de.oliver_heger.linedj.archive.server.cloud.Controller.CloudArchiveServer
 import de.oliver_heger.linedj.server.common.ServerController
 import de.oliver_heger.linedj.server.common.ServerController.given
 import de.oliver_heger.linedj.utils.SystemPropertyAccess
-import org.apache.pekko.http.scaladsl.model.StatusCodes
+import org.apache.logging.log4j.LogManager
+import org.apache.pekko.http.scaladsl.model.{HttpResponse, StatusCodes}
 import org.apache.pekko.http.scaladsl.server.Directives.*
-import org.apache.pekko.http.scaladsl.server.Route
+import org.apache.pekko.http.scaladsl.server.{ExceptionHandler, Route}
+import org.apache.pekko.stream.scaladsl.Framing.FramingException
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -47,25 +49,81 @@ object Controller extends CloudArchiveModel.CloudArchiveJsonSupport:
   final case class CloudArchiveServerContext(archiveManager: CloudArchiveManager,
                                              credentialsManager: CloudArchiveCredentialsManager)
 
+  /** The logger. */
+  private val log = LogManager.getLogger(classOf[Controller])
+
+  /**
+    * A global exception handler that deals with invalid JSON in the body of
+    * requests.
+    */
+  private val jsonExceptionHandler = ExceptionHandler:
+    case e: FramingException =>
+      extractUri: uri =>
+        log.error("Error when processing request to {}. JSON body could not be parsed.", uri, e)
+        val response = HttpResponse(
+          status = StatusCodes.BadRequest,
+          entity = "Body contains invalid JSON or no JSON at all."
+        )
+        complete(response)
+
   /**
     * Returns the route to query information about pending credentials.
     *
     * @param credentialsManager the object to manage credentials
+    * @param ec                 the execution context
     * @return the route to query credentials information
     */
   private def getCredentialsRoute(credentialsManager: CloudArchiveCredentialsManager)
                                  (using ec: ExecutionContext): Route =
     get:
-      val futCredentialsInfo = credentialsManager.pendingCredentials.map: credentialKeys =>
-        val (fileKeys, archiveKeys) = credentialKeys.partition(
-          _.keyType == CloudArchiveCredentialsManager.CredentialKeyType.File
-        )
-        CloudArchiveModel.CredentialsInfo(
-          fileCredentials = fileKeys.map(_.key),
-          archiveCredentials = archiveKeys.map(_.key)
-        )
+      val futCredentialsInfo = fetchCredentialsInfo(credentialsManager)
       onSuccess(futCredentialsInfo): credentialsInfo =>
         complete(credentialsInfo)
+
+  /**
+    * Returns the route to set credentials. This route can be used to unlock
+    * cloud archives by providing the corresponding credentials. The body of
+    * the request must be a JSON array with objects where each object has the
+    * properties ''key'' for the credential key and ''value'' for the
+    * corresponding value.
+    *
+    * @param credentialsManager the object to manage credentials
+    * @param ec                 the execution context
+    * @return the route to set credentials
+    */
+  private def putCredentialsRoute(credentialsManager: CloudArchiveCredentialsManager)
+                                 (using ec: ExecutionContext): Route =
+    put:
+      extractRequestEntity: entity =>
+        val futSetResult = for
+          result <- credentialsManager.setCredentials(entity.dataBytes)
+          info <- fetchCredentialsInfo(credentialsManager)
+        yield
+          CloudArchiveModel.SetCredentialsResponse(
+            invalidKeys = result.invalidKeys,
+            info = info
+          )
+        onSuccess(futSetResult): response =>
+          complete(response)
+
+  /**
+    * Obtains information about the currently pending credentials from the
+    * given credentials manager.
+    *
+    * @param credentialsManager the manager for credentials
+    * @param ec                 the execution context
+    * @return a [[Future]] with the fetched credentials information
+    */
+  private def fetchCredentialsInfo(credentialsManager: CloudArchiveCredentialsManager)
+                                  (using ec: ExecutionContext): Future[CloudArchiveModel.CredentialsInfo] =
+    credentialsManager.pendingCredentials.map: credentialKeys =>
+      val (fileKeys, archiveKeys) = credentialKeys.partition(
+        _.keyType == CloudArchiveCredentialsManager.CredentialKeyType.File
+      )
+      CloudArchiveModel.CredentialsInfo(
+        fileCredentials = fileKeys.map(_.key),
+        archiveCredentials = archiveKeys.map(_.key)
+      )
 end Controller
 
 /**
@@ -139,4 +197,11 @@ class Controller(credentialsManagerFactory: CloudArchiveCredentialsManager.Facto
     */
   override def customRoute(context: Context)
                           (using services: ServerController.ServerServices): Option[Route] =
-    Some(getCredentialsRoute(context.customContext.credentialsManager))
+    import context.customContext.*
+    val cloudArchiveRoutes = handleExceptions(jsonExceptionHandler):
+      path("credentials"):
+        concat(
+          getCredentialsRoute(credentialsManager),
+          putCredentialsRoute(credentialsManager)
+        )
+    Some(cloudArchiveRoutes)
