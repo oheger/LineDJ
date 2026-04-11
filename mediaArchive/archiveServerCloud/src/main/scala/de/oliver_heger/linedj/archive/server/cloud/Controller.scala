@@ -30,10 +30,12 @@ import de.oliver_heger.linedj.server.common.ServerController
 import de.oliver_heger.linedj.server.common.ServerController.given
 import de.oliver_heger.linedj.utils.SystemPropertyAccess
 import org.apache.pekko.http.scaladsl.model.StatusCodes
+import org.apache.pekko.http.scaladsl.server.Directives.*
+import org.apache.pekko.http.scaladsl.server.Route
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
-object Controller:
+object Controller extends CloudArchiveModel.CloudArchiveJsonSupport:
   /**
     * A data class representing the custom context of the cloud archive server
     * application. This class holds components that implement specific
@@ -44,6 +46,26 @@ object Controller:
     */
   final case class CloudArchiveServerContext(archiveManager: CloudArchiveManager,
                                              credentialsManager: CloudArchiveCredentialsManager)
+
+  /**
+    * Returns the route to query information about pending credentials.
+    *
+    * @param credentialsManager the object to manage credentials
+    * @return the route to query credentials information
+    */
+  private def getCredentialsRoute(credentialsManager: CloudArchiveCredentialsManager)
+                                 (using ec: ExecutionContext): Route =
+    get:
+      val futCredentialsInfo = credentialsManager.pendingCredentials.map: credentialKeys =>
+        val (fileKeys, archiveKeys) = credentialKeys.partition(
+          _.keyType == CloudArchiveCredentialsManager.CredentialKeyType.File
+        )
+        CloudArchiveModel.CredentialsInfo(
+          fileCredentials = fileKeys.map(_.key),
+          archiveCredentials = archiveKeys.map(_.key)
+        )
+      onSuccess(futCredentialsInfo): credentialsInfo =>
+        complete(credentialsInfo)
 end Controller
 
 /**
@@ -61,6 +83,9 @@ class Controller(credentialsManagerFactory: CloudArchiveCredentialsManager.Facto
                  archiveManagerFactory: CloudArchiveManager.Factory =
                  CloudArchiveManager.newInstance) extends ArchiveController:
   this: SystemPropertyAccess =>
+
+  import Controller.*
+
   override type ArchiveConfig = CloudArchiveServerConfig
 
   override type CustomContext = CloudArchiveServerContext
@@ -106,3 +131,12 @@ class Controller(credentialsManagerFactory: CloudArchiveCredentialsManager.Facto
     )
 
     CloudArchiveServerContext(archiveManager, credentialsManager)
+
+  /**
+    * @inheritdoc This implementation returns a route exposing additional
+    *             endpoints for credentials management and querying the status
+    *             of managed cloud archives.
+    */
+  override def customRoute(context: Context)
+                          (using services: ServerController.ServerServices): Option[Route] =
+    Some(getCredentialsRoute(context.customContext.credentialsManager))
