@@ -49,9 +49,11 @@ class CloudRoutesSpec extends AnyFlatSpec, BeforeAndAfterEach, Matchers, Scalate
     * instance with the provided parameters.
     *
     * @param credentialsManager the manager for credentials
+    * @param archiveManager     the archive manager
     * @return the route to be tested
     */
-  private def testRoute(credentialsManager: CloudArchiveCredentialsManager = mock): Route =
+  private def testRoute(credentialsManager: CloudArchiveCredentialsManager = mock,
+                        archiveManager: CloudArchiveManager = mock): Route =
     val serverConfig = CloudArchiveServerConfig(
       archives = List.empty,
       credentialsDirectory = testDirectory,
@@ -59,7 +61,7 @@ class CloudRoutesSpec extends AnyFlatSpec, BeforeAndAfterEach, Matchers, Scalate
     )
     val config = ArchiveServerConfig(8080, 30.seconds, serverConfig)
     val cloudContext = Controller.CloudArchiveServerContext(
-      archiveManager = mock,
+      archiveManager = archiveManager,
       credentialsManager = credentialsManager
     )
     val context = ArchiveController.ArchiveServerContext(
@@ -160,3 +162,33 @@ class CloudRoutesSpec extends AnyFlatSpec, BeforeAndAfterEach, Matchers, Scalate
 
     Put("/credentials", setCredentialsBody) ~> testRoute(credentialsManager) ~> check:
       status should be(StatusCodes.BadRequest)
+
+  it should "return information about the current archive state" in :
+    val archiveManager = mock[CloudArchiveManager]
+    val archivesState = CloudArchiveManager.ArchivesState(
+      state = Map(
+        "waitingArchive" -> CloudArchiveManager.CloudArchiveState.Waiting,
+        "loadedArchive1" -> CloudArchiveManager.CloudArchiveState.Loaded(mock),
+        "loadedArchive2" -> CloudArchiveManager.CloudArchiveState.Loaded(mock),
+        "failedArchive" -> CloudArchiveManager.CloudArchiveState.Failure(
+          exception = new IllegalStateException("Test exception: Could not load archive."),
+          attempts = 11
+        )
+      )
+    )
+    when(archiveManager.archivesState).thenReturn(Future.successful(archivesState))
+
+    Get("/archives/status") ~> testRoute(archiveManager = archiveManager) ~> check:
+      val expectedStatus = CloudArchiveModel.CloudArchiveStateResponse(
+        waitingArchives = Set("waitingArchive"),
+        loadedArchives = Set("loadedArchive1", "loadedArchive2"),
+        failedArchives = Set(
+          CloudArchiveModel.FailedArchive(
+            name = "failedArchive",
+            failure = "IllegalStateException: Test exception: Could not load archive.",
+            attempts = 11
+          )
+        )
+      )
+      status should be(StatusCodes.OK)
+      responseAs[CloudArchiveModel.CloudArchiveStateResponse] should be(expectedStatus)

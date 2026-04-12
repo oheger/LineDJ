@@ -107,6 +107,37 @@ object Controller extends CloudArchiveModel.CloudArchiveJsonSupport:
           complete(response)
 
   /**
+    * Returns the route to query the current status of the managed cloud
+    * archives.
+    *
+    * @param archiveManager the archive manager
+    * @param ec             the execution context
+    * @return the route to query the archive status
+    */
+  private def statusRoute(archiveManager: CloudArchiveManager)
+                         (using ec: ExecutionContext): Route =
+    get:
+      val futStatus = archiveManager.archivesState.map: status =>
+        CloudArchiveModel.CloudArchiveStateResponse(
+          waitingArchives = filterByState(status): (name, state) =>
+            state match
+              case CloudArchiveManager.CloudArchiveState.Waiting => Some(name)
+              case _ => None,
+          loadedArchives = filterByState(status): (name, state) =>
+            state match
+              case _: CloudArchiveManager.CloudArchiveState.Loaded => Some(name)
+              case _ => None,
+          failedArchives = filterByState(status): (name, state) =>
+            state match
+              case CloudArchiveManager.CloudArchiveState.Failure(exception, attempts) =>
+                val failure = s"${exception.getClass.getSimpleName}: ${exception.getMessage}"
+                Some(CloudArchiveModel.FailedArchive(name, failure, attempts))
+              case _ => None
+        )
+      onSuccess(futStatus): status =>
+        complete(status)
+
+  /**
     * Obtains information about the currently pending credentials from the
     * given credentials manager.
     *
@@ -124,6 +155,23 @@ object Controller extends CloudArchiveModel.CloudArchiveJsonSupport:
         fileCredentials = fileKeys.map(_.key),
         archiveCredentials = archiveKeys.map(_.key)
       )
+
+  /**
+    * Filters the map with cloud archive states using a given filter and
+    * transformation function and produces a set with the matched elements.
+    * This is used to generate the single properties of archives status query.
+    *
+    * @param archivesState the object with the archives status
+    * @param f             the filter and transformation function
+    * @tparam T the result type of the transformation
+    * @return a set with the accepted and transformed elements
+    */
+  private def filterByState[T](archivesState: CloudArchiveManager.ArchivesState)
+                              (f: (String, CloudArchiveManager.CloudArchiveState) => Option[T]): Set[T] =
+    archivesState.state.foldLeft(Set.empty[T]): (set, t) =>
+      f(t._1, t._2) match
+        case Some(value) => set + value
+        case _ => set
 end Controller
 
 /**
@@ -199,9 +247,13 @@ class Controller(credentialsManagerFactory: CloudArchiveCredentialsManager.Facto
                           (using services: ServerController.ServerServices): Option[Route] =
     import context.customContext.*
     val cloudArchiveRoutes = handleExceptions(jsonExceptionHandler):
-      path("credentials"):
-        concat(
-          getCredentialsRoute(credentialsManager),
-          putCredentialsRoute(credentialsManager)
-        )
+      concat(
+        path("credentials"):
+          concat(
+            getCredentialsRoute(credentialsManager),
+            putCredentialsRoute(credentialsManager)
+          ),
+        path("archives" / "status"):
+          statusRoute(archiveManager)
+      )
     Some(cloudArchiveRoutes)

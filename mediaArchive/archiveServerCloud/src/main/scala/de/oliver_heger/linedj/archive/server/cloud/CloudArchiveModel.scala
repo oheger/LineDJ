@@ -49,6 +49,33 @@ object CloudArchiveModel:
                                           info: CredentialsInfo)
 
   /**
+    * A data class storing information about a cloud archive that could not be
+    * loaded. Objects of this class are referenced in responses for archive 
+    * state queries to represent failed archives.
+    *
+    * @param name     the name of the archive
+    * @param failure  a failure message
+    * @param attempts the number of attempts to load this archive
+    */
+  final case class FailedArchive(name: String,
+                                 failure: String,
+                                 attempts: Int)
+
+  /**
+    * A data class representing the response for a query of the current cloud
+    * archive status. An instance stores the names of the archives that are
+    * already loaded, which are waiting for credentials to be entered, and
+    * information about failed archives.
+    *
+    * @param waitingArchives the names of archives waiting for credentials
+    * @param loadedArchives  the names of archives that have been loaded
+    * @param failedArchives  information about failed archives
+    */
+  final case class CloudArchiveStateResponse(waitingArchives: Set[String],
+                                             loadedArchives: Set[String],
+                                             failedArchives: Set[FailedArchive])
+
+  /**
     * A trait providing JSON serialization support for the data classes 
     * defined in this model.
     */
@@ -57,3 +84,8 @@ object CloudArchiveModel:
 
     given credentialsResponseFormat: RootJsonFormat[SetCredentialsResponse] =
       jsonFormat2(SetCredentialsResponse.apply)
+
+    given failedArchiveFormat: RootJsonFormat[FailedArchive] = jsonFormat3(FailedArchive.apply)
+
+    given cloudArchiveStateResponseFormat: RootJsonFormat[CloudArchiveStateResponse] =
+      jsonFormat3(CloudArchiveStateResponse.apply)
