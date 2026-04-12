@@ -91,6 +91,16 @@ trait ArchiveController extends ServerController:
   protected val contentActorFactory: ArchiveContentActor.Factory = ArchiveContentActor.behavior
 
   /**
+    * Returns the default name of the configuration file for this server
+    * application. The controller loads a file with this name (in the user's
+    * home directory), unless an alternative name is specified in the
+    * ''PropConfigFileName'' property.
+    *
+    * @return the default name of the configuration file
+    */
+  def defaultConfigFileName: String
+
+  /**
     * Returns the object to extract the archive config from the global
     * application configuration. When creating the server context, this loader
     * is used to obtain the archive-specific part of the
@@ -138,7 +148,7 @@ trait ArchiveController extends ServerController:
   def customRoute(context: Context)(using services: ServerController.ServerServices): Option[Route] = None
 
   override def createContext(using services: ServerController.ServerServices): Future[Context] =
-    val configFileName = getSystemProperty(PropConfigFileName).getOrElse(ArchiveServerConfig.DefaultConfigFileName)
+    val configFileName = getSystemProperty(PropConfigFileName).getOrElse(defaultConfigFileName)
     log.info("Loading configuration file from '{}'.", configFileName)
 
     val contentActor = services.managingActorFactory.createTypedActor(contentActorFactory(), "contentActor")

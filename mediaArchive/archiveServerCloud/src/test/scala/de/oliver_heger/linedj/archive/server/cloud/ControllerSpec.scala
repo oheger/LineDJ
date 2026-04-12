@@ -87,11 +87,11 @@ class ControllerSpec(testSystem: ActorSystem) extends TestKit(testSystem), Async
   import ControllerSpec.*
 
   "The config loader" should "correctly parse the configuration" in :
-    val testConfigUrl = getClass.getResource("/cloud-archive-server-config.xml")
+    val controller = new Controller with SystemPropertyAccess {}
+    val testConfigUrl = getClass.getResource("/" + controller.defaultConfigFileName)
     val configs = new Configurations
     val serverConfig = configs.xml(testConfigUrl)
 
-    val controller = new Controller with SystemPropertyAccess {}
     Future.fromTry(controller.configLoader(serverConfig)) map : archiveConfig =>
       archiveConfig.cacheDirectory.toString should be("/tmp/cloud-archives/cache")
       archiveConfig.archives should have size 4

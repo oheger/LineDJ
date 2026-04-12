@@ -196,6 +196,8 @@ class Controller(credentialsManagerFactory: CloudArchiveCredentialsManager.Facto
 
   override type CustomContext = CloudArchiveServerContext
 
+  override val defaultConfigFileName: String = "cloud-archive-server-config.xml"
+
   override def configLoader: ConfigLoader[ArchiveConfig] =
     CloudArchiveServerConfig.parseConfig
 

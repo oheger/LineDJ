@@ -161,6 +161,8 @@ class ArchiveControllerSpec(testSystem: classics.ActorSystem) extends TestKit(te
 
         override type CustomContext = String
 
+        override val defaultConfigFileName: String = "archive-server-config.xml"
+
         /**
           * @inheritdoc This implementation simply returns a value from the
           *             test configuration.
@@ -179,4 +181,3 @@ class ArchiveControllerSpec(testSystem: classics.ActorSystem) extends TestKit(te
           throw new UnsupportedOperationException("Unexpected call.")
 
         override def getSystemProperty(key: String): Option[String] = propertyAccess.getSystemProperty(key)
-      

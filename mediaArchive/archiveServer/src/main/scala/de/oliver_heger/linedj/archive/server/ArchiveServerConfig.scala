@@ -27,9 +27,6 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
 object ArchiveServerConfig:
-  /** The default name of the configuration file loaded by this server. */
-  final val DefaultConfigFileName = "archive-server-config.xml"
-
   /**
     * The name of the section in the configuration for the properties of the
     * server itself.

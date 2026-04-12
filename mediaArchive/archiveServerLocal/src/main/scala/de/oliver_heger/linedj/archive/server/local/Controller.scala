@@ -41,6 +41,9 @@ object Controller:
     metadataUpdateChunkSize = 32,
     initMetadataMaxMsgSize = 128
   )
+
+  /** The default name of the configuration file. */
+  private val DefaultConfigFileName = "local-archive-server-config.xml"
 end Controller
 
 /**
@@ -59,6 +62,8 @@ class Controller(metadataListenerFactory: ArchiveContentMetadataProcessingListen
   override type ArchiveConfig = Seq[MediaArchiveConfig]
 
   override type CustomContext = Unit
+
+  override val defaultConfigFileName: String = DefaultConfigFileName
 
   override def configLoader: ConfigLoader[ArchiveConfig] = config =>
     Try(MediaArchiveConfig.loadMediaArchiveConfigs(config))
