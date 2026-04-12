@@ -440,7 +440,7 @@ lazy val protocolWebDav = (project in file("mediaArchive/protocolWebDav"))
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archive.protocol.webdav.*"),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/webdavprotocol_component.xml")
-  ) dependsOn(shared, archiveHttpStartup)
+  ) dependsOn(shared, cloudAccess)
 
 /**
   * The OneDrive protocol project. This is a module adding support for OneDrive
@@ -457,7 +457,7 @@ lazy val protocolOneDrive = (project in file("mediaArchive/protocolOneDrive"))
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archive.protocol.onedrive.*"),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/onedriveprotocol_component.xml")
-  ) dependsOn(shared, archiveHttpStartup)
+  ) dependsOn(shared, cloudAccess)
 
 /**
   * Project for the client platform. This project contains code shared by
