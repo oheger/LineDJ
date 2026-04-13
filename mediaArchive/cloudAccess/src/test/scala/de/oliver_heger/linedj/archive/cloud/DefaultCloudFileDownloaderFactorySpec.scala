@@ -165,7 +165,7 @@ class DefaultCloudFileDownloaderFactorySpec(testSystem: ActorSystem) extends Tes
     val helper = new FactoryTestHelper
 
     helper.expectSenderCreation(createSenderConfig())
-      .withCredential(ArchiveName, Password)
+      .withCredential(ArchiveName + DefaultCloudFileDownloaderFactory.CryptKeySuffix, Password)
       .createDownloader(helper.createArchiveConfig(Some(TestCryptConfig))) map : downloader =>
       downloader.archiveFileSystem match
         case fs: CryptContentFileSystem[?, ?, ?] =>
@@ -213,7 +213,7 @@ class DefaultCloudFileDownloaderFactorySpec(testSystem: ActorSystem) extends Tes
       Map.empty)
     val helper = new FactoryTestHelper
 
-    helper.withCredential(ArchiveName, Password)
+    helper.withCredential(ArchiveName + DefaultCloudFileDownloaderFactory.CryptKeySuffix, Password)
       .expectSenderCreation(createSenderConfig())
       .createDownloader(helper.createArchiveConfig(Some(TestCryptConfig))) flatMap : downloader =>
       val fileSystem = downloader.archiveFileSystem
@@ -282,7 +282,7 @@ class DefaultCloudFileDownloaderFactorySpec(testSystem: ActorSystem) extends Tes
 
     val keys = DefaultCloudFileDownloaderFactory.credentialKeys(config)
 
-    val expectedKeys = TestAuthMethod.credentialKeys + ArchiveName
+    val expectedKeys = TestAuthMethod.credentialKeys + (ArchiveName + DefaultCloudFileDownloaderFactory.CryptKeySuffix)
     keys should contain theSameElementsAs expectedKeys
   
   /**

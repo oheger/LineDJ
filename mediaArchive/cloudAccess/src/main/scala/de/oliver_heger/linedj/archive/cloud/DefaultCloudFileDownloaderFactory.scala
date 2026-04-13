@@ -35,6 +35,14 @@ import scala.concurrent.{ExecutionContext, Future}
 
 object DefaultCloudFileDownloaderFactory:
   /**
+    * The suffix for credential keys for the decryption password of an
+    * encrypted archive. If an archive is marked as encrypted, the factory
+    * registers for a credential whose key consists of the name of the archive
+    * plus this suffix.
+    */
+  final val CryptKeySuffix = ".crypt"
+
+  /**
     * Returns a [[Set]] with all credential keys that are consumed by the cloud
     * archive with the given configuration. Only if all these keys are present,
     * the archive can be accessed. Having this information, is useful in some
@@ -48,7 +56,8 @@ object DefaultCloudFileDownloaderFactory:
     */
   def credentialKeys(archiveConfig: CloudArchiveConfig): Set[String] =
     val authMethodKeys = archiveConfig.authMethod.credentialKeys
-    archiveConfig.optCryptConfig.fold(authMethodKeys)(_ => authMethodKeys + archiveConfig.archiveName)
+    archiveConfig.optCryptConfig.fold(authMethodKeys): _ =>
+      authMethodKeys + (archiveConfig.archiveName + CryptKeySuffix)
 
   /**
     * Extends the given file system with functionality to encrypt the content
@@ -70,7 +79,7 @@ object DefaultCloudFileDownloaderFactory:
   (using ec: ExecutionContext, system: ActorSystem): Future[CloudArchiveFileSystem[ID, FILE, FOLDER]] =
     config.optCryptConfig match
       case Some(archiveCryptConfig) =>
-        resolverFunc(config.archiveName) map : cryptSecret =>
+        resolverFunc(config.archiveName + CryptKeySuffix) map : cryptSecret =>
           val cryptKey = Aes.keyFromString(cryptSecret.secret)
           val cryptConfig = CryptConfig(Aes, cryptKey, cryptKey, new SecureRandom)
           val namesConfig = CryptNamesConfig(cryptConfig = cryptConfig, ignoreUnencrypted = true)

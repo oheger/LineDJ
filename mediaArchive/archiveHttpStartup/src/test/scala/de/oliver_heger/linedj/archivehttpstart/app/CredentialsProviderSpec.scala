@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.archivehttpstart.app
 
 import com.github.cloudfiles.core.http.Secret
+import de.oliver_heger.linedj.archive.cloud.DefaultCloudFileDownloaderFactory
 import de.oliver_heger.linedj.archive.cloud.auth.Credentials
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
 import org.mockito.ArgumentMatchers.{any, anyString}
@@ -75,4 +76,4 @@ class CredentialsProviderSpec extends AnyFlatSpec with Matchers with MockitoSuga
     val provider = new CredentialsProvider(credentialSetter)
     provider.passEncryptionKey(ArchiveName, cryptKey)
 
-    verify(credentialSetter).setCredential(ArchiveName, cryptKey)
+    verify(credentialSetter).setCredential(ArchiveName + DefaultCloudFileDownloaderFactory.CryptKeySuffix, cryptKey)

@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.archive.server.cloud
 
-import de.oliver_heger.linedj.archive.cloud.{ArchiveCryptConfig, CloudArchiveConfig, CloudFileDownloader, CloudFileDownloaderFactory}
+import de.oliver_heger.linedj.archive.cloud.{ArchiveCryptConfig, CloudArchiveConfig, CloudFileDownloader, CloudFileDownloaderFactory, DefaultCloudFileDownloaderFactory}
 import de.oliver_heger.linedj.archive.cloud.auth.{BasicAuthMethod, Credentials}
 import de.oliver_heger.linedj.archive.server.cloud.CloudArchiveManagerSpec.{TestArchiveIndex, TestArchiveName, TestServerConfig}
 import de.oliver_heger.linedj.archive.server.model.ArchiveCommands
@@ -233,7 +233,7 @@ class CloudArchiveManagerSpec(testSystem: ActorSystem) extends TestKit(testSyste
       val testArchiveConfig = TestServerConfig.archives(TestArchiveIndex)
       verify(credentialSetter).clearCredential(testArchiveConfig.authMethod.realm + ".username")
       verify(credentialSetter).clearCredential(testArchiveConfig.authMethod.realm + ".password")
-      verify(credentialSetter).clearCredential(TestArchiveName)
+      verify(credentialSetter).clearCredential(TestArchiveName + DefaultCloudFileDownloaderFactory.CryptKeySuffix)
       this
 
     /**

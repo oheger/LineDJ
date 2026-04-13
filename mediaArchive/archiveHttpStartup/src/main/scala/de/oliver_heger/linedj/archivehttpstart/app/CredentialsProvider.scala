@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.archivehttpstart.app
 
 import com.github.cloudfiles.core.http.Secret
+import de.oliver_heger.linedj.archive.cloud.DefaultCloudFileDownloaderFactory
 import de.oliver_heger.linedj.archive.cloud.auth.Credentials
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
 
@@ -67,7 +68,7 @@ class CredentialsProvider(credentialsSetter: Credentials.CredentialSetter):
     * @param key         the [[Secret]] for the encryption key
     */
   def passEncryptionKey(archiveName: String, key: Secret): Unit =
-    passCredential(archiveName, key)
+    passCredential(archiveName + DefaultCloudFileDownloaderFactory.CryptKeySuffix, key)
 
   /**
     * Passes the given combination of key and secret value for a credential to
