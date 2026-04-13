@@ -97,7 +97,7 @@ class CloudArchiveCredentialsManagerSpec(testSystem: ActorSystem) extends TestKi
     * @return the path to the copied file
     */
   private def copyCryptTestFile(): Path =
-    val fileName = CryptFileName + ".json.crypt"
+    val fileName = CryptFileName + ".credentials.crypt"
     val url = getClass.getResource("/" + fileName)
     val sourcePath = Paths.get(url.toURI)
     val targetPath = createPathInDirectory(fileName)
@@ -108,7 +108,7 @@ class CloudArchiveCredentialsManagerSpec(testSystem: ActorSystem) extends TestKi
     * repeatedly until it is present or not, depending on the passed in flag.
     * This is needed by some test cases that check whether an incorrect
     * credential has been reset. To avoid an infinite waiting loop, the
-    * function gives up after some time. This also helps dealing with race
+    * function gives up after some time. This also helps to deal with race
     * conditions where a state change is missed.
     *
     * @param manager the credential manager
@@ -137,7 +137,7 @@ class CloudArchiveCredentialsManagerSpec(testSystem: ActorSystem) extends TestKi
       "secretKey" -> "secretValue",
       "foo" -> "bar"
     )
-    writeFileContent(createPathInDirectory("plain-credentials.json"), toCredentialJson(credentials))
+    writeFileContent(createPathInDirectory("plain-credentials.credentials"), toCredentialJson(credentials))
 
     val credentialsManager = CloudArchiveCredentialsManager.newInstance(testDirectory, implicitly)
     val futResolved = credentials.map: (key, _) =>

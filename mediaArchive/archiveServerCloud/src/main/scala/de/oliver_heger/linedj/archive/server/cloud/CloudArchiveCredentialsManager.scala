@@ -40,10 +40,10 @@ import scala.util.{Failure, Success}
 
 object CloudArchiveCredentialsManager:
   /** The extension for unencrypted files storing credentials. */
-  private val PlainCredentialsFileExtension = "json"
+  private val PlainCredentialsFileExtension = "credentials"
 
   /** The extension for encrypted files storing credentials. */
-  private val CryptCredentialsFileExtension = "json.crypt"
+  private val CryptCredentialsFileExtension = PlainCredentialsFileExtension + ".crypt"
 
   /** The suffix to detect an encrypted file based on its extension. */
   private val CryptCredentialsFileSuffix = "." + CryptCredentialsFileExtension
