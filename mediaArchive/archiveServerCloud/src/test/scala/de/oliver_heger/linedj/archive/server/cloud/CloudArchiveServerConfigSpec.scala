@@ -35,8 +35,8 @@ import java.nio.file.Paths
 import scala.concurrent.duration.DurationInt
 
 object CloudArchiveServerConfigSpec:
-  /** The name of the test configuration file. */
-  private val TestConfigName = "cloud-archive-server-config.xml"
+  /** The URL of the test configuration file. */
+  private val TestConfigUrl = classOf[CloudArchiveServerConfigSpec].getResource("/cloud-archive-server-config.xml")
 
   /** The helper object for loading configuration files. */
   private val configs = new Configurations
@@ -46,7 +46,7 @@ object CloudArchiveServerConfigSpec:
     *
     * @return the loaded configuration
     */
-  private def loadTestConfig(): Configuration = configs.xml(TestConfigName)
+  private def loadTestConfig(): Configuration = configs.xml(TestConfigUrl)
 end CloudArchiveServerConfigSpec
 
 /**
