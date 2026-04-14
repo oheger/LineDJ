@@ -1092,7 +1092,7 @@ lazy val audioPlayerShell = (project in file("audioPlayerShell"))
         val oldStrategy = (ThisBuild / assemblyMergeStrategy).value
         oldStrategy(x)
     }
-  ) dependsOn(playerEngine, mp3PlaybackContextFactory, log4jConfFragment, archiveServer)
+  ) dependsOn(playerEngine, mp3PlaybackContextFactory, log4jConfFragment, archiveServer, archiveServerCloud)
 
 /**
   * A project providing some base functionality for HTTP server

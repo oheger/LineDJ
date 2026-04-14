@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.player.shell
 
 import com.github.cloudfiles.core.http.HttpRequestSender
+import de.oliver_heger.linedj.archive.server.cloud.CloudArchiveModel
 import de.oliver_heger.linedj.archive.server.model.ArchiveModel
 import de.oliver_heger.linedj.player.engine.mp3.Mp3AudioStreamFactory
 import de.oliver_heger.linedj.player.engine.stream.{AudioStreamPlayerStage, BufferedPlaylistSource}
@@ -64,7 +65,7 @@ final case class CommandInfo(minArgs: Int,
 final case class CommandResult(output: Output.CommandOutput,
                                exit: Boolean = false)
 
-object CommandContext extends ArchiveModel.ArchiveJsonSupport:
+object CommandContext extends ArchiveModel.ArchiveJsonSupport, CloudArchiveModel.CloudArchiveJsonSupport:
   /** The command line argument to define a buffer. */
   private val BufferDirArgument = "buffer-dir"
 
@@ -287,6 +288,28 @@ object CommandContext extends ArchiveModel.ArchiveJsonSupport:
                                    (using system: ActorSystem[_],
                                     timeout: Timeout): Map[String, CommandInfo] =
     Map(
+      "credentials" -> CommandInfo(
+        minArgs = 0,
+        maxArgs = 0,
+        help = List("Lists the keys of credentials that can be set to unlock archives."),
+        run = (_, _) =>
+          handleArchiveCommand[CloudArchiveModel.CredentialsInfo](
+            httpActor,
+            "/api/archive/credentials",
+            "credentials"
+          ): credentialsInfo =>
+            val fileCredentials = if credentialsInfo.fileCredentials.isEmpty then List.empty
+            else
+              "Credentials files:" :: credentialsInfo.fileCredentials.toList.sorted
+            val archiveCredentials = if credentialsInfo.archiveCredentials.isEmpty then List.empty
+            else
+              "Archive credentials:" :: credentialsInfo.archiveCredentials.toList.sorted
+            val credentialCount = credentialsInfo.fileCredentials.size + credentialsInfo.archiveCredentials.size
+            val header = s"Found $credentialCount pending credential(s)."
+            val separator = if fileCredentials.isEmpty || archiveCredentials.isEmpty then List.empty[String]
+            else List("")
+            header :: fileCredentials ::: separator ::: archiveCredentials
+      ),
       "list-media" -> CommandInfo(
         minArgs = 0,
         maxArgs = 0,
@@ -521,6 +544,7 @@ end CommandContext
   * @param streamHandler   the handler for audio streams
   * @param optArchiveActor optional reference to an actor for sending HTTP
   *                        requests to a configured media archive
+  *
   * @param commands        the map with supported commands
   */
 final case class CommandContext(terminal: Terminal,
