@@ -16,7 +16,106 @@ which produces a jar file with all required dependencies in the `mediaArchive/ar
 
 [#sec_credentials_management]
 == Credentials management
-TODO
+To access the content of archives hosted on cloud servers, credentials are typically required. This server application provides endpoints to query the expected credentials and to set concrete values for them. As soon as all the credentials for an archive are available, the application loads information about the content of this archive. It can then be accessed via the REST API of the archive server.
+
+The class responsible for the management of credentials is xref:src/main/scala/de/oliver_heger/linedj/archive/server/cloud/CloudArchiveCredentialsManager.scala[CloudArchiveCredentialsManager]. The class allows querying credentials based on (string) keys. Such a query returns a `Future` which completes when the value of this credential is set. Via this mechanism, the application can react on credentials becoming available and trigger the loading of archives.
+
+=== Archive credentials
+Which credentials are needed to access a specific archive depends on the authentication method (Basic Auth or OAuth) and on the fact whether the archive is encrypted or not. Encrypted archives require an additional credential for the secret to decrypt the information in the archive. The key of such a credential has the same name as the archive plus the suffix _.crypt_.
+
+[#sec_credentials_basic_auth]
+==== Basic Auth
+If an archive uses Basic Auth for authentication, it requires credentials for the username and the password. The keys for the corresponding credentials are derived from the name of the realm assigned to the Basic Auth method with the suffixes _.username_ and _.password_, respective.
+
+As an example, an encrypted archive named "rock-music" using the Basic Auth realm "archive-server" requires the following credentials to be present:
+
+* _archive-server.username_: The username to access the archive.
+* _archive-server.password_: The password to access the archive.
+* _rock-music.crypt_: The secret to decrypt the encrypted information in the archive.
+
+(For an unencrypted archive, the _.crypt_ credential would not be needed.)
+
+==== OAuth
+The OAuth authentication method works differently. To handle realms of this type correctly, the application needs information about the involved identity providers (IDP) which has to be stored in different files in the configured credentials directory (see <<sec_config_global>>).
+
+In this directory, a number of files are expected that define basic properties of the IDP and store token information. The name of these files is always identical to the realm name, but they have different extensions:
+
+.Extensions for files defining IDPs
+[cols="1,2",options="header"]
+|====
+| File extension | Description
+| json | A JSON file defining basic properties of the IDP, such as the endpoints
+for requesting access tokens, the client ID, the scope, and the redirect URI.
+An example can be found xref:idp-definition-file[below].
+| sec | This file contains the client secret assigned by the IDP. As this
+information is sensitive, it must be encrypted. The login into an OAuth realm
+is basically the key to decrypt this file.
+| toc | A file containing an access and refresh token pair. It is encrypted
+with the same key as the file with the client secret. The access token to
+authenticate against the IDP is read from this file; when it is expired the
+refresh token is used to request another token.
+|====
+
+[[idp-definition-file]]
+A file defining basic properties of an IDP looks as follows:
+
+[source,json]
+----
+{
+  "authorizationEndpoint": "https://login.live.com/oauth20_authorize.srf",
+  "clientId": "98275fe3a-2bef-45c1-b9fc-fedc940fb386",
+  "redirectUri": "http://localhost:8080",
+  "scope": "files.readwrite offline_access",
+  "tokenEndpoint": "https://login.live.com/oauth20_token.srf"
+}
+----
+
+To gain access to an archive protected via OAuth, the key to decrypt the encrypted IDP definition files (the _.sec_ file and the _.toc_ file) is required. It must be provided as a credential with a key that equals the OAuth realm name.
+
+Of course, if the archive is encrypted, the credential with the decryption key must be available as well under the key _<archive name>.crypt_.
+
+=== Credentials files
+Via the already mentioned endpoint to set credentials, user can now set all the required credentials to gain access to a single or multiple archives. This is not really comfortable, especially as one archive typically requires multiple credentials to be provided.
+
+To simplify unlocking of archives, the credentials manager class supports so-called _credentials files_. These are files with specific file extensions located in the configured credentials directory (see <<sec_config_global>>). The idea is that these files contain the keys and values of an arbitrary number of credentials in a simple JSON format. The credentials manager reads these files and sets the corresponding credentials. This makes all cloud archives available immediately whose credentials are now fully covered.
+
+Credentials files can have an arbitrary name, but they must have one of the extensions described in table <<tab_credentials_files>>:
+
+[#tab_credentials_files]
+.Extensions for credentials files
+[cols="1,2",options="header"]
+|====
+| Extension
+| Description
+
+| .credentials
+| A plain (unencrypted) file with credentials. Such a file can be read directly; so, the archives whose credentials are defined by the file are available without any action of end users. Storing credentials in plain text files is of course risky; this option should only be used if the credentials directory is protected by other means, e.g., by file system permissions.
+
+| .credentials.crypt
+| An encrypted credentials file. Such a file has the same JSON structure as a plain file, but it is encrypted. When the credentials manager encounters such a file in the credentials directory, it waits for a credential becoming available whose key equals the name of the credentials file (without the extension). So, the user only has to provide this credential and can then unlock all the archives whose credentials are defined in this file.
+|====
+
+The structure of credentials files is just a JSON array with objects defining the key and value of a credential, as in the following example:
+
+[source,json]
+----
+[
+  {
+    "key": "cloud-server.username",
+    "value": "Scott"
+  },
+  {
+    "key": "cloud-server.password",
+    "value": "tiger"
+  },
+  {
+    "key": "rock-music.crypt",
+    "value": "rock-d3crypt"
+  }
+]
+----
+
+This example file defines the credentials required for the archive used as example in the <<sec_credentials_basic_auth>> section. If it was stored under the name _rock.credentials.crypt_, the user would only have to provide a credential with the key _rock_ (with the secret to decrypt this file) to unlock the "rock-music" archive.
 
 [#sec_config]
 == Configuration
@@ -100,6 +199,7 @@ The configuration file can contain an optional section named `server` that defin
 === Properties related to archive management
 The second category of configuration properties defines the cloud archives to be managed by this application and how they are accessed. It is located in the section `media / cloudArchives`. The section contains some global properties controlling different aspects of remote archive management. Then, for each cloud archive, there is a `cloudArchive` element with properties for a specific archive. The following subsections describe the available configuration options in detail.
 
+[#sec_config_global]
 ==== Global properties
 These properties define some global settings that apply to all managed cloud archives. They are typically related to the way how the application loads data from these archives. Table <<tab_config_global>> lists the options in this group. Note that these are mandatory settings; if one of them is missing, the application fails to start.
 
