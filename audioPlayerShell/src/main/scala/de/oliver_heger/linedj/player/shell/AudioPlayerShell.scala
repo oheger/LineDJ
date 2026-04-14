@@ -38,7 +38,7 @@ object AudioPlayerShell:
         .build()
       val promptString = new AttributedString("playerShell> ", Output.StylePrompt)
 
-      val commandContext = CommandContext.create(terminal, args)
+      val commandContext = CommandContext.create(terminal, lineReader, args)
       Output.initializeOutput(commandContext.actorSystem, terminal, new PrintAboveWriter(lineReader))
       Output.output(
         Output.SyncOutput(

@@ -27,9 +27,10 @@ import org.apache.pekko.actor as classic
 import org.apache.pekko.actor.typed.scaladsl.adapter.*
 import org.apache.pekko.actor.typed.{ActorRef, ActorSystem}
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport.*
-import org.apache.pekko.http.scaladsl.model.{HttpRequest, HttpResponse, Uri}
+import org.apache.pekko.http.scaladsl.model.{HttpMethods, HttpRequest, HttpResponse, Uri}
 import org.apache.pekko.http.scaladsl.unmarshalling.{Unmarshal, Unmarshaller}
 import org.apache.pekko.util.Timeout
+import org.jline.reader.LineReader
 import org.jline.terminal.Terminal
 
 import java.nio.file.{Files, Path, Paths}
@@ -122,10 +123,11 @@ object CommandContext extends ArchiveModel.ArchiveJsonSupport, CloudArchiveModel
     * arguments, it throws an [[IllegalArgumentException]] exception.
     *
     * @param terminal the terminal
+    * @param reader   the line reader
     * @param args     the command line arguments
     * @return the [[CommandContext]]
     */
-  def create(terminal: Terminal, args: Array[String]): CommandContext =
+  def create(terminal: Terminal, reader: LineReader, args: Array[String]): CommandContext =
     val argsMap = parseCommandLine(args)
 
     given actorSystem: classic.ActorSystem = classic.ActorSystem("AudioPlayerShell")
@@ -138,7 +140,7 @@ object CommandContext extends ArchiveModel.ArchiveJsonSupport, CloudArchiveModel
     val audioStreamFactory = new CompositeAudioStreamFactory(List(new Mp3AudioStreamFactory, DefaultAudioStreamFactory))
     val streamHandler = new PlaylistStreamHandler(audioStreamFactory, createBufferConfigFunc(argsMap), optArchiveActor)
 
-    CommandContext(terminal, actorSystem, streamHandler, optArchiveActor, basicCommands ++ archiveCommands)
+    CommandContext(terminal, reader, actorSystem, streamHandler, optArchiveActor, basicCommands ++ archiveCommands)
 
   /**
     * Prints help information for this application. Lists the supported command
@@ -290,25 +292,41 @@ object CommandContext extends ArchiveModel.ArchiveJsonSupport, CloudArchiveModel
     Map(
       "credentials" -> CommandInfo(
         minArgs = 0,
-        maxArgs = 0,
-        help = List("Lists the keys of credentials that can be set to unlock archives."),
-        run = (_, _) =>
-          handleArchiveCommand[CloudArchiveModel.CredentialsInfo](
-            httpActor,
-            "/api/archive/credentials",
-            "credentials"
-          ): credentialsInfo =>
-            val fileCredentials = if credentialsInfo.fileCredentials.isEmpty then List.empty
-            else
-              "Credentials files:" :: credentialsInfo.fileCredentials.toList.sorted
-            val archiveCredentials = if credentialsInfo.archiveCredentials.isEmpty then List.empty
-            else
-              "Archive credentials:" :: credentialsInfo.archiveCredentials.toList.sorted
-            val credentialCount = credentialsInfo.fileCredentials.size + credentialsInfo.archiveCredentials.size
-            val header = s"Found $credentialCount pending credential(s)."
-            val separator = if fileCredentials.isEmpty || archiveCredentials.isEmpty then List.empty[String]
-            else List("")
-            header :: fileCredentials ::: separator ::: archiveCredentials
+        maxArgs = 1,
+        help = List(
+          "Lists the keys of credentials that can be set to unlock archives or",
+          "sets the value of a credential.",
+          "If called without an argument, the command prints the keys of pending",
+          "credentials. If a single argument is provided, this argument is",
+          "interpreted as a credential key. The command prompts for its value",
+          "and passes it to the server."
+        ),
+        run = (ctx, args) =>
+          if args.isEmpty then
+            handleArchiveCommand[CloudArchiveModel.CredentialsInfo](
+              httpActor,
+              "/api/archive/credentials",
+              "credentials"
+            ): credentialsInfo =>
+              listCredentials(credentialsInfo)
+          else
+            val key = args.head
+            val value = ctx.reader.readLine(s"Enter value for '$key': ", '\u0000')
+            val body = s"""[{"key":"$key","value":"$value"}]"""
+            val request = HttpRequest(method = HttpMethods.PUT, uri = "/api/archive/credentials", entity = body)
+            handleArchiveCommand[CloudArchiveModel.SetCredentialsResponse](
+              httpActor,
+              request,
+              "credentials"
+            ): response =>
+              val info = listCredentials(response.info)
+              if response.invalidKeys.isEmpty then info
+              else
+                val error = List(
+                  s"No credential with key '$key' is pending.",
+                  ""
+                )
+                error ::: info
       ),
       "list-media" -> CommandInfo(
         minArgs = 0,
@@ -380,12 +398,29 @@ object CommandContext extends ArchiveModel.ArchiveJsonSupport, CloudArchiveModel
     )
 
   /**
-    * Generic function to handle commands that query data from a media archive.
-    * The function performs the following steps:
-    *  - It sends a request with the given URI to the archive.
-    *  - It deserializes the response to the target type.
-    *  - It invokes the output generator function to transform the result to a
-    *    list of strings to be output to the console.
+    * Generates a [[List]] to print information about all pending credentials
+    * contained in the given info object.
+    *
+    * @param credentialsInfo the object with credential information
+    * @return the single lines to print credential information
+    */
+  private def listCredentials(credentialsInfo: CloudArchiveModel.CredentialsInfo): List[String] =
+    val fileCredentials = if credentialsInfo.fileCredentials.isEmpty then List.empty
+    else
+      "Credentials files:" :: credentialsInfo.fileCredentials.toList.sorted
+    val archiveCredentials = if credentialsInfo.archiveCredentials.isEmpty then List.empty
+    else
+      "Archive credentials:" :: credentialsInfo.archiveCredentials.toList.sorted
+    val credentialCount = credentialsInfo.fileCredentials.size + credentialsInfo.archiveCredentials.size
+    val header = s"Found $credentialCount pending credential(s)."
+    val separator = if fileCredentials.isEmpty || archiveCredentials.isEmpty then List.empty[String]
+    else List("")
+    header :: fileCredentials ::: separator ::: archiveCredentials
+
+  /**
+    * Convenience function to handle commands that need to send a GET request
+    * to the archive server. This function delegates to the overloaded version
+    * passing a corresponding GET request for the specified URI.
     *
     * @param httpActor    the actor to send requests to the archive
     * @param uri          the URI to send to the archive
@@ -404,10 +439,37 @@ object CommandContext extends ArchiveModel.ArchiveJsonSupport, CloudArchiveModel
                                      (using system: ActorSystem[_],
                                       timeout: Timeout,
                                       unmarshaller: Unmarshaller[HttpResponse, A]): CommandResult =
+    handleArchiveCommand(httpActor, HttpRequest(uri = uri), command)(outputFunc)
+
+  /**
+    * Generic function to handle commands that query data from a media archive.
+    * The function performs the following steps:
+    *  - It sends the given request to the archive.
+    *  - It deserializes the response to the target type.
+    *  - It invokes the output generator function to transform the result to a
+    *    list of strings to be output to the console.
+    *
+    * @param httpActor    the actor to send requests to the archive
+    * @param request      the request to send to the archive
+    * @param command      the name of the command to be handled
+    * @param outputFunc   a function to generate the output
+    * @param system       the actor system
+    * @param timeout      the timeout for the request
+    * @param unmarshaller the object to unmarshal the response
+    * @tparam A the type of the result object
+    * @return the result for this command
+    */
+  private def handleArchiveCommand[A](httpActor: ActorRef[HttpRequestSender.HttpCommand],
+                                      request: HttpRequest,
+                                      command: String)
+                                     (outputFunc: A => List[String])
+                                     (using system: ActorSystem[_],
+                                      timeout: Timeout,
+                                      unmarshaller: Unmarshaller[HttpResponse, A]): CommandResult =
     given ExecutionContext = system.executionContext
 
     val lines = for
-      result <- HttpRequestSender.sendRequestSuccess(httpActor, HttpRequest(uri = uri))
+      result <- HttpRequestSender.sendRequestSuccess(httpActor, request)
       data <- Unmarshal(result.response).to[A]
     yield outputFunc(data)
     CommandResult(Output.AsyncOutput(command, lines))
@@ -540,14 +602,15 @@ end CommandContext
   * access to an instance of this class.
   *
   * @param terminal        the object to generate output
+  * @param reader          the object to read input from the terminal
   * @param actorSystem     the actor system
   * @param streamHandler   the handler for audio streams
   * @param optArchiveActor optional reference to an actor for sending HTTP
   *                        requests to a configured media archive
-  *
   * @param commands        the map with supported commands
   */
 final case class CommandContext(terminal: Terminal,
+                                reader: LineReader,
                                 actorSystem: classic.ActorSystem,
                                 streamHandler: PlaylistStreamHandler,
                                 optArchiveActor: Option[ActorRef[HttpRequestSender.HttpCommand]],
