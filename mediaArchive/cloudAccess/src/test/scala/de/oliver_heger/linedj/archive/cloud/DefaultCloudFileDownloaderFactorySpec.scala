@@ -43,7 +43,7 @@ import org.scalatestplus.mockito.MockitoSugar
 
 import java.security.SecureRandom
 import java.util.concurrent.ConcurrentHashMap
-import scala.concurrent.Future
+import scala.concurrent.{Future, Promise}
 import scala.concurrent.duration.DurationInt
 import scala.util.{Failure, Try}
 
@@ -182,6 +182,14 @@ class DefaultCloudFileDownloaderFactorySpec(testSystem: ActorSystem) extends Tes
             case f => fail("Unexpected delegate file system: " + f)
         case f => fail("Unexpected file system: " + f)
 
+  it should "immediately request the secret for the encrypted file system" in :
+    val helper = new FactoryTestHelper
+
+    helper.expectSenderCreation(createSenderConfig())
+      .createDownloader(helper.createArchiveConfig(Some(TestCryptConfig)), completeAuthFuture = false)
+
+    helper.requestedCredentials should contain(ArchiveName + DefaultCloudFileDownloaderFactory.CryptKeySuffix)
+
   it should "configure a cached resolver for the crypt names file system" in :
     val Password = "<ThePassword>"
     val key = Aes.keyFromString(Password)
@@ -284,7 +292,7 @@ class DefaultCloudFileDownloaderFactorySpec(testSystem: ActorSystem) extends Tes
 
     val expectedKeys = TestAuthMethod.credentialKeys + (ArchiveName + DefaultCloudFileDownloaderFactory.CryptKeySuffix)
     keys should contain theSameElementsAs expectedKeys
-  
+
   /**
     * A test helper class managing a factory to be tested and its dependencies
     * and helper objects.
@@ -293,8 +301,14 @@ class DefaultCloudFileDownloaderFactorySpec(testSystem: ActorSystem) extends Tes
     /** The mock for the factory for the request sender actor. */
     private val requestSenderFactory = mock[HttpRequestSenderFactory]
 
+    /** The promise for the future returned by the auth factory. */
+    private val promiseAuthConfig = Promise[BasicAuthConfig]()
+
     /** The mock for the authentication factory. */
     private val authConfigFactory = createAuthConfigFactory()
+
+    /** A map to store the requested credentials. */
+    private val requestedCredentialsMap = new ConcurrentHashMap[String, Boolean]
 
     /** Mock for the file system. */
     val fileSystem: ExtensibleFileSystem[String, FileType, FolderType, FolderContentType] =
@@ -386,12 +400,19 @@ class DefaultCloudFileDownloaderFactorySpec(testSystem: ActorSystem) extends Tes
       this
 
     /**
-      * Invokes the test downloader factory with the given configuration.
+      * Invokes the test downloader factory with the given configuration. It
+      * can be configured whether the future from the auth factory should
+      * complete immediately. For some test scenarios, this is not desired.
       *
-      * @param archiveConfig the configuration of the archive
+      * @param archiveConfig      the configuration of the archive
+      * @param completeAuthFuture flag whether the auth config future should
+      *                           complete
       * @return the result from the factory
       */
-    def createDownloader(archiveConfig: CloudArchiveConfig): Future[FileSystemCloudFileDownloader[?, ?, ?]] =
+    def createDownloader(archiveConfig: CloudArchiveConfig,
+                         completeAuthFuture: Boolean = true): Future[FileSystemCloudFileDownloader[?, ?, ?]] =
+      if completeAuthFuture then
+        promiseAuthConfig.success(TestAuthConfig)
       downloaderFactory.createDownloader(archiveConfig) map : downloader =>
         downloader.asInstanceOf[FileSystemCloudFileDownloader[?, ?, ?]]
 
@@ -417,6 +438,16 @@ class DefaultCloudFileDownloaderFactorySpec(testSystem: ActorSystem) extends Tes
       this
 
     /**
+      * Returns a [[Set]] with the credential keys that have been passed to the
+      * resolver function.
+      *
+      * @return the requested credentials
+      */
+    def requestedCredentials: Set[String] =
+      import scala.jdk.CollectionConverters.*
+      requestedCredentialsMap.keySet().asScala.toSet
+
+    /**
       * Creates the test implementation for the
       * [[CloudArchiveFileSystemFactory]].
       *
@@ -434,7 +465,7 @@ class DefaultCloudFileDownloaderFactorySpec(testSystem: ActorSystem) extends Tes
     private def createAuthConfigFactory(): AuthConfigFactory =
       val authFactory = mock[AuthConfigFactory]
       val resolverFunc = createResolverFunc()
-      when(authFactory.createAuthConfig(any())).thenReturn(Future.successful(TestAuthConfig))
+      when(authFactory.createAuthConfig(any())).thenReturn(promiseAuthConfig.future)
       when(authFactory.resolverFunc).thenReturn(resolverFunc)
       authFactory
 
@@ -446,6 +477,7 @@ class DefaultCloudFileDownloaderFactorySpec(testSystem: ActorSystem) extends Tes
       */
     private def createResolverFunc(): Credentials.ResolverFunc =
       credential =>
+        requestedCredentialsMap.put(credential, true)
         Option(credentials.get(credential)) match
           case Some(value) => Future.successful(value)
           case None => Future.failed(new IllegalArgumentException("No credential: " + credential))

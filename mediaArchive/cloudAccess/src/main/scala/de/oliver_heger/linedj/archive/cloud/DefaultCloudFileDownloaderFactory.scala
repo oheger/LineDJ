@@ -18,12 +18,13 @@ package de.oliver_heger.linedj.archive.cloud
 
 import com.github.cloudfiles.core.Model
 import com.github.cloudfiles.core.http.RetryAfterExtension.RetryAfterConfig
+import com.github.cloudfiles.core.http.Secret
 import com.github.cloudfiles.core.http.auth.AuthConfig
 import com.github.cloudfiles.core.http.factory.{HttpRequestSenderConfig, HttpRequestSenderFactory, Spawner}
 import com.github.cloudfiles.crypt.alg.aes.Aes
 import com.github.cloudfiles.crypt.fs.resolver.CachePathComponentsResolver
 import com.github.cloudfiles.crypt.fs.{CryptConfig, CryptContentFileSystem, CryptNamesConfig, CryptNamesFileSystem}
-import de.oliver_heger.linedj.archive.cloud.auth.{AuthConfigFactory, Credentials}
+import de.oliver_heger.linedj.archive.cloud.auth.AuthConfigFactory
 import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystemFactory.CloudArchiveFileSystem
 import de.oliver_heger.linedj.shared.actors.ActorFactory.executionContext
 import de.oliver_heger.linedj.shared.archive.media.UriHelper
@@ -31,7 +32,7 @@ import org.apache.pekko.actor.typed.scaladsl.adapter.*
 import org.apache.pekko.actor.{ActorSystem, typed}
 
 import java.security.SecureRandom
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
 object DefaultCloudFileDownloaderFactory:
   /**
@@ -41,6 +42,12 @@ object DefaultCloudFileDownloaderFactory:
     * plus this suffix.
     */
   final val CryptKeySuffix = ".crypt"
+
+  /**
+    * A future for a [[Secret]] to decrypt a file system that is used if no
+    * encrypted file system is involved.
+    */
+  private val UndefinedCryptSecret = Future.successful(Secret(""))
 
   /**
     * Returns a [[Set]] with all credential keys that are consumed by the cloud
@@ -64,9 +71,9 @@ object DefaultCloudFileDownloaderFactory:
     * of files and the names of files and folders. Encryption is done via the
     * AES algorithm.
     *
-    * @param fs           the original file system
-    * @param config       the configuration of the archive
-    * @param resolverFunc the credentials resolver function
+    * @param fs          the original file system
+    * @param config      the configuration of the archive
+    * @param cryptSecret the secret to decrypt the file system
     * @tparam ID     the type of IDs
     * @tparam FILE   the type of files
     * @tparam FOLDER the type of folders
@@ -74,23 +81,22 @@ object DefaultCloudFileDownloaderFactory:
     */
   private def wrapWithCryptFileSystem[ID, FILE <: Model.File[ID], FOLDER <: Model.Folder[ID]]
   (fs: CloudArchiveFileSystem[ID, FILE, FOLDER],
-   config: CloudArchiveConfig)
-  (resolverFunc: Credentials.ResolverFunc)
-  (using ec: ExecutionContext, system: ActorSystem): Future[CloudArchiveFileSystem[ID, FILE, FOLDER]] =
+   config: CloudArchiveConfig,
+   cryptSecret: Secret)
+  (using system: ActorSystem): CloudArchiveFileSystem[ID, FILE, FOLDER] =
     config.optCryptConfig match
       case Some(archiveCryptConfig) =>
-        resolverFunc(config.archiveName + CryptKeySuffix) map : cryptSecret =>
-          val cryptKey = Aes.keyFromString(cryptSecret.secret)
-          val cryptConfig = CryptConfig(Aes, cryptKey, cryptKey, new SecureRandom)
-          val namesConfig = CryptNamesConfig(cryptConfig = cryptConfig, ignoreUnencrypted = true)
-          val resolver = CachePathComponentsResolver[ID, FILE, FOLDER](
-            system,
-            archiveCryptConfig.cryptCacheSize,
-            archiveCryptConfig.cryptChunkSize
-          )(using config.timeout)
-          val cryptNamesFs = new CryptNamesFileSystem(fs, namesConfig, resolver)
-          new CryptContentFileSystem(cryptNamesFs, cryptConfig)
-      case None => Future.successful(fs)
+        val cryptKey = Aes.keyFromString(cryptSecret.secret)
+        val cryptConfig = CryptConfig(Aes, cryptKey, cryptKey, new SecureRandom)
+        val namesConfig = CryptNamesConfig(cryptConfig = cryptConfig, ignoreUnencrypted = true)
+        val resolver = CachePathComponentsResolver[ID, FILE, FOLDER](
+          system,
+          archiveCryptConfig.cryptCacheSize,
+          archiveCryptConfig.cryptChunkSize
+        )(using config.timeout)
+        val cryptNamesFs = new CryptNamesFileSystem(fs, namesConfig, resolver)
+        new CryptContentFileSystem(cryptNamesFs, cryptConfig)
+      case None => fs
 
   /**
     * Creates the configuration for the HTTP sender actor to be passed to the
@@ -120,8 +126,8 @@ end DefaultCloudFileDownloaderFactory
   *
   * If the archive configuration references an [[ArchiveCryptConfig]], this
   * class creates a corresponding encrypted file system (using AES as
-  * encryption algorithm). It queries the encryption password from the given
-  * [[Credentials.ResolverFunc]] using the archive name
+  * encryption algorithm). It queries the encryption password from the 
+  * configured resolver function using the archive name with a specific suffix
   * as credentials key.
   *
   * @param authConfigFactory    the factory for the authentication config
@@ -136,10 +142,15 @@ class DefaultCloudFileDownloaderFactory(val authConfigFactory: AuthConfigFactory
   import DefaultCloudFileDownloaderFactory.*
 
   override def createDownloader(config: CloudArchiveConfig): Future[CloudFileDownloader] =
+    val futCryptSecret = if config.optCryptConfig.isDefined then
+      authConfigFactory.resolverFunc(config.archiveName + CryptKeySuffix)
+    else
+      UndefinedCryptSecret
+
     for
       authConfig <- authConfigFactory.createAuthConfig(config)
       fs <- Future.fromTry(config.fileSystemFactory.createFileSystem(config.archiveBaseUri.toString, config.timeout))
-      fsCrypt <- wrapWithCryptFileSystem(fs, config)(authConfigFactory.resolverFunc)
+      cryptSecret <- futCryptSecret
     yield
       val senderConfig = createSenderConfig(config, authConfig)
       val spawner: Spawner = system
@@ -148,4 +159,5 @@ class DefaultCloudFileDownloaderFactory(val authConfigFactory: AuthConfigFactory
       else
         requestSenderFactory.createRequestSender(spawner, config.archiveBaseUri, senderConfig)
 
+      val fsCrypt = wrapWithCryptFileSystem(fs, config, cryptSecret)
       new FileSystemCloudFileDownloader(fsCrypt, sender)(using system.toTyped)
