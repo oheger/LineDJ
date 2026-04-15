@@ -224,3 +224,9 @@ class CloudArchiveCacheSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val cache = CloudArchiveCache.newInstance(testDirectory, archiveName)
 
     cache.cacheFolder.getFileName.toString should be(encodedArchiveName)
+
+  it should "create the cache folder if it does not exist" in:
+    val archiveName = "newArchive"
+    val cache = CloudArchiveCache.newInstance(testDirectory, archiveName)
+
+    Files.isDirectory(cache.cacheFolder) shouldBe true

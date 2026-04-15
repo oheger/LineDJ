@@ -112,10 +112,16 @@ object CloudArchiveCache:
       apply(rootFolder.resolve(UriEncodingHelper.encode(archiveName)))
 
   /**
-    * A default [[Factory]] instance that can be used to creating new
-    * instances.
+    * A default [[Factory]] instance that can be used to create new
+    * instances. The passed in cache folder is created if it does not exist
+    * yet.
     */
-  final val newInstance: Factory = (cacheFolder: Path) => CloudArchiveCache(cacheFolder)
+  final val newInstance: Factory = (cacheFolder: Path) =>
+    if !Files.exists(cacheFolder) then
+      log.info("Creating cache folder '{}'.", cacheFolder)
+      Files.createDirectories(cacheFolder)
+
+    CloudArchiveCache(cacheFolder)
 
   /**
     * An internal representation of a medium entry that is used for JSON
