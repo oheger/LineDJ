@@ -290,6 +290,22 @@ object CommandContext extends ArchiveModel.ArchiveJsonSupport, CloudArchiveModel
                                    (using system: ActorSystem[_],
                                     timeout: Timeout): Map[String, CommandInfo] =
     Map(
+      "archive-state" -> CommandInfo(
+        minArgs = 0,
+        maxArgs = 0,
+        help = List("Lists the current status of managed cloud archives."),
+        run = (_, _) =>
+          handleArchiveCommand[CloudArchiveModel.CloudArchiveStateResponse](
+            httpActor,
+            "/api/archive/archives/status",
+            "archive-state"
+          ): response =>
+            val archivesAndStates = response.loadedArchives.map(name => (name, "ACTIVE")) ++
+              response.waitingArchives.map(name => (name, "WAITING")) ++
+              response.failedArchives.map(fa => (fa.name, s"FAILED ${fa.attempts}x: ${fa.failure}"))
+            archivesAndStates.toList.sortWith(_._1.toLowerCase(Locale.ROOT) < _._1.toLowerCase(Locale.ROOT))
+              .map(t => s"${t._1} (${t._2})")
+      ),
       "credentials" -> CommandInfo(
         minArgs = 0,
         maxArgs = 1,
