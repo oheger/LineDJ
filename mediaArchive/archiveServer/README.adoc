@@ -3,28 +3,24 @@
 :toclevels: 3
 = Archive Server
 
-A module implementing an HTTP server that provides a REST API for browsing an archive with local media files.
+A module providing common functionality for HTTP server applications that manage an archive of media files.
 
 toc::[]
 
 == Synopsis
-This module can manage media files on a local disk and expose information about them via a REST interface. The files can also be downloaded to be played by an audio player application.
+This module implements multiple components that can be used to browse and access media files hosted in an archive:
 
-The server application is a replacement for the xref:../archiveLocalStartup/README.adoc[actor-based local archive application]. It offers the same functionality for scanning local media files, but the interaction with the archive is done via a REST interface instead of a remote actor protocol. This is especially beneficial for the new audio player engine which is based on streams; when using https://pekko.apache.org/docs/pekko-http/current/[Apache Pekko Http] as HTTP client library, the streams from media file downloads can be directly fed into the player engine.
+* An actor that stores the metadata of all songs in the archive and manages different views on them. It groups songs by _media_, which are collections of songs sharing similar properties (based on whatever criteria). Media can be queried for the artists and albums they contain.
+* A REST API to query the content of the archive (based on the views of the mentioned actor) and to download media files.
+* A base `Controller` implementation to run an HTTP server which exposes the REST API in the xref:src/main/scala/de/oliver_heger/linedj/archive/server/ArchiveController.scala[ArchiveController] class.
 
-== Building
-The application can be built as a fat jar from the SBT shell using the command
+These components are agnostic about the archive itself, e.g., where it is hosted or how it is accessed. Concrete applications depending on this module need to deal with these details and initialize the components accordingly. They also have to provide a _resolver_ function to locate and download a specific media file in the managed archive.
 
- archiveServer / assembly
+[#archive_server_rest_api]
+== REST API
+The `Route` created by the base `Controller` implementation provides a number of REST endpoints to browse the media files available in the archive. All these endpoints start with the common path `/api/archive` and use the GET method. They return JSON data based on model objects defined in the xref:src/main/scala/de/oliver_heger/linedj/archive/server/model/ArchiveModel.scala[ArchiveModel] object. Table <<tab_endpoints>> lists the most relevant endpoints.
 
-which produces a jar file with all required dependencies in the `mediaArchive/archiveServer/target/scala-XXX` subfolder. This is an executable jar that can be passed to the `java` command via the `-jar` option.
-
-== Functionality
-On startup, the application scans an arbitrary number of directories for media files according to its <<sec_config>>. It groups the media files into so-called "media", based on the directory structure (see <<sec_structure>>). It also extracts metadata (such as ID3 tags) from the media files, which it uses to further categorize the files. The extracted metadata is stored, so that the expensive extraction process does not need to happen on each startup; only if the application detects changes in the directories with media files when starting up, it performs another metadata extraction on the affected media.
-
-The application provides a number of REST endpoints to browse the media files available. All these endpoints start with the common path `/api/archive` and use the GET method. They return JSON data based on model objects defined in the xref:src/main/scala/de/oliver_heger/linedj/archive/server/model/ArchiveModel.scala[ArchiveModel] object. Table <<tab_endpoints>> lists the most relevant endpoints.
-
-.Endpoints of the Archive Server application
+.Endpoints of the Archive Server module
 [#tab_endpoints]
 [cols="1,3",options="header"]
 |====
@@ -61,14 +57,14 @@ The endpoint supports an optional query parameter `stripMedatada`. If it is spec
 
 [#sec_config]
 == Configuration
-On startup, the application reads a configuration file that determines its behavior. Per default, the name of this file is `archive-server-config.xml`, and it is looked up in the current user's home directory. This can be overridden on the command line by setting the `configFile` system property to the path of the configuration file to be loaded, such as:
+The `ArchiveController` class manages a configuration file (in XML format) that it loads automatically on application startup. A concrete server application has to provide the default name of this configuration file, and it is looked up in the current user's home directory. This can be overridden on the command line by setting the `configFile` system property to the path of the configuration file to be loaded, such as:
 
 [source, bash]
 ----
 java -DconfigFile=/path/to/my/config.xml -jar archive-server.jar
 ----
 
-The configuration file defines all components of the application. This includes the management of the local archives - such as the paths of directories to be scanned and details of the processing of media files -, but also properties about the server itself. Below is an example fragment that shows the most-relevant configuration options:
+This module evaluates an optional section named `server` in the configuration file. It defines some settings for the HTTP server to launch. The file can then contain further configuration options to be processed by the server application. An example `server` section can look as follows:
 
 [source,xml]
 ----
@@ -77,56 +73,13 @@ The configuration file defines all components of the application. This includes 
       <port>8081</port>
       <timeout>30sec</timeout>
     </server>
-    <media>
-        <localArchives>
-            <processorCount>1</processorCount>
-            <downloadChunkSize>16384</downloadChunkSize>
-            <infoSizeLimit>32768</infoSizeLimit>
-            <includedExtensions>MP3</includedExtensions>
-            <scan>
-                <parseInfoTimeout>10</parseInfoTimeout>
-                <mediaBufferSize>3</mediaBufferSize>
-            </scan>
-            <metaDataExtraction>
-                <readChunkSize>32768</readChunkSize>
-                <tagSizeLimit>4096</tagSizeLimit>
-                <metaDataUpdateChunkSize>8</metaDataUpdateChunkSize>
-                <metaDataMaxMessageSize>160</metaDataMaxMessageSize>
-                <processingTimeout>60</processingTimeout>
-            </metaDataExtraction>
-            <metaDataPersistence>
-                <chunkSize>4096</chunkSize>
-                <parallelCount>2</parallelCount>
-                <writeBlockSize>40</writeBlockSize>
-            </metaDataPersistence>
-            <localArchive>
-                <rootPath>/data/music/archive/rock/media</rootPath>
-                <archiveName>rock</archiveName>
-                <metaDataPersistence>
-                    <path>/data/music/archive/rock/metadata</path>
-                    <tocFile>/data/music/archive/rock/content.json</tocFile>
-                </metaDataPersistence>
-            </localArchive>
-            <localArchive>
-                <rootPath>/data/music/archive/classic/media</rootPath>
-                <archiveName>classic</archiveName>
-                <metaDataPersistence>
-                    <path>/data/music/archive/classic/metadata</path>
-                    <tocFile>/data/music/archive/classic/content.json</tocFile>
-                </metaDataPersistence>
-            </localArchive>
-        </localArchives>
-    </media>
 </configuration>
 ----
 
-The settings can be divided into properties for the server and properties for the archive management. They are described in the following sections.
-
-=== Server properties
-The configuration file can contain an optional section named `server` that defines some aspects of the server application. Table <<tab_config_server>> lists the properties in this category.
+Table <<tab_config_server>> lists the supported configuration options together with their default values.
 
 [#tab_config_server]
-.Server-related properties
+.Properties in the server section
 [cols="1,3",options="header"]
 |====
 | Setting | Description
@@ -137,119 +90,3 @@ The configuration file can contain an optional section named `server` that defin
 | timeout
 | Here, a timeout for the interaction with actors during request processing can be specified. The value can be a number with a unit, such as "10s" or "1min". The default timeout is 3 seconds; on slower machines, it may be necessary to increase it.
 |====
-
-=== Properties related to archive management
-The second category of configuration properties defines how local media files should be detected and processed. The following subsections describe these properties in detail, but first, there is a short overview how the configuration for local media archives is organized.
-
-Information about local archives is located in a section named `localArchives`. The section can contain a bunch of properties that define default settings valid for all archives. Concrete archives are then defined by `localArchive` elements within this section. In the definition of a local archive the same properties can be used as in the `localArchives` section. Here an override mechanism is in place: Properties that are not defined for a concrete archive use the value set by the top-level section; and properties set for a local archive override the values from the top-level section. Using this schema, it is typically possible to define most of the default settings once in the `localArchives` section, while concrete archive declarations can be kept to a minimum (e.g. setting specific paths only).
-
-Each local archive listed in the configuration can be given a descriptive name using the _archiveName_ property. The remaining options available can be grouped again into different (sub) categories and are described in the following subsections. It does not matter whether an option is defined as a default or for a specific local archive.
-
-==== Location of media files
-A number of options define where - on the local hard disk - media files can be found:
-
-.Configuration options for the location of media files
-[cols="1,3",options="header"]
-|====
-| Setting | Description
-| excludedExtensions | With this list property (elements can be repeated as often as necessary) the extensions of files can be specified which should be ignored when scanning for media files. Such files are not included in media.
-| includedExtensions | As an alternative to _excludedProperties_, with this property a set of file extensions can be specified that are included; files with other extensions are ignored. If both file extensions to include and to exclude are specified, inclusions take precedence.
-| infoSizeLimit | Files with information about a medium (see <<sec_structure>>) are fully read and processed in-memory. To avoid unrestricted memory consumption, with this property a maximum file size (in bytes) can be specified. Info files which are larger will not be processed.
-| rootPath | This property defines the folder to be scanned for media files.
-| processorCount | Defines the number of reader actors processing this folder structure in parallel. If multiple archives are defined, the single archives are processed one by one with this number of reader actors; so this property defines the total number of parallel file reads.
-| metaDataMediaBufferSize | A property determining the maximum size of the buffer for media waiting to be processed for metadata extraction. During a metadata scan operation, in a first step the content of media is determined. Then the metadata for the files on the media is obtained (either from a
-persistent storage or by metadata extraction). As this may take more time, the number of media waiting to be processed for metadata extraction may increase. This property defines a threshold for this number. When it is reached the scan operation is blocked until media have been processed completely. This reduces the amount of memory consumption during a scan operation. The property is optional; a default value is used if it is not specified.
-|====
-
-==== Settings related to scans for media files
-These settings control the process of scanning a directory structure for media files. Here the file system is traversed, media files are assigned to media, and the description files are parsed to extract metadata about these media. The settings are placed in a section named _scan_.
-
-.Configuration options that control the scan process
-[cols="1,3,1",options="header"]
-|====
-| Setting | Description | Default
-| parseInfoTimeout | A timeout (in seconds) for parsing a medium description file. If a parse operation takes longer than this time span, it is aborted and dummy metadata is used for this medium. | 60 seconds
-| mediaBufferSize | The size of the buffer for media to be processed in parallel. When scanning a directory structure for media files some temporary data is created for assignments of files to media, parsed description files, etc. This property defines the number of temporary artifacts of those types that can exist. If this limit is reached, stream processing pauses until the limiting temporary artifacts have been processed. | 8
-|====
-
-==== Metadata extraction
-The archive parses all detected media files in order to extract metadata (e.g. ID3 tags) from them. With this group of options the behavior of this metadata extraction process can be specified. The options are grouped in a subsection named _metaDataExtraction_:
-
-.Configuration options for metadata extraction
-[cols="1,3",options="header"]
-|====
-| Setting | Description
-| readChunkSize | Block size to be used when reading media files. A buffer of this size is created in memory.
-| tagSizeLimit | Defines a maximum size of an ID3 tag to be processed. Tags can become large, e.g. when they contain an image. The archive only extracts text-based metadata. If a tag length is greater than this value, it is ignored.
-| processingTimeout | Here a timeout (in seconds) for the processing of a single media file can be specified. If metadata extraction for this file takes longer, processing is aborted, and the file is ignored.
-|====
-
-==== Metadata persistence
-Once extracted, metadata is stored in files in JSON format on the local file system. How this is done is specified with another group of options in the
-_metaDataPersistence_ subsection:
-
-.Configuration options for persisting metadata
-[cols="1,3",options="header"]
-|====
-| Setting | Description
-| path | Defines a path (on the local file system) where files with extracted metadata information can be stored. Here files with the extension `.mdt` (for metadata) are created containing the ID3 information extracted from media files. These files are loaded when the archive starts up, so that media files do not have to be scanned again.
-| chunkSize | Specifies the block size to be used when reading or writing metadata files.
-| parallelCount | Here a number can be specified how many metadata files are read in parallel. Increasing the number can speedup the startup time of the archive (provided that the local disc can handle the load).
-| tocFile | A local archive can be configured to generate a JSON file with a table of contents, i.e. a list with all media it contains and their corresponding metadata files. This file has the same format as used by an _HTTP archive_ to define its content. With the _tocFile_ property, the path where to store this "table of contents"-file can be specified. If it is missing,
-no such file is generated.
-|====
-
-[#sec_structure]
-== Media file organization
-This section discusses the algorithm how media files are searched for and how they are grouped into different media.
-
-The top-level organization structure is the grouping of media files into different local archives. As has been stated in the <<sec_config>> section, multiple local archives with their root paths can be configured; the application then scans each root path for media files. It is completely up to a specific use case how to assign media files to different local archives. It is fine to have only a single archive containing all media files. It is also fine to group the files into an arbitrary number of archives based on specific criteria, like technical requirements, logic differences (e.g. the genre of audio files), or whatever. The application actually ignores the separation of media files into different archives, except when it comes to resolving the exact location of a media file on the disk. Also, the list of media the application manages is the union over the media defined in all processed local archives. Basically, the archive level is not reflected in the API of the archive server.
-
-When processing the root path of a local archive, the scan algorithm looks for files named `medium.json` that mark the root folder of a medium and contain some metadata about it. All media files found in subfolders of the directory containing the `medium.json` file are considered to belong to this medium.
-
-The `medium.json` file itself can contain properties to describe the medium. So far, only a few properties are evaluated; this may be extended in the future to support new use cases. The following listing shows an example of such a medium description file:
-
-.Example medium.json file
-[source, json]
-----
-{
-  "description": "Symphonies from various composers",
-  "name": "Classic Symphonies"
-}
-----
-
-The archive server application includes these properties (partly) in the responses of the overview and detail endpoints for media.
-
-The structuring of media files below the root folder of a medium (identified by the `medium.json`) file is less relevant. It makes sense and is recommended to use some logic organization based on artists and/or albums. However, this is not strictly necessary, since the metadata of audio files (ID3 tags) determines their association to artists and albums.
-
-Based on what was said so far, the following fragment shows an example structure of media files:
-
-.Example file organization
-[source,shell]
-----
-music
-\- media
-  +- rock
-  |  + medium.json
-  |  + Dire Straits
-  |  | + Brothers in arms
-  |  |   + 01 - So far away.mp3
-  |  |   + ...
-  |  | + Love over gold
-  |  |   + 01 - Telegraph road.mp3
-  |  |   + ...
-  |  \ Jethro Tull
-  |    + The Stormwatch
-  |      + 01 - North sea oil.mp3
-  |      + ...
-  +- pop
-  |  + medium.json
-  |  + Michael Jackson
-  |    + ...
-----
-
-Here, a single local archive with the root folder _music/media_ is defined. The fragment shows two media in the folders _rock_ and _pop_, identified by the _medium.json_ files in these folders. (The actual names of these media are determined by the contents of these files.)
-
-The further organization of media is based on artists and their albums. For instance, the _rock_ medium has subfolders for the artists _Dire Straits_, and _Jethro Tull_. Below an artist's folder, there are the folders for the albums of this artist, e.g. _Brothers in arms_, and _Love over gold_ for _Dire Straits_.
-
-Of course, other forms of organization would be possible as well.
