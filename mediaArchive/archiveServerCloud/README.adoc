@@ -1,11 +1,14 @@
 :toc:
 :toc-placement!:
 :toclevels: 3
-= Cloud Archive Server
+= Archive Server Cloud
 
-A module implementing an HTTP server that provides a REST API for browsing media archives located on cloud servers. The application uses the https://github.com/oheger/cloud-files[Cloud Files] library to access the archives to be managed. So, all server types supported by this library can be used to host media archives.
+A module implementing an HTTP server that provides a REST API for browsing media archives located on cloud servers.
 
 toc::[]
+
+== Synopsis
+This module is a concrete xref:../archiveServer/README.adoc[Archive Server] implementation which manages media files hosted in <<sec_cloud_archives>>. It tries to access the cloud archives as soon as their credentials become available (refer to <<sec_credentials_management>>) and exposes their content via the xref:../archiveServer/README.adoc#archive_server_rest_api[REST API] provided by the `archiveServer` module.
 
 == Building
 The application can be built as a fat jar from the SBT shell using the command
@@ -14,9 +17,76 @@ The application can be built as a fat jar from the SBT shell using the command
 
 which produces a jar file with all required dependencies in the `mediaArchive/archiveServerCloud/target/scala-XXX` subfolder. This is an executable jar that can be passed to the `java` command via the `-jar` option.
 
+[#sec_cloud_archives]
+== Cloud archives
+A _cloud archive_ in this context means a collection of media files hosted on a server. To access these files, the application uses the https://github.com/oheger/cloud-files[Cloud Files] library. So, cloud archives can be placed on all server types supported by this library.
+
+To obtain information about the content of a cloud archive, so that it can be browsed via the archive server xref:../archiveServer/README.adoc#archive_server_rest_api[REST API], some metadata must be available in a machine-readable form. The main entry point into this metadata is a central "table of content" document listing the media stored in the archive. The path to the document can be defined in the <<sec_config>> section. The application loads this document first to learn about the media available and to find out which data needs to be synced with the local cache. The "table of content" document basically consists of a JSON array with objects corresponding to the single media that follow the structure below:
+
+[source,json]
+----
+[
+{
+  "changedAt":1766781934917,
+  "checksum":"6824930171FDBA7821160593BCEC2E47298894C1",
+  "mediumDescriptionPath":"someMedium/medium.json"
+},
+{
+  "changedAt":1766781934917,
+  "checksum":"5F8500106CDC8FA51882EDA96595444AFB33C4DE",
+  "mediumDescriptionPath":"anotherMedium/medium.json"
+}
+]
+----
+
+Table <<tab_table_of_content_structure>> lists the properties that must be present for each medium in the archive.
+
+[#tab_table_of_content_structure]
+.Properties in the table of content file
+[cols="1,2",options="header"]
+|====
+|Property
+|Description
+
+|checksum
+|A hash value computed based on the content of the associated medium. This value serves as the identifier for this medium.
+
+|mediumDescriptionPath
+|The path (relative to the media directory configured for this archive) pointing to the description document of this medium. This is again a JSON file defining some metadata for the medium. The format is described under xref:../archiveServerLocal/README.adoc#sec_structure[Media file organization] for local archives.
+
+|changedAt
+|A timestamp when data on the associated medium has been updated. The application uses this property to keep a local cache for the metadata of the archive up-to-date. The cache contains the relevant metadata files for each cloud archive. If there are no remote changes, the application only has to load the table of content from the cloud archive; further metadata is then available locally. This reduces the interaction with the cloud archive.
+|====
+
+NOTE: The xref:../archiveServerLocal/README.adoc[Archive Server Local] application can produce such table of content documents in the expected format for the managed local archives.
+
+After processing of the table of content document, the application knows which media are contained in the cloud archive, and - from their description files - some details about them. To implement the endpoints of the REST API to browse the available media based on different criteria, it also needs to know which songs belong to the different media. To fulfill this requirement, a cloud archive must provide a file with metadata for each hosted medium in a configurable metadata directory. The files are named by the medium ID (the hash value) with the extension `.mdt`. The expected format is again a JSON array where each element describes a song with its properties. Below is an example fragment showing the structure of such a file:
+
+[source,json]
+----
+[
+{
+  "album":"Some Album",
+  "artist":"Some Artist",
+  "checksum":"a6fdbe96e7b22d689ba19288e8b8db01781382d38aed8597f6303e3c00db6384",
+  "duration":331727,
+  "formatDescription":"128 kbps",
+  "inceptionYear":2002,
+  "size":5310032,
+  "title":"Song Title",
+  "trackNumber":3,
+  "uri":"someMedium/path/to/song.mp3"
+}
+]
+----
+
+The metadata lists typical properties that are available for instance in ID3 tag information. The `checksum` property is again a hash value; it is computed from the binary content of the song file and serves as a unique identifier for this song.
+
+To recap this section, a cloud archive must contain a central "table of content" document, a description document for each medium, and a metadata document for each medium listing the contained songs.
+
 [#sec_credentials_management]
 == Credentials management
-To access the content of archives hosted on cloud servers, credentials are typically required. This server application provides endpoints to query the expected credentials and to set concrete values for them. As soon as all the credentials for an archive are available, the application loads information about the content of this archive. It can then be accessed via the REST API of the archive server.
+To access the content of archives hosted on cloud servers, credentials are typically required. This server application provides <<sec_endpoints,endpoints>> to query the expected credentials and to set concrete values for them. As soon as all the credentials for an archive are available, the application loads information about the content of this archive. It can then be accessed via the REST API of the archive server.
 
 The class responsible for the management of credentials is xref:src/main/scala/de/oliver_heger/linedj/archive/server/cloud/CloudArchiveCredentialsManager.scala[CloudArchiveCredentialsManager]. The class allows querying credentials based on (string) keys. Such a query returns a `Future` which completes when the value of this credential is set. Via this mechanism, the application can react on credentials becoming available and trigger the loading of archives.
 
@@ -123,18 +193,14 @@ The behavior of the application is determined by a configuration file that it re
 
 [source, bash]
 ----
-java -DconfigFile=/path/to/my/config.xml -jar archive-server-cloud.jar
+java -DconfigFile=/path/to/my/config.xml -jar linedj-archive-server-cloud-assembly-1.0-SNAPSHOT.jar
 ----
 
-The configuration contains multiple sections to define the several components comprising the application. A major part contains the declaration of the cloud archives and their properties; but there are other configuration options related to the server configuration or local cache directories as well. Below is an example fragment that shows the most-relevant configuration options:
+The configuration contains the settings of the HTTP server processed by the xref:../archiveServer/README.adoc#sec_config[Archive server framework]. This application adds further sections to define the several components implementing the provided functionality. A major part contains the declaration of the cloud archives and their properties. Below is an example fragment that shows the most-relevant configuration options:
 
 [source,xml]
 ----
 <configuration>
-    <server>
-      <port>8081</port>
-      <timeout>30sec</timeout>
-    </server>
     <media>
         <cloudArchives>
             <credentialsDirectory>/data/credentials</credentialsDirectory>
@@ -178,29 +244,10 @@ The configuration contains multiple sections to define the several components co
 </configuration>
 ----
 
-The settings can be divided into properties for the server and properties for the archive management. They are described in the following sections.
-
-=== Server properties
-The configuration file can contain an optional section named `server` that defines some aspects of the server application. Table <<tab_config_server>> lists the properties in this category.
-
-[#tab_config_server]
-.Server-related properties
-[cols="1,3",options="header"]
-|====
-| Setting | Description
-
-| port
-| Defines the port on which the server listens for incoming requests. If not specified, the default port 8080 is used. Note that the server always binds to the interface "0.0.0.0".
-
-| timeout
-| Here, a timeout for the interaction with actors during request processing can be specified. The value can be a number with a unit, such as "10s" or "1min". The default timeout is 3 seconds; on slower machines, it may be necessary to increase it.
-|====
-
-=== Properties related to archive management
-The second category of configuration properties defines the cloud archives to be managed by this application and how they are accessed. It is located in the section `media / cloudArchives`. The section contains some global properties controlling different aspects of remote archive management. Then, for each cloud archive, there is a `cloudArchive` element with properties for a specific archive. The following subsections describe the available configuration options in detail.
+The configuration part specific to this application defines the cloud archives to be managed and how they are accessed. It is located in the section `media / cloudArchives`. The section contains some global properties controlling different aspects of remote archive management. Then, for each cloud archive, there is a `cloudArchive` element with properties for a specific archive. The following subsections describe the available configuration options in detail.
 
 [#sec_config_global]
-==== Global properties
+=== Global properties
 These properties define some global settings that apply to all managed cloud archives. They are typically related to the way how the application loads data from these archives. Table <<tab_config_global>> lists the options in this group. Note that these are mandatory settings; if one of them is missing, the application fails to start.
 
 [#tab_config_global]
@@ -217,7 +264,7 @@ These properties define some global settings that apply to all managed cloud arc
 _Note_: The size of this cache should be moderate, since it contains only metadata about media and their songs. Actual media files are not cached locally.
 |====
 
-==== Settings for cloud archives
+=== Settings for cloud archives
 For each cloud archive, the configuration contains a `cloudArchive` element defining the properties of the corresponding archive. The settings basically control how to download files from this archive. Table <<tab_config_archive>> lists them.
 
 [#tab_config_archive]
@@ -284,4 +331,51 @@ For each cloud archive, the configuration contains a `cloudArchive` element defi
 | encrypted
 | This property can be specified as an attribute of the owning `cloudArchive` element. It controls whether the archive is encrypted. (Encrypted means that both file names and file content are encrypted.) If the value is *true*, the properties for encryption are defined by the `cryptXXX` properties listed here, or the corresponding default values are used for missing properties. If the value is *false*, the archive is considered to be not encrypted, and properties related to encryption are ignored.
 | absent
+|====
+
+[#sec_endpoints]
+== Additional REST endpoints
+This server application supports the full REST API for browsing media and their contents provided by the xref:../archiveServer/README.adoc#archive_server_rest_api[Archive server framework]. In addition, it adds a small number of custom endpoints to deal with special aspects of cloud archives. They are described in table <<tab_endpoints>>. Like all other endpoints, they use the path prefix `/api/archive`. The data structures in the payload of requests and responses correspond to data classes defined by the xref:src/main/scala/de/oliver_heger/linedj/archive/server/cloud/CloudArchiveModel.scala[CloudArchiveModel] object.
+
+[#tab_endpoints]
+.Special endpoints for cloud archives
+[cols="1,1,3",options="header"]
+|====
+| Method | Path | Description
+
+|GET
+|/credentials
+|Returns an object with information about the credentials that are required to access (unlock) the managed cloud archives. This includes the keys of credentials for archives and also for credentials files. (Refer to section <<sec_credentials_management>>.) Only the credentials that have not yet been set are listed.
+
+|PUT
+|/credentials
+a|This endpoint allows setting an arbitrary number of credentials. The request body must contain a JSON array with objects defining a credential each, for instance:
+
+[source,json]
+----
+[
+  {
+    "key": "archive.username",
+    "value": "Scott"
+  },
+  {
+    "key": "archive.password",
+    "value": "tiger"
+  }
+]
+----
+
+This is the same structure as is expected for credentials files as described under <<sec_credentials_management>>.
+
+As a response, the endpoint returns an object that allows determining which credential keys could be processed successfully and which were invalid.
+
+|GET
+|/archives/status
+a|Clients can use this endpoint to obtain information about the managed cloud archives and in which state they are currently. Possible states are:
+
+* WAITING: Not all credentials to access this archive are present.
+* LOADED: Information about this archive has been loaded successfully.
+* Failure: Although all credentials have been provided, the archive could not be accessed. This may indicate invalid credentials, but there could be other reasons for the failure as well. Therefore, in this case, an error message is available.
+
+If an archive could not be loaded after its credentials have been set, the credentials are automatically reset. Thus, they can be provided again, which leads to another attempt to load the archive.
 |====
