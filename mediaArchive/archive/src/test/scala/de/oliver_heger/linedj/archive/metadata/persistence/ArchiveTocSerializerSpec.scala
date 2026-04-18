@@ -300,6 +300,16 @@ class ArchiveTocSerializerSpec(testSystem: ActorSystem) extends TestKit(testSyst
     writer.writeToc(target, mediaData, Set.empty, Set(createMediumChecksum(5))) map : _ =>
       val expectedEntries = createMediumEntries(1, 5, TestTime)
       verifyToc(target, expectedEntries)
+      
+  it should "not write the ToC file if there are unused media not contained in existing entries" in:
+    val mediaData = createMediaData(1, 4)
+    val originalEntries = createMediumEntries(1, 4, TestTime)
+    val unusedEntries = Set(createMediumChecksum(5), createMediumChecksum(42))
+    val target = writeToc(createPathInDirectory("unusedButIrrelevantToc.json"), originalEntries)
+    val writer = ArchiveTocSerializer.writer()
+
+    writer.writeToc(target, mediaData, unusedEntries, Set.empty) map : result =>
+      result shouldBe empty
 
   /**
     * Reads a ToC file using the given reader.

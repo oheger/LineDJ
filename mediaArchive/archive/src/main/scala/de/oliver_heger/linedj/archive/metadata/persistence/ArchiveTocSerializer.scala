@@ -195,7 +195,9 @@ object ArchiveTocSerializer:
       val checksumMapping = mediaData.filter(e => e._1.mediumDescriptionPath.isDefined).map(_.swap)
       val validChecksums = checksumMapping.keySet -- unusedMedia
       val newMedia = validChecksums -- existingEntries.keySet
-      if modifiedMedia.isEmpty && unusedMedia.isEmpty && newMedia.isEmpty then
+      val hasUnusedMedia = existingEntries.exists(e => unusedMedia.contains(e._1))
+
+      if modifiedMedia.isEmpty && !hasUnusedMedia && newMedia.isEmpty then
         Future.successful(None)
       else
         val filteredExistingEntries = existingEntries.filter(e => validChecksums.contains(e._1))
