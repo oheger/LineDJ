@@ -103,10 +103,7 @@ object ArchiveTocSerializer:
                             unusedMedia: Set[Checksums.MediumChecksum],
                             modifiedMedia: Set[Checksums.MediumChecksum])
                            (using system: ActorSystem): Future[Option[Path]] =
-        if modifiedMedia.isEmpty && unusedMedia.isEmpty then
-          Future.successful(None)
-        else
-          updateTocFile(target, mediaData, unusedMedia, modifiedMedia, clock)
+        updateTocFile(target, mediaData, unusedMedia, modifiedMedia, clock)
 
   /**
     * Returns a new [[ArchiveTocReader]] object. An optional [[Clock]] can be
@@ -149,7 +146,8 @@ object ArchiveTocSerializer:
     tocFileSource(FileIO.fromPath(target), timestamp)
 
   /**
-    * Actually writes the ToC file after changes have been detected.
+    * Writes an updated ToC file if this is necessary. An existing file is
+    * read first to find out whether there are changes.
     *
     * @param target        the path to the file with the table of contents
     * @param mediaData     a map with all media and their IDs
@@ -171,7 +169,7 @@ object ArchiveTocSerializer:
 
     /**
       * Checks whether a ToC file already exists and reads it if this is the
-      * case. 
+      * case.
       *
       * @return a [[Future]] with the entries read from this file keyed by 
       *         their IDs
@@ -196,22 +194,26 @@ object ArchiveTocSerializer:
     def writeNewToc(existingEntries: Map[Checksums.MediumChecksum, InternalMediumEntry]): Future[Option[Path]] =
       val checksumMapping = mediaData.filter(e => e._1.mediumDescriptionPath.isDefined).map(_.swap)
       val validChecksums = checksumMapping.keySet -- unusedMedia
-      val filteredExistingEntries = existingEntries.filter(e => validChecksums.contains(e._1))
-      val tocEntries = modifiedMedia.filter(checksumMapping.contains)
-        .foldRight(filteredExistingEntries): (cs, map) =>
-          val mid = checksumMapping(cs)
-          val newEntry = InternalMediumEntry(
-            mediumDescriptionPath = mid.mediumDescriptionPath.get,
-            checksum = Some(cs.checksum),
-            changedAt = Some(timestamp)
-          )
-          map + (cs -> newEntry)
-        .values.toList.sortBy(e => sortableDescriptionPath(e.mediumDescriptionPath))
+      val newMedia = validChecksums -- existingEntries.keySet
+      if modifiedMedia.isEmpty && unusedMedia.isEmpty && newMedia.isEmpty then
+        Future.successful(None)
+      else
+        val filteredExistingEntries = existingEntries.filter(e => validChecksums.contains(e._1))
+        val tocEntries = (modifiedMedia.filter(checksumMapping.contains) ++ newMedia)
+          .foldRight(filteredExistingEntries): (cs, map) =>
+            val mid = checksumMapping(cs)
+            val newEntry = InternalMediumEntry(
+              mediumDescriptionPath = mid.mediumDescriptionPath.get,
+              checksum = Some(cs.checksum),
+              changedAt = Some(timestamp)
+            )
+            map + (cs -> newEntry)
+          .values.toList.sortBy(e => sortableDescriptionPath(e.mediumDescriptionPath))
 
-      val entriesSource = Source(tocEntries)
-      val jsonStage = ListSeparatorStage.jsonStage[InternalMediumEntry]
-      val sink = FileIO.toPath(target)
-      entriesSource.via(jsonStage).runWith(sink).map(_ => Some(target))
+        val entriesSource = Source(tocEntries)
+        val jsonStage = ListSeparatorStage.jsonStage[InternalMediumEntry]
+        val sink = FileIO.toPath(target)
+        entriesSource.via(jsonStage).runWith(sink).map(_ => Some(target))
 
     for
       existingEntries <- readExistingToc()

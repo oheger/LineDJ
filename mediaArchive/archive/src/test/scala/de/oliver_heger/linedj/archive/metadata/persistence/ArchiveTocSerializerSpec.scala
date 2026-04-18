@@ -172,25 +172,26 @@ class ArchiveTocSerializerSpec(testSystem: ActorSystem) extends TestKit(testSyst
     readToc(path) should contain theSameElementsInOrderAs expectedEntries
 
   "An ArchiveTocWriter" should "not write anything if there are no changes" in :
-    val target = createPathInDirectory("toc.json")
+    val mediaData = createMediaData(1, 8)
+    val originalEntries = createMediumEntries(1, 8, TestTime)
+    val target = writeToc(createPathInDirectory("toc.json"), originalEntries)
     val writer = ArchiveTocSerializer.writer()
 
-    writer.writeToc(target, createMediaData(1, 8), Set.empty, Set.empty) map : result =>
-      Files.isRegularFile(target) shouldBe false
+    writer.writeToc(target, mediaData, Set.empty, Set.empty) map : result =>
       result shouldBe empty
 
   it should "create a new file containing modified media" in :
-    val mediaData = createMediaData(1, 16)
-    val modified = Set(createMediumChecksum(2), createMediumChecksum(4), createMediumChecksum(8))
+    val mediaData = createMediaData(1, 3)
+    val modified = Set(createMediumChecksum(1), createMediumChecksum(2), createMediumChecksum(3))
     val target = createPathInDirectory("newToc.json")
     val writer = ArchiveTocSerializer.writer(testClock())
 
     writer.writeToc(target, mediaData, Set.empty, modified) map : result =>
       result.value should be(target)
       val expectedEntries = List(
+        createInternalEntry(1),
         createInternalEntry(2),
-        createInternalEntry(4),
-        createInternalEntry(8)
+        createInternalEntry(3)
       )
       verifyToc(target, expectedEntries)
 
@@ -216,7 +217,7 @@ class ArchiveTocSerializerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       verifyToc(target, List(createInternalEntry(2)))
 
   it should "remove obsolete entries from the ToC" in :
-    val mediaData = createMediaData(2, 4)
+    val mediaData = createMediaData(2, 2)
     val originalEntries = createMediumEntries(1, 2, TestTime - 17)
     val target = writeToc(createPathInDirectory("obsoleteToc.json"), originalEntries)
     val writer = ArchiveTocSerializer.writer(testClock())
@@ -237,6 +238,18 @@ class ArchiveTocSerializerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       val expectedEntries = createMediumEntries(9, 16, originalTime)
       verifyToc(target, expectedEntries)
 
+  it should "add entries for new media" in :
+    val mediaData = createMediaData(1, 16)
+    val originalTime = TestTime - 128000
+    val originalEntries = createMediumEntries(1, 14, originalTime)
+    val target = writeToc(createPathInDirectory("newEntriesToc.json"), originalEntries)
+    val writer = ArchiveTocSerializer.writer(testClock())
+
+    writer.writeToc(target, mediaData, Set.empty, Set.empty) map : result =>
+      result.value should be(target)
+      val expectedEntries = originalEntries ++ createMediumEntries(15, 16, TestTime)
+      verifyToc(target, expectedEntries)
+
   it should "filter out medium IDs without a path" in :
     val invalidMediumID = createMediumID(1).copy(mediumDescriptionPath = None)
     val mediaData = createMediaData(2, 4) + (invalidMediumID -> createMediumChecksum(1))
@@ -249,7 +262,7 @@ class ArchiveTocSerializerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       verifyToc(target, expectedEntries)
 
   it should "ignore invalid entries in the existing ToC file" in :
-    val mediaData = createMediaData(1, 2)
+    val mediaData = createMediaData(2, 2)
     val originalEntries = List(
       ArchiveTocSerializer.InternalMediumEntry(
         mediumDescriptionPath = "some/description/path",
@@ -303,12 +316,13 @@ class ArchiveTocSerializerSpec(testSystem: ActorSystem) extends TestKit(testSyst
     reader.readToc(FileIO.fromPath(path)).runWith(sink)
 
   "An ArchiveTocReader" should "return a Source to read a ToC file" in :
-    val mediaData = createMediaData(1, 16)
-    val modified = Set(createMediumChecksum(2), createMediumChecksum(4), createMediumChecksum(8))
+    val mediaData = createMediaData(1, 4)
+    val modified = Set(createMediumChecksum(2), createMediumChecksum(3), createMediumChecksum(4))
     val expectedEntries = List(
+      createMediumEntry(1),
       createMediumEntry(2),
-      createMediumEntry(4),
-      createMediumEntry(8)
+      createMediumEntry(3),
+      createMediumEntry(4)
     )
     val target = createPathInDirectory("newTocToRead.json")
     val writer = ArchiveTocSerializer.writer(testClock())
