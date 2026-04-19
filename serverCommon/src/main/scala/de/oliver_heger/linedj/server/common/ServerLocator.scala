@@ -24,7 +24,6 @@ import org.apache.pekko.io.{IO, Udp}
 import org.apache.pekko.util.ByteString
 
 import java.net.*
-import java.util.regex.Pattern
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.*
 import scala.jdk.CollectionConverters.*
@@ -74,6 +73,44 @@ object ServerLocator:
   type NetworkInterfaceLookupFunc = () => List[NetworkInterface]
 
   /**
+    * A data class to represent a request to be handled by the locator. It
+    * contains information about the client and the address where the server
+    * can be accessed. Based on this information, it can be decided whether the
+    * request is valid and should be answered and where to send the response
+    * to.
+    *
+    * @param requestCode   the request code sent by the client
+    * @param locatorCode   the code configured for the locator
+    * @param remote        the address of the client
+    * @param serverAddress the address to access the server
+    */
+  final case class LocatorRequest(requestCode: String,
+                                  locatorCode: String,
+                                  remote: InetSocketAddress,
+                                  serverAddress: String)
+
+  /**
+    * A data class that contains the information required to send a response
+    * from the locator. This is the actual payload of the response and the
+    * address of the client which receives the response.
+    *
+    * @param payload the payload of the response
+    * @param target  the target address to send the response to
+    */
+  final case class LocatorResponse(payload: String,
+                                   target: InetSocketAddress)
+
+  /**
+    * Type alias of a function that can handle requests for a locator. The
+    * function is passed an object with all information relevant for processing
+    * the request. It then decides whether the request is valid and a response
+    * has to be sent. In this case, it returns a defined [[Option]] with a 
+    * [[LocatorResponse]] object. For a request that cannot be answered, result
+    * should be ''None''.
+    */
+  type HandlerFunc = LocatorRequest => Option[LocatorResponse]
+
+  /**
     * A data class defining the parameters required to set up a server locator
     * instance. An instance defines the multicast UDP settings and how locator
     * requests should be handled.
@@ -83,12 +120,15 @@ object ServerLocator:
     * @param requestCode      the expected request code
     * @param responseTemplate the template to generate the response to send
     * @param lookupFunc       the function for looking up network interfaces
+    * @param handlerFunc      the function to handle requests
     */
   final case class LocatorParams(multicastAddress: String,
                                  port: Int,
                                  requestCode: String,
                                  responseTemplate: String,
-                                 lookupFunc: NetworkInterfaceLookupFunc = NetworkManager.DefaultNetworkInterfaceLookupFunc)
+                                 lookupFunc: NetworkInterfaceLookupFunc =
+                                 NetworkManager.DefaultNetworkInterfaceLookupFunc,
+                                 handlerFunc: HandlerFunc = defaultHandler)
 
   /**
     * A trait representing a handle to a locator instance created by this
@@ -223,12 +263,6 @@ object ServerLocator:
 
     import context.system
 
-    /**
-      * A regular expression to detect requests with an alternative response
-      * port.
-      */
-    private val regExRequestWithPort = (Pattern.quote(params.requestCode) + ":(\\d{4,5})").r
-
     /** The configuration for network binding. */
     private var multicastConfig: MulticastConfig = _
 
@@ -262,9 +296,14 @@ object ServerLocator:
       case Udp.Received(data, remote) =>
         val request = data.utf8String
         log.info("Received request '{}' from {}.", request, remote)
-        responseAddress(request, remote) foreach { address =>
-          socket ! Udp.Send(ByteString(response), address)
-        }
+        val locatorRequest = LocatorRequest(
+          requestCode = request,
+          locatorCode = params.requestCode,
+          remote = remote,
+          serverAddress = response
+        )
+        params.handlerFunc(locatorRequest) foreach : locatorResponse =>
+          socket ! Udp.Send(ByteString(locatorResponse.payload), locatorResponse.target)
 
       case Udp.Unbind =>
         socket ! Udp.Unbind
@@ -327,23 +366,6 @@ object ServerLocator:
           IO(Udp) ! Udp.Bind(self, new InetSocketAddress(params.port), List(multicastConfig))
 
     /**
-      * Checks the given request, and for valid requests, returns the address
-      * where to send the response to.
-      *
-      * @param request the request as string that was received
-      * @param remote  the address of the caller
-      * @return an ''Option'' with the response address; ''None'' means that no
-      *         response should be sent, since the request was invalid
-      */
-    private def responseAddress(request: String, remote: InetSocketAddress): Option[InetSocketAddress] =
-      request match
-        case params.requestCode =>
-          Some(remote)
-        case regExRequestWithPort(port) =>
-          Some(new InetSocketAddress(remote.getAddress, port.toInt))
-        case _ => None
-
-    /**
       * Print a log message about the local network addresses the server will be
       * bound to. This is helpful to access it from the same machine.
       *
@@ -352,3 +374,32 @@ object ServerLocator:
     private def logInterfacesForBinding(interfaces: List[NetworkInterface]): Unit =
       val addresses = interfaces.flatMap(_.localAddress).mkString
       log.info("Binding server to these addresses: {}.", addresses)
+  end ServerLocatorActor
+
+  /**
+    * A regular expression to detect requests with an alternative response
+    * port.
+    */
+  private val regExRequestWithPort = "(.+):(\\d{4,5})".r
+
+  /**
+    * The default handler function for locator requests. This function checks 
+    * whether the request code in the request matches the code from the locator
+    * configuration. If this is the case, it returns a response object with the
+    * client address and the server address.
+    *
+    * The request code can contain a port, separated by a ':'. In this case,
+    * this port is used for the client address.
+    *
+    * @param request the object with information about the request
+    * @return an [[Option]] with the response to send
+    */
+  def defaultHandler(request: LocatorRequest): Option[LocatorResponse] =
+    val responseAddress = request.requestCode match
+      case request.locatorCode =>
+        Some(request.remote)
+      case regExRequestWithPort(code, port) =>
+        Some(new InetSocketAddress(request.remote.getAddress, port.toInt))
+      case _ => None
+    responseAddress map : remoteAddress =>
+      LocatorResponse(payload = request.serverAddress, target = remoteAddress)
