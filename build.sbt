@@ -1108,6 +1108,20 @@ lazy val serverCommon = (project in file("serverCommon"))
   ) dependsOn shared
 
 /**
+  * A project implementing a discovery client for servers based on the server
+  * locator from the [[serverCommon]] project.
+  */
+lazy val serverDiscovery = (project in file("serverDiscovery"))
+  .enablePlugins(SbtOsgi)
+  .settings(defaultSettings)
+  .settings(OSGi.osgiSettings)
+  .settings(
+    name := "linedj-server-discovery",
+    libraryDependencies ++= logDependencies,
+    libraryDependencies ++= pekkoHttpDependencies
+  ) dependsOn (shared, serverCommon % "test->compile;test->test")
+
+/**
   * Project for the player server. This project exposes player functionality
   * via an HTTP server.
   */

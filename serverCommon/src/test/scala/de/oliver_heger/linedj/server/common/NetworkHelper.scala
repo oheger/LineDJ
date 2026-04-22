@@ -24,7 +24,7 @@ import scala.util.Using
   *
   * @return the free port number
   */
-private def findFreePort(): Int =
-  Using(new ServerSocket(0)) {
+def findFreePort(): Int =
+  Using(new ServerSocket(0)): 
     _.getLocalPort
-  }.get
+  .get
