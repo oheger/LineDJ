@@ -20,11 +20,13 @@ import de.oliver_heger.linedj.shared.actors.ActorFactory
 import org.apache.pekko.actor as classic
 import org.apache.pekko.actor.ActorRef
 import org.apache.pekko.io.{IO, Udp}
+import org.apache.pekko.pattern.{BackoffOpts, BackoffSupervisor}
 import org.apache.pekko.util.ByteString
 
 import java.net.{InetAddress, InetSocketAddress}
+import scala.compiletime.uninitialized
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
-import scala.concurrent.{Future, Promise}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 
 /**
   * A module providing discovery functionality for HTTP servers that are using
@@ -116,19 +118,57 @@ object ServerDiscovery:
   def discover(params: DiscoveryParams, discoveryName: String = DefaultDiscoveryName)
               (using actorFactory: ActorFactory): DiscoveryHandle =
     val promiseResult = Promise[String]()
-    val props = classic.Props(new UdpRequestActor(IO(Udp)(using actorFactory.actorSystem), params, promiseResult))
-    actorFactory.createClassicActor(props, discoveryName)
+    val discoveryActor = createDiscoveryActor(params, discoveryName, actorFactory, promiseResult)
+    given ExecutionContext = actorFactory.actorSystem.dispatcher
+    promiseResult.future.foreach: _ =>
+      discoveryActor ! classic.PoisonPill
 
     new DiscoveryHandle:
       override def futResult: Future[String] = promiseResult.future
 
-      override def close(): Unit = {}
+      override def close(): Unit =
+        promiseResult.trySuccess("")
+
+  /**
+    * Creates the actor to handle the discovery operation. The actual work is 
+    * done by [[UdpRequestActor]]. This function wraps this actor inside a 
+    * supervisor that applies the backoff logic when discovery requests are not
+    * answered within the configured timeout.
+    *
+    * @param params        the parameters for the discovery operation
+    * @param discoveryName the name of the operation to derive actor names
+    * @param actorFactory  the factory to create actors
+    * @param promiseResult the [[Promise]] to pass the discovery result
+    * @return the actor that performs the discovery
+    */
+  private def createDiscoveryActor(params: DiscoveryParams,
+                                   discoveryName: String,
+                                   actorFactory: ActorFactory,
+                                   promiseResult: Promise[String]): ActorRef =
+    val props = classic.Props(new UdpRequestActor(IO(Udp)(using actorFactory.actorSystem), params, promiseResult))
+
+    val supervisorProps = BackoffOpts.onFailure(
+      childProps = props,
+      childName = s"$discoveryName-requestActor",
+      minBackoff = params.minBackoff,
+      maxBackoff = params.maxBackoff,
+      randomFactor = 0
+    )
+    actorFactory.createClassicActor(BackoffSupervisor.props(supervisorProps), discoveryName)
+
+  /**
+    * A message processed by [[UdpRequestActor]] to indicate a timeout of the
+    * discovery operation.
+    */
+  private case object DiscoveryTimeout
 
   /**
     * An internal helper actor which handles the UDP communication to locate
     * the server. The actor sets up a UDP socket and sends a request. Then it
     * waits for the response of the server. If no response is received within
-    * the configured timeout, the actor terminates itself.
+    * the configured timeout, the actor terminates throws an exception, which
+    * causes a restart. The supervisor strategy makes sure that the timing of
+    * the restart conforms to the discovery parameters.
     *
     * @param udp             the actor representing the UDP system
     * @param discoveryParams the parameters for discovery
@@ -137,8 +177,14 @@ object ServerDiscovery:
   private[discovery] class UdpRequestActor(udp: ActorRef,
                                            discoveryParams: DiscoveryParams,
                                            promiseResult: Promise[String]) extends classic.Actor, classic.ActorLogging:
+    /** The actor representing the UDP socket. */
+    private var socketActor: ActorRef = uninitialized
+
     override def preStart(): Unit =
-      udp ! Udp.Bind(self, new InetSocketAddress(0))
+      initDiscovery()
+
+    override def postStop(): Unit =
+      closeSocket()
 
     override def receive: Receive =
       case Udp.Bound(localAddress) =>
@@ -148,18 +194,51 @@ object ServerDiscovery:
           target = InetSocketAddress(InetAddress.getByName(discoveryParams.multicastAddress), discoveryParams.port)
         )
         sender() ! discoveryRequest
-        context.become(active(sender()))
+        socketActor = sender()
+        context.become(active())
+
+      case DiscoveryTimeout =>
+        handleTimeout()
 
     /**
       * A special [[Receive]] function that is enabled when the socket is open
       * and a response from the server is expected.
       *
-      * @param socket the actor representing the socket
       * @return the handler function
       */
-    private def active(socket: classic.ActorRef): Receive =
+    private def active(): Receive =
       case Udp.Received(data, remote) =>
         val response = data.utf8String
         log.info("Received response '{}' from {}.", response, remote)
         promiseResult.success(response)
+        context.stop(self)
+
+      case DiscoveryTimeout =>
+        handleTimeout()
+
+    /**
+      * Handles a timeout by throwing an exception which causes a restart of
+      * the actor.
+      */
+    private def handleTimeout(): Unit =
+      log.info("DiscoveryTimeout received.")
+      throw new IllegalStateException("Discovery timeout.")
+
+    /**
+      * Prepares a discovery operation by requesting a socket and scheduling a
+      * message to indicate a timeout.
+      */
+    private def initDiscovery(): Unit =
+      import context.dispatcher
+      udp ! Udp.Bind(self, new InetSocketAddress(0))
+      context.system.scheduler.scheduleOnce(discoveryParams.timeout, self, DiscoveryTimeout)
+
+    /**
+      * Checks whether there is a socket actor and - if so - sends it a message
+      * to unbind itself.
+      */
+    private def closeSocket(): Unit =
+      if socketActor != null then
+        socketActor ! Udp.Unbind
+        socketActor = null
   end UdpRequestActor
