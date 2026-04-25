@@ -102,24 +102,50 @@ object ServerDiscovery:
     def futResult: Future[String]
 
   /**
-    * Returns a [[DiscoveryHandle]] for a new discovery operation using the
-    * given parameters. The new operation is started in background. The handle
-    * can be used to obtain the result once it becomes available, or to stop
-    * the operation early by closing the handle. Callers can provide a name for
-    * the operation. This is used to generate names for internal actors. If
-    * multiple operations are run concurrently, they should have distinct
-    * names.
+    * A factory trait to start a discovery operation and obtain the associated
+    * [[DiscoveryHandle]].
+    */
+  trait Factory:
+    /**
+      * Returns a [[DiscoveryHandle]] for a new discovery operation using the
+      * given parameters. The new operation is started in background. The handle
+      * can be used to obtain the result once it becomes available, or to stop
+      * the operation early by closing the handle. Callers can provide a name for
+      * the operation. This is used to generate names for internal actors. If
+      * multiple operations are run concurrently, they should have distinct
+      * names.
+      *
+      * @param params        the parameters for the discovery operation
+      * @param discoveryName a name for the operation
+      * @param actorFactory  the object to create actors
+      * @return a [[DiscoveryHandle]] to control the operation
+      */
+    def apply(params: DiscoveryParams, discoveryName: String = DefaultDiscoveryName)
+             (using actorFactory: ActorFactory): DiscoveryHandle
+
+  /**
+    * A default [[Factory]] instance to trigger discovery operations.
+    */
+  final val discover: Factory = new Factory:
+    override def apply(params: DiscoveryParams, discoveryName: String)
+                      (using actorFactory: ActorFactory): DiscoveryHandle =
+      runDiscovery(params, discoveryName)
+
+  /**
+    * Triggers a discovery operation and returns the handle for it.
     *
     * @param params        the parameters for the discovery operation
     * @param discoveryName a name for the operation
     * @param actorFactory  the object to create actors
     * @return a [[DiscoveryHandle]] to control the operation
     */
-  def discover(params: DiscoveryParams, discoveryName: String = DefaultDiscoveryName)
-              (using actorFactory: ActorFactory): DiscoveryHandle =
+  private def runDiscovery(params: DiscoveryParams, discoveryName: String = DefaultDiscoveryName)
+                          (using actorFactory: ActorFactory): DiscoveryHandle =
     val promiseResult = Promise[String]()
     val discoveryActor = createDiscoveryActor(params, discoveryName, actorFactory, promiseResult)
+
     given ExecutionContext = actorFactory.actorSystem.dispatcher
+
     promiseResult.future.foreach: _ =>
       discoveryActor ! classic.PoisonPill
 
