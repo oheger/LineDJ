@@ -1104,7 +1104,9 @@ lazy val serverCommon = (project in file("serverCommon"))
   .settings(
     name := "linedj-server-common",
     libraryDependencies ++= logDependencies,
-    libraryDependencies ++= pekkoHttpDependencies
+    libraryDependencies ++= pekkoHttpDependencies,
+    libraryDependencies += beanUtilsDependency,
+    libraryDependencies += commonsConfig2Dependency,
   ) dependsOn shared
 
 /**
