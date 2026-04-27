@@ -23,4 +23,7 @@
     <server>
         <httpPort>8077</httpPort>
     </server>
+    <test>
+        <value>42</value>
+    </test>
 </config>

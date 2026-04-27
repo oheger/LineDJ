@@ -28,4 +28,7 @@
             <command>whereAreYou?</command>
         </discovery>
     </server>
+    <test>
+        <value>42</value>
+    </test>
 </config>
