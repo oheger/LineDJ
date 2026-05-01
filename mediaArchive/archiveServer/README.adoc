@@ -64,29 +64,32 @@ The `ArchiveController` class manages a configuration file (in XML format) that 
 java -DconfigFile=/path/to/my/config.xml -jar archive-server.jar
 ----
 
-This module evaluates an optional section named `server` in the configuration file. It defines some settings for the HTTP server to launch. The file can then contain further configuration options to be processed by the server application. An example `server` section can look as follows:
+This module already evaluates some properties in the configuration file. The file can then contain further configuration options to be processed by the server application. The fragment below shows an example for the part of the configuration file that is processed by this module:
 
 [source,xml]
 ----
 <configuration>
     <server>
-      <port>8081</port>
-      <timeout>30sec</timeout>
+      <httpPort>8081</httpPort>
     </server>
+    <media>
+      <archive>
+        <actorTimeout>5sec</actorTimeout>
+      </archive>
+    </media>
 </configuration>
 ----
 
-Table <<tab_config_server>> lists the supported configuration options together with their default values.
+The `server` section is evaluated by the xref:../../serverCommon/README.adoc[Server common] module. The supported properties in this section can be found xref:../../serverCommon/README.adoc#sec_config[here].
+
+This module looks for properties in the `media` / `archive` section. Table <<tab_config_server>> lists the supported configuration options in this section together with their default values.
 
 [#tab_config_server]
-.Properties in the server section
+.Basic configuration properties
 [cols="1,3",options="header"]
 |====
 | Setting | Description
 
-| port
-| Defines the port on which the server listens for incoming requests. If not specified, the default port 8080 is used. Note that the server always binds to the interface "0.0.0.0".
-
-| timeout
+| actorTimeout
 | Here, a timeout for the interaction with actors during request processing can be specified. The value can be a number with a unit, such as "10s" or "1min". The default timeout is 3 seconds; on slower machines, it may be necessary to increase it.
 |====
