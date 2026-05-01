@@ -1,0 +1,60 @@
+:toc:
+:toc-placement!:
+:toclevels: 3
+= Server common
+
+A module providing basic functionality for creating HTTP server applications.
+
+toc::[]
+
+== Functionality
+The classes in this module provide a simple framework for the implementation of HTTP-based server applications.
+
+The most important trait is xref:src/main/scala/de/oliver_heger/linedj/server/common/ServerController.scala[ServerController]. The trait defines a number of lifecycle hooks the framework calls to start and bind the HTTP server, to manage a context object, and to set up the HTTP endpoints. A concrete server application has to provide an implementation of this trait with proper definitions of these lifecycle hooks.
+
+The xref:src/main/scala/de/oliver_heger/linedj/server/common/ServerLocator.scala[ServerLocator] object offers functionality to dynamically discover the URL of a server running in the local network. This is done using UDP multicast requests with a rather simple discovery protocol.
+
+The xref:src/main/scala/de/oliver_heger/linedj/server/common/ConfigSupport.scala[ConfigSupport] trait can be mixed in a concrete controller implementation to get support for parsing a configuration file. The file can contain properties that determine how to start the server (refer to <<sec_config>>), but also an application-specific section that is read and transformed to a data object on behalf of the application. Based on the content of the configuration file, the `ConfigSupport` trait is able to initialize a `ServerLocator` for the current application.
+
+[#sec_config]
+== Configuration
+When using the xref:src/main/scala/de/oliver_heger/linedj/server/common/ConfigSupport.scala[ConfigSupport] trait the server application automatically reads a configuration file when it starts. The name of the file is specific to a concrete application; concrete subclasses need to specify it. However, if the user specifies the `configFile` system property, its value is interpreted as the path to the configuration file. Per default, the `ConfigSupport` trait assumes that the configuration file is an XML document, but this can be overridden in subclasses if needed.
+
+The configuration file can contain a `server` section, which is evaluated by the trait. The section contains information how to bind the HTTP server and whether to set up a `ServerLocator` to support auto-discovery. An example of a valid configuration file with a `server` section is shown below; table <<tab_config_server>> lists and describes the supported configuration options.
+
+[source,xml]
+----
+<configuration>
+  <server>
+    <httpPort>8080</httpPort>
+    <discovery>
+      <multicastAddress>224.1.2.3</multicastAddress>
+      <port>9876</port>
+      <command>someCommand</command>
+    </discovery>
+  </server>
+</configuration>
+----
+
+[#tab_config_server]
+.Properties in the server section
+[cols="1,3",options="header"]
+|====
+|Property
+|Description
+
+|httpPort
+|The port to bind the HTTP server to.
+
+|discovery
+|The _discovery_ section defines the properties required to set up a `ServerLocator` which listens for incoming UDP requests querying for the address of the server application in the network. If it is present, all mandatory properties must be defined, and a corresponding locator object is initialized. If the section is missing, discovery is not supported for this server.
+
+|discovery / multicastAddress
+|This is the UDP multicast address the `ServerLocator` should bind to when listening for UDP requests.
+
+|discovery / port
+|The port to be used by the `ServerLocator` when listening for UDP requests.
+
+|discovery / command
+|The `ServerLocator` expects that a request contains a specific command. Only then it sends a response. The command is defined by this property.
+|====
