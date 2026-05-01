@@ -16,11 +16,12 @@
 
 package de.oliver_heger.linedj.archive.server
 
+import de.oliver_heger.linedj.server.common.ConfigSupport
 import de.oliver_heger.linedj.shared.config.ConfigExtensions.toDuration
 import org.apache.commons.configuration2.builder.FileBasedConfigurationBuilder
 import org.apache.commons.configuration2.builder.fluent.Parameters
 import org.apache.commons.configuration2.io.{ClasspathLocationStrategy, CombinedLocationStrategy, HomeDirectoryLocationStrategy, ProvidedURLLocationStrategy}
-import org.apache.commons.configuration2.{Configuration, XMLConfiguration}
+import org.apache.commons.configuration2.{Configuration, ImmutableHierarchicalConfiguration, XMLConfiguration}
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
@@ -29,15 +30,9 @@ import scala.util.Try
 object ArchiveServerConfig:
   /**
     * The name of the section in the configuration for the properties of the
-    * server itself.
+    * archive content management consumed by this class.
     */
-  final val ServerSection = "server."
-
-  /**
-    * The name of the configuration property defining the port on which the
-    * HTTP server should listen.
-    */
-  final val PropServerPort = ServerSection + "port"
+  final val ArchiveSection = "media.archive."
 
   /**
     * The name of the configuration property that defines the timeout for
@@ -46,105 +41,55 @@ object ArchiveServerConfig:
     * ''ask'' timeout. The property value can be a string with a temporal unit.
     * If no unit is specified, the unit ''seconds'' is assumed.
     */
-  final val PropServerTimeout = ServerSection + "timeout"
-
-  /** The default port for the HTTP server. */
-  final val DefaultServerPort = 8080
+  final val PropActorTimeout = ArchiveSection + "actorTimeout"
 
   /** The default timeout when querying actors. */
-  final val DefaultServerTimeout = 3.seconds
-
-  /**
-    * Alias for a function that can extract a concrete server configuration
-    * from a passed in [[Configuration]] instance. The function returns a
-    * [[Try]], since the configuration may be invalid.
-    */
-  type ConfigLoader[CONF] = Configuration => Try[CONF]
-
-  /**
-    * Loads the configuration for the archive server from the given
-    * configuration file.
-    *
-    * @param configFileName the name of the configuration file to load
-    * @param ec             the execution context
-    * @return a [[Future]] with the configuration
-    */
-  def apply[CONF](configFileName: String)
-                 (loader: ConfigLoader[CONF])
-                 (using ec: ExecutionContext): Future[ArchiveServerConfig[CONF]] =
-    loadConfiguration(configFileName) flatMap : config =>
-      apply(config)(loader)
-
+  final val DefaultActorTimeout = 3.seconds
+  
   /**
     * Extracts the configuration for the archive server from the given
     * configuration object.
     *
     * @param config the configuration to process
     * @param loader the object to load the archive configuration
-    * @param ec     the execution context
     * @tparam CONF the type of the concrete archive configuration
-    * @return a [[Future]] with the extracted [[ArchiveServerConfig]]
+    * @return a [[Try]] with the extracted [[ArchiveServerConfig]]
     */
-  def apply[CONF](config: Configuration)
-                 (loader: ConfigLoader[CONF])
-                 (using ec: ExecutionContext): Future[ArchiveServerConfig[CONF]] =
-    Future.fromTry(loader(config)) map : archiveConfig =>
+  def apply[CONF](config: ImmutableHierarchicalConfiguration)
+                 (loader: ConfigSupport.ConfigLoader[CONF]): Try[ArchiveServerConfig[CONF]] =
+    loader(config) map : archiveConfig =>
       new ArchiveServerConfig(
-        serverPort = config.getInt(PropServerPort, DefaultServerPort),
-        timeout = parseTimeout(config),
+        actorTimeout = parseTimeout(config),
         archiveConfig = archiveConfig
       )
-
+  
   /**
-    * Loads the server configuration from the specified configuration file.
-    *
-    * @param configFileName the name of the configuration file
-    * @param ec             the execution context
-    * @return a [[Future]] with the loaded configuration
-    */
-  private def loadConfiguration(configFileName: String)
-                               (using ec: ExecutionContext): Future[Configuration] = Future:
-    import scala.jdk.CollectionConverters.*
-    val params = new Parameters
-    val locationStrategies = List(
-      new ProvidedURLLocationStrategy,
-      new ClasspathLocationStrategy,
-      new HomeDirectoryLocationStrategy
-    )
-    val builder = new FileBasedConfigurationBuilder(classOf[XMLConfiguration])
-      .configure(
-        params.xml()
-          .setFileName(configFileName)
-          .setLocationStrategy(new CombinedLocationStrategy(locationStrategies.asJava))
-      )
-    builder.getConfiguration
-
-  /**
-    * Obtains the value of the [[PropServerTimeout]] property from the given
+    * Obtains the value of the [[PropActorTimeout]] property from the given
     * configuration.
     *
     * @param config the configuration to process
     * @return the value of the ''timeout'' property
     */
-  private def parseTimeout(config: Configuration): FiniteDuration =
-    if config.containsKey(PropServerTimeout) then
-      config.getString(PropServerTimeout).toDuration.get
+  private def parseTimeout(config: ImmutableHierarchicalConfiguration): FiniteDuration =
+    if config.containsKey(PropActorTimeout) then
+      config.getString(PropActorTimeout).toDuration.get
     else
-      DefaultServerTimeout
+      DefaultActorTimeout
 end ArchiveServerConfig
 
 /**
   * A data class for holding the configuration settings of the archive server.
   *
-  * The class defines the settings of the server itself, but also the archives
-  * to be loaded and served.
+  * The class defines the settings related to the management of the archive
+  * content, but also stores the archive-specific configuration which is 
+  * managed on behalf of a concrete server implementation.
+  * 
+  * For now, the configuration for the archive content is minimalistic. This
+  * might change in the future if more functionality is added.
   *
-  * @param serverPort    the port on which the server is listening
-  * @param timeout       the timeout for queries of archive content
-  * @param archiveConfig the concrete configuration defining the content of the
-  *                      managed archive
+  * @param actorTimeout       the timeout for queries of archive content
+  * @param archiveConfig the concrete configuration of the managed archive
   * @tparam CONF the type of the archive configuration
   */
-case class ArchiveServerConfig[CONF](serverPort: Int,
-                                     timeout: FiniteDuration,
+case class ArchiveServerConfig[CONF](actorTimeout: FiniteDuration,
                                      archiveConfig: CONF)

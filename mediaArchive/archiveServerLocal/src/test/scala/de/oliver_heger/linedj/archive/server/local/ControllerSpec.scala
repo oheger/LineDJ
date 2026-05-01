@@ -24,7 +24,7 @@ import de.oliver_heger.linedj.archive.server.local.content.ArchiveContentMetadat
 import de.oliver_heger.linedj.archive.server.model.ArchiveModel
 import de.oliver_heger.linedj.archive.server.{ArchiveController, ArchiveServerConfig}
 import de.oliver_heger.linedj.archiveunion.{MediaUnionActor, MetadataUnionActor}
-import de.oliver_heger.linedj.server.common.ServerController
+import de.oliver_heger.linedj.server.common.{ConfigSupport, ServerController}
 import de.oliver_heger.linedj.shared.actors.{ActorManagement, ManagingActorFactory}
 import de.oliver_heger.linedj.shared.archive.media.MediaFileUri
 import de.oliver_heger.linedj.shared.archive.metadata.MetadataProcessingEvent
@@ -154,9 +154,9 @@ class ControllerSpec(testSystem: classics.ActorSystem) extends TestKit(testSyste
       override protected val contentActorFactory: ArchiveContentActor.Factory = mockContentActorFactory
     controller.createContext(using services) map : context =>
       refGroupActorCreated.get() shouldBe true
-      context.contentActor should be(contentActor.ref)
-      context.serverConfig.serverPort should be(8080)
-      context.customContext should be(())
+      context.context.contentActor should be(contentActor.ref)
+      context.serverConfig.httpPort should be(8090)
+      context.context.archiveContext should be(())
 
   it should "provide a correct media file resolver" in :
     val archiveConfig = createArchiveConfigWithRootPath("testArchive")
@@ -165,15 +165,19 @@ class ControllerSpec(testSystem: classics.ActorSystem) extends TestKit(testSyste
       fileUri = MediaFileUri("/test-medium/test-artist/test-album/test-song.mp3")
     )
     writeMediaFile(archiveConfig, Paths.get(downloadInfo.fileUri.path), FileTestHelper.TestData)
-    val serverConfig = ArchiveServerConfig(
-      serverPort = 8000,
-      timeout = ArchiveServerConfig.DefaultServerTimeout,
+    val archiveServerConfig = ArchiveServerConfig(
+      actorTimeout = ArchiveServerConfig.DefaultActorTimeout,
       archiveConfig = Seq(archiveConfig)
     )
-    val context = ArchiveController.ArchiveServerContext(
-      serverConfig = serverConfig,
+    val archiveServerContext = ArchiveController.ArchiveServerContext(
       contentActor = typedTestKit.spawn(ArchiveContentActor.behavior()),
-      customContext = ()
+      archiveContext = (),
+      config = archiveServerConfig
+    )
+    val context = ConfigSupport.ConfigSupportContext(
+      serverConfig = mock,
+      config = archiveServerConfig,
+      context = archiveServerContext
     )
     val services = ServerController.ServerServices(system, ManagingActorFactory.newDefaultManagingActorFactory)
     val controller = new Controller() with SystemPropertyAccess {}

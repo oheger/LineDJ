@@ -17,11 +17,10 @@
 package de.oliver_heger.linedj.archive.server
 
 import de.oliver_heger.linedj.FileTestHelper
-import de.oliver_heger.linedj.archive.server.ArchiveServerConfig.ConfigLoader
 import de.oliver_heger.linedj.archive.server.MediaFileResolver.FileResolverFunc
 import de.oliver_heger.linedj.archive.server.content.ArchiveContentActor
 import de.oliver_heger.linedj.archive.server.model.{ArchiveCommands, ArchiveModel}
-import de.oliver_heger.linedj.server.common.ServerController
+import de.oliver_heger.linedj.server.common.{ConfigSupport, ServerConfig, ServerController}
 import de.oliver_heger.linedj.shared.actors.ManagingActorFactory
 import de.oliver_heger.linedj.shared.archive.media.MediaFileUri
 import de.oliver_heger.linedj.shared.archive.metadata.{Checksums, MediaMetadata}
@@ -46,12 +45,14 @@ import scala.concurrent.{Future, Promise}
 import scala.util.Success
 
 object RoutesSpec:
-  /** The configuration used by tests per default. */
-  private val TestServerConfig = ArchiveServerConfig(
-    0,
-    ArchiveServerConfig.DefaultServerTimeout,
+  /** The archive configuration used by tests per default. */
+  private val TestArchiveServerConfig = ArchiveServerConfig(
+    ArchiveServerConfig.DefaultActorTimeout,
     ()
   )
+
+  /** A test configuration. */
+  private val TestServerConfig = ServerConfig(8088, None)
 
   /** The ID of a test medium. */
   private val TestMediumID = Checksums.MediumChecksum("test-medium-id")
@@ -114,37 +115,43 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with BeforeAndAfterE
     * @return the [[Route]] for being tested
     */
   private def testRoute(contentActor: ActorRef[ArchiveContentActor.ArchiveContentCommand],
-                        config: ArchiveServerConfig[Unit] = TestServerConfig,
+                        config: ArchiveServerConfig[Unit] = TestArchiveServerConfig,
                         resolver: MediaFileResolver.FileResolverFunc = DefaultFileResolverFunc,
                         optAdditionalRoute: Option[Route] = None): Route =
     val controller = new ArchiveController with SystemPropertyAccess:
       override type ArchiveConfig = Unit
 
-      override type CustomContext = Unit
+      override type ArchiveContext = Unit
 
       override def fileResolverFunc(context: Context)
                                    (using services: ServerController.ServerServices): FileResolverFunc =
-        context.serverConfig should be(config)
+        context.config should be(config)
         resolver
 
       override val defaultConfigFileName: String = "irrelevant"
 
-      override def configLoader: ConfigLoader[Unit] = _ => Success(())
+      override def archiveConfigLoader: ConfigSupport.ConfigLoader[Unit] = _ => Success(())
 
-      override def createCustomContext(context: ArchiveController.ArchiveServerContext[ArchiveConfig, Unit])
-                                      (using services: ServerController.ServerServices): Future[Unit] =
+      override def createArchiveContext(context: ArchiveController.ArchiveServerContext[ArchiveConfig, ArchiveContext])
+                                       (using services: ServerController.ServerServices): Future[ArchiveContext] =
         Future.successful(())
 
-      override def customRoute(context: ArchiveController.ArchiveServerContext[Unit, Unit])
+      override def customRoute(context: Context)
                               (using services: ServerController.ServerServices): Option[Route] =
         super.customRoute(context) shouldBe empty
-        context.serverConfig should be(config)
+        context.config should be(config)
+        context.serverConfig should be(TestServerConfig)
         optAdditionalRoute
 
-    val context = ArchiveController.ArchiveServerContext(
-      serverConfig = config,
+    val archiveServerContext = ArchiveController.ArchiveServerContext(
       contentActor = contentActor,
-      customContext = ()
+      config = config,
+      archiveContext = ()
+    )
+    val context = ConfigSupport.ConfigSupportContext(
+      serverConfig = TestServerConfig,
+      context = archiveServerContext,
+      config = config
     )
     val services = ServerController.ServerServices(system, ManagingActorFactory.newDefaultManagingActorFactory)
     val shutdownPromise = Promise[Done]()
@@ -208,8 +215,7 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with BeforeAndAfterE
 
   it should "respect the configured timeout" in :
     val config = ArchiveServerConfig(
-      serverPort = 8080,
-      timeout = 10.millis,
+      actorTimeout = 10.millis,
       archiveConfig = ()
     )
     val contentBehavior = Behaviors.receivePartial[ArchiveContentActor.ArchiveContentCommand]:

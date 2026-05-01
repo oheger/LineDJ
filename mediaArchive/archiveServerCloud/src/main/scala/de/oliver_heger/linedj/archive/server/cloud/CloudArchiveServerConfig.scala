@@ -21,7 +21,7 @@ import de.oliver_heger.linedj.archive.cloud.{ArchiveCryptConfig, CloudArchiveCon
 import de.oliver_heger.linedj.archive.cloud.auth.{AuthMethod, BasicAuthMethod, OAuthMethod}
 import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystemFactory
 import de.oliver_heger.linedj.shared.config.ConfigExtensions.toDuration
-import org.apache.commons.configuration2.Configuration
+import org.apache.commons.configuration2.{Configuration, ImmutableHierarchicalConfiguration}
 import org.apache.commons.configuration2.ex.ConfigurationException
 import org.apache.pekko.http.scaladsl.model.Uri
 import org.apache.pekko.util.Timeout
@@ -236,7 +236,7 @@ object CloudArchiveServerConfig:
     * @param config the configuration to parse
     * @return a [[Try]] with the resulting server configuration
     */
-  def parseConfig(config: Configuration): Try[CloudArchiveServerConfig] = Try:
+  def parseConfig(config: ImmutableHierarchicalConfiguration): Try[CloudArchiveServerConfig] = Try:
     CloudArchiveServerConfig(
       credentialsDirectory = Paths.get(mandatoryProperty(config, PropCredDirectory)),
       cacheDirectory = Paths.get(mandatoryProperty(config, PropCacheDirectory)),
@@ -251,7 +251,7 @@ object CloudArchiveServerConfig:
     * @param config the configuration to parse
     * @return a [[List]] with the extracted archive configurations
     */
-  private def parseArchives(config: Configuration): List[ArchiveConfig] =
+  private def parseArchives(config: ImmutableHierarchicalConfiguration): List[ArchiveConfig] =
     val archives = config.getList(PropCloudArchives + "." + PropArchiveName)
     (0 until archives.size()).map: index =>
       parseArchive(config, s"$PropCloudArchives($index)")
@@ -265,8 +265,8 @@ object CloudArchiveServerConfig:
     * @param key    the key prefix for the archive in question
     * @return the extracted archive configuration
     */
-  private def parseArchive(config: Configuration, key: String): ArchiveConfig =
-    val archiveConfig = config.subset(key)
+  private def parseArchive(config: ImmutableHierarchicalConfiguration, key: String): ArchiveConfig =
+    val archiveConfig = config.immutableConfigurationAt(key)
     ArchiveConfig(
       archiveName = mandatoryProperty(archiveConfig, PropArchiveName),
       archiveBaseUri = mandatoryProperty(archiveConfig, PropArchiveUri),
@@ -290,7 +290,7 @@ object CloudArchiveServerConfig:
     * @param key    the desired key
     * @return the string value of this property
     */
-  private def mandatoryProperty(config: Configuration, key: String): String =
+  private def mandatoryProperty(config: ImmutableHierarchicalConfiguration, key: String): String =
     optionalStringProperty(config, key)
       .getOrElse(throw new ConfigurationException(s"Missing mandatory property '$key'."))
 
@@ -302,7 +302,7 @@ object CloudArchiveServerConfig:
     * @param key    the desired key
     * @return an [[Option]] for the value of this property
     */
-  private def optionalStringProperty(config: Configuration, key: String): Option[String] =
+  private def optionalStringProperty(config: ImmutableHierarchicalConfiguration, key: String): Option[String] =
     Option(config.getString(key))
 
   /**
@@ -313,7 +313,7 @@ object CloudArchiveServerConfig:
     * @param key    the desired key
     * @return an [[Option]] for the '''Int''' value of this property
     */
-  private def optionalIntProperty(config: Configuration, key: String): Option[Int] =
+  private def optionalIntProperty(config: ImmutableHierarchicalConfiguration, key: String): Option[Int] =
     if config.containsKey(key) then
       Some(config.getInt(key))
     else
@@ -327,7 +327,7 @@ object CloudArchiveServerConfig:
     * @param key    the desired key
     * @return an [[Option]] for the [[Timeout]] value of this property
     */
-  private def optionalTimeoutProperty(config: Configuration, key: String): Option[Timeout] =
+  private def optionalTimeoutProperty(config: ImmutableHierarchicalConfiguration, key: String): Option[Timeout] =
     optionalStringProperty(config, key) map : strValue =>
       Timeout(strValue.toDuration.get)
 
@@ -338,7 +338,7 @@ object CloudArchiveServerConfig:
     * @param config the configuration for the current archive
     * @return the [[AuthMethod]] for this archive
     */
-  private def parseAuthMethod(config: Configuration): AuthMethod =
+  private def parseAuthMethod(config: ImmutableHierarchicalConfiguration): AuthMethod =
     val methodType = mandatoryProperty(config, PropAuthMethod)
     val realm = mandatoryProperty(config, PropAuthRealm)
     methodType.toLowerCase(Locale.ROOT) match
@@ -354,7 +354,7 @@ object CloudArchiveServerConfig:
     * @param config the configuration
     * @return the type of the file system for this archive
     */
-  private def parseFileSystem(config: Configuration): String =
+  private def parseFileSystem(config: ImmutableHierarchicalConfiguration): String =
     val fileSystem = mandatoryProperty(config, PropFileSystem)
     if !CloudArchiveFileSystemFactory.existsFactory(fileSystem) then
       throw new ConfigurationException(s"Invalid file system type: '$fileSystem'.")
@@ -369,7 +369,7 @@ object CloudArchiveServerConfig:
     * @param config the configuration for the current archive
     * @return the optional [[ArchiveCryptConfig]] for this archive
     */
-  private def parseCryptConfig(config: Configuration): Option[ArchiveCryptConfig] =
+  private def parseCryptConfig(config: ImmutableHierarchicalConfiguration): Option[ArchiveCryptConfig] =
     val encrypted = if config.containsKey(PropEncrypted) then
       config.getBoolean(PropEncrypted)
     else

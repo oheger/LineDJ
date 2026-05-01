@@ -23,10 +23,9 @@ import de.oliver_heger.linedj.archive.cloud.auth.Credentials.queryCredentialTime
 import de.oliver_heger.linedj.archive.cloud.auth.DefaultAuthConfigFactory
 import de.oliver_heger.linedj.archive.cloud.auth.oauth.OAuthStorageServiceImpl
 import de.oliver_heger.linedj.archive.server.ArchiveController
-import de.oliver_heger.linedj.archive.server.ArchiveServerConfig.ConfigLoader
 import de.oliver_heger.linedj.archive.server.MediaFileResolver.{FileResolverFunc, UnresolvableFileException}
 import de.oliver_heger.linedj.archive.server.cloud.Controller.CloudArchiveServerContext
-import de.oliver_heger.linedj.server.common.ServerController
+import de.oliver_heger.linedj.server.common.{ConfigSupport, ServerController}
 import de.oliver_heger.linedj.server.common.ServerController.given
 import de.oliver_heger.linedj.utils.SystemPropertyAccess
 import org.apache.logging.log4j.LogManager
@@ -194,17 +193,17 @@ class Controller(credentialsManagerFactory: CloudArchiveCredentialsManager.Facto
 
   override type ArchiveConfig = CloudArchiveServerConfig
 
-  override type CustomContext = CloudArchiveServerContext
+  override type ArchiveContext = CloudArchiveServerContext
 
   override val defaultConfigFileName: String = "cloud-archive-server-config.xml"
 
-  override def configLoader: ConfigLoader[ArchiveConfig] =
+  override def archiveConfigLoader: ConfigSupport.ConfigLoader[ArchiveConfig] =
     CloudArchiveServerConfig.parseConfig
 
   override def fileResolverFunc(context: Context)
                                (using services: ServerController.ServerServices): FileResolverFunc =
     (id, downloadInfo) =>
-      context.customContext.archiveManager.archivesState flatMap : state =>
+      context.context.archiveContext.archiveManager.archivesState flatMap : state =>
         state.state(downloadInfo.archiveName) match
           case CloudArchiveManager.CloudArchiveState.Loaded(downloader) =>
             downloader.loadMediaFile(downloadInfo.fileUri).recoverWith:
@@ -215,24 +214,24 @@ class Controller(credentialsManagerFactory: CloudArchiveCredentialsManager.Facto
             // download info object pointing to the archive.
             Future.failed(new IllegalStateException(s"Archive '${downloadInfo.archiveName}' is not in Loaded state."))
 
-  override def createCustomContext(context: ArchiveController.ArchiveServerContext[ArchiveConfig, Unit])
-                                  (using services: ServerController.ServerServices):
-  Future[CustomContext] = Future:
+  override def createArchiveContext(context: ArchiveController.ArchiveServerContext[ArchiveConfig, Unit])
+                                   (using services: ServerController.ServerServices):
+  Future[ArchiveContext] = Future:
     val credentialsManager = credentialsManagerFactory(
-      credentialDirectory = context.serverConfig.archiveConfig.credentialsDirectory,
+      credentialDirectory = context.config.archiveConfig.credentialsDirectory,
       factory = services.managingActorFactory
     )
 
     val authFactory = new DefaultAuthConfigFactory(
       storageService = OAuthStorageServiceImpl,
-      storagePath = context.serverConfig.archiveConfig.credentialsDirectory,
+      storagePath = context.config.archiveConfig.credentialsDirectory,
       resolverFunc = credentialsManager.resolverFunc
     )
     val downloaderFactory = new DefaultCloudFileDownloaderFactory(authFactory, HttpRequestSenderFactoryImpl)
     val archiveManager = archiveManagerFactory(
       actorFactory = services.managingActorFactory,
       contentActor = context.contentActor,
-      config = context.serverConfig.archiveConfig,
+      config = context.config.archiveConfig,
       downloaderFactory = downloaderFactory,
       credentialSetter = credentialsManager.setter,
       contentLoader = new CloudArchiveContentLoader
@@ -247,7 +246,7 @@ class Controller(credentialsManagerFactory: CloudArchiveCredentialsManager.Facto
     */
   override def customRoute(context: Context)
                           (using services: ServerController.ServerServices): Option[Route] =
-    import context.customContext.*
+    import context.context.archiveContext.*
     val cloudArchiveRoutes = handleExceptions(jsonExceptionHandler):
       concat(
         path("credentials"):

@@ -17,13 +17,13 @@
 package de.oliver_heger.linedj.archive.server.cloud
 
 import com.github.cloudfiles.core.http.HttpRequestSender
-import de.oliver_heger.linedj.archive.cloud.{ArchiveCryptConfig, CloudArchiveConfig}
 import de.oliver_heger.linedj.archive.cloud.auth.{BasicAuthMethod, OAuthMethod}
+import de.oliver_heger.linedj.archive.cloud.{ArchiveCryptConfig, CloudArchiveConfig}
 import de.oliver_heger.linedj.archive.protocol.webdav.WebDavFileSystemFactory
 import de.oliver_heger.linedj.archive.server.cloud.CloudArchiveServerConfigSpec.loadTestConfig
-import org.apache.commons.configuration2.Configuration
 import org.apache.commons.configuration2.builder.fluent.Configurations
 import org.apache.commons.configuration2.ex.ConfigurationException
+import org.apache.commons.configuration2.XMLConfiguration
 import org.apache.pekko.http.scaladsl.model.Uri
 import org.apache.pekko.util.Timeout
 import org.scalatest.Inspectors.forEvery
@@ -46,7 +46,7 @@ object CloudArchiveServerConfigSpec:
     *
     * @return the loaded configuration
     */
-  private def loadTestConfig(): Configuration = configs.xml(TestConfigUrl)
+  private def loadTestConfig(): XMLConfiguration = configs.xml(TestConfigUrl)
 end CloudArchiveServerConfigSpec
 
 /**

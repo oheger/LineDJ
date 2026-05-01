@@ -18,10 +18,11 @@ package de.oliver_heger.linedj.archive.server
 
 import de.oliver_heger.linedj.archive.server.ArchiveController.ArchiveServerContext
 import de.oliver_heger.linedj.archive.server.content.ArchiveContentActor
-import de.oliver_heger.linedj.server.common.ServerController
+import de.oliver_heger.linedj.server.common
+import de.oliver_heger.linedj.server.common.ConfigSupport.ConfigLoader
 import de.oliver_heger.linedj.server.common.ServerController.given
+import de.oliver_heger.linedj.server.common.{ConfigSupport, ServerController}
 import de.oliver_heger.linedj.utils.SystemPropertyAccess
-import org.apache.logging.log4j.LogManager
 import org.apache.pekko.Done
 import org.apache.pekko.actor.typed.ActorRef
 import org.apache.pekko.http.scaladsl.server.Route
@@ -30,46 +31,32 @@ import scala.concurrent.{Future, Promise}
 
 object ArchiveController:
   /**
-    * The name of a system property that specifies the name of the
-    * configuration file to be used. If this property is not defined, the
-    * default file name as defined in [[ArchiveServerConfig]] is used.
-    */
-  final val PropConfigFileName = "configFile"
-
-  /** The logger. */
-  private val log = LogManager.getLogger(classOf[ArchiveController])
-
-  /**
-    * A data class to represent the context for the archive server.
+    * A data class to represent the custom context for the archive server.
     *
-    * The context contains the configuration of the server and the managed
-    * archive(s). It also stores the actor that manages the content of the
-    * archive.
+    * The context contains the actor that manages the content of the archive
+    * plus the context of a specific archive implementation.
     *
-    * @param serverConfig  the configuration of the server
-    * @param contentActor  the actor managing the content of the archive
-    * @param customContext context information for a concrete implementation
-    * @tparam CONF   the archive-specific configuration type
-    * @tparam CUSTOM the type of the custom context
+    * @param contentActor   the actor managing the content of the archive
+    * @param config         the config for this server
+    * @param archiveContext context information for a concrete implementation
+    * @tparam ARCH_CONF the type of the archive configuration
+    * @tparam ARCH_CTX  the type of the archive context
     */
-  final case class ArchiveServerContext[CONF, CUSTOM](serverConfig: ArchiveServerConfig[CONF],
-                                                      contentActor:
-                                                      ActorRef[ArchiveContentActor.ArchiveContentCommand],
-                                                      customContext: CUSTOM)
+  final case class ArchiveServerContext[ARCH_CONF, ARCH_CTX](contentActor:
+                                                             ActorRef[ArchiveContentActor.ArchiveContentCommand],
+                                                             config: ArchiveServerConfig[ARCH_CONF],
+                                                             archiveContext: ARCH_CTX)
 end ArchiveController
 
 /**
   * A base ''Controller'' trait for archive server applications.
   *
-  * This trait provides base functionality to load and parse a server 
-  * configuration, to manage the content of an archive, and to expose routes to
-  * access this content. It can be extended by concrete implementations that
-  * obtain their media files from different sources.
+  * This trait provides base functionality to manage the content of an archive
+  * and to expose routes to access this content. It can be extended by concrete
+  * implementations that obtain their media files from different sources.
   */
-trait ArchiveController extends ServerController:
+trait ArchiveController extends ServerController, ConfigSupport:
   this: SystemPropertyAccess =>
-
-  import ArchiveController.*
 
   /**
     * The type of the concrete configuration to manage the archive used by this
@@ -83,22 +70,17 @@ trait ArchiveController extends ServerController:
     * implementation. Derived classes can use this to store additional
     * information or service objects.
     */
-  type CustomContext
+  type ArchiveContext
 
-  override type Context = ArchiveServerContext[ArchiveConfig, CustomContext]
+  override type CustomContext = ArchiveServerContext[ArchiveConfig, ArchiveContext]
+
+  override type CustomConfig = ArchiveServerConfig[ArchiveConfig]
 
   /** The factory for creating a content actor. */
   protected val contentActorFactory: ArchiveContentActor.Factory = ArchiveContentActor.behavior
 
-  /**
-    * Returns the default name of the configuration file for this server
-    * application. The controller loads a file with this name (in the user's
-    * home directory), unless an alternative name is specified in the
-    * ''PropConfigFileName'' property.
-    *
-    * @return the default name of the configuration file
-    */
-  def defaultConfigFileName: String
+  override def configLoader: ConfigLoader[CustomConfig] = config =>
+    ArchiveServerConfig(config)(archiveConfigLoader)
 
   /**
     * Returns the object to extract the archive config from the global
@@ -108,7 +90,7 @@ trait ArchiveController extends ServerController:
     *
     * @return the loader for the archive configuration
     */
-  def configLoader: ArchiveServerConfig.ConfigLoader[ArchiveConfig]
+  def archiveConfigLoader: ConfigSupport.ConfigLoader[ArchiveConfig]
 
   /**
     * Returns the function to resolve media files. This is used by endpoints
@@ -122,18 +104,18 @@ trait ArchiveController extends ServerController:
                       (using services: ServerController.ServerServices): MediaFileResolver.FileResolverFunc
 
   /**
-    * Creates the object for the custom context. This function is invoked when
-    * creating the (base) context. It can be overridden by subclasses to create
-    * additional objects required by a concrete server implementation. For this
-    * purpose, the context object is passed in that is initialized except for 
-    * custom context.
+    * Creates the object for the custom archive context. This function is 
+    * invoked when creating the (base) context. It can be overridden by 
+    * subclasses to create additional objects required by a concrete server
+    * implementation. For this purpose, all relevant data that is available at
+    * this point of time is passed in.
     *
     * @param context  the base context without any custom data
     * @param services the object with server services
     * @return the custom context for this server instance
     */
-  def createCustomContext(context: ArchiveServerContext[ArchiveConfig, Unit])
-                         (using services: ServerController.ServerServices): Future[CustomContext]
+  def createArchiveContext(context: ArchiveServerContext[ArchiveConfig, Unit])
+                          (using services: ServerController.ServerServices): Future[ArchiveContext]
 
   /**
     * A hook to allow additional routing logic to be injected by a derived
@@ -147,30 +129,19 @@ trait ArchiveController extends ServerController:
     */
   def customRoute(context: Context)(using services: ServerController.ServerServices): Option[Route] = None
 
-  override def createContext(using services: ServerController.ServerServices): Future[Context] =
-    val configFileName = getSystemProperty(PropConfigFileName).getOrElse(defaultConfigFileName)
-    log.info("Loading configuration file from '{}'.", configFileName)
-
+  override def createCustomContext(context: ConfigSupport.ConfigSupportContext[CustomConfig, Unit])
+                                  (using services: ServerController.ServerServices):
+  Future[ArchiveServerContext[ArchiveConfig, ArchiveContext]] =
     val contentActor = services.managingActorFactory.createTypedActor(contentActorFactory(), "contentActor")
-    for
-      config <- ArchiveServerConfig(configFileName)(configLoader)
-      baseCtx = ArchiveServerContext(config, contentActor, ())
-      custom <- createCustomContext(baseCtx)
-    yield
-      ArchiveServerContext(config, contentActor, custom)
-
-  override def serverParameters(context: Context)
-                               (using services: ServerController.ServerServices):
-  Future[ServerController.ServerParameters] =
-    super.serverParameters(context) map : params =>
-      val modifiedBindingParameters = params.bindingParameters.copy(bindPort = context.serverConfig.serverPort)
-      params.copy(bindingParameters = modifiedBindingParameters)
+    val baseCtx = ArchiveServerContext(contentActor, context.config, ())
+    createArchiveContext(baseCtx) map : archiveContext =>
+      ArchiveServerContext(contentActor, context.config, archiveContext)
 
   override def route(context: Context, shutdownPromise: Promise[Done])
                     (using services: ServerController.ServerServices): Route =
     Routes.route(
-      context.serverConfig.timeout,
-      context.contentActor,
+      context.config.actorTimeout,
+      context.context.contentActor,
       fileResolverFunc(context),
       optCustomRoute = customRoute(context)
     )

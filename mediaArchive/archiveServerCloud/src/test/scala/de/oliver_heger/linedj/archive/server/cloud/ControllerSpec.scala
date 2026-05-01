@@ -26,7 +26,7 @@ import de.oliver_heger.linedj.archive.server.MediaFileResolver.UnresolvableFileE
 import de.oliver_heger.linedj.archive.server.content.ArchiveContentActor
 import de.oliver_heger.linedj.archive.server.model.{ArchiveCommands, ArchiveModel}
 import de.oliver_heger.linedj.archive.server.{ArchiveController, ArchiveServerConfig}
-import de.oliver_heger.linedj.server.common.ServerController
+import de.oliver_heger.linedj.server.common.{ConfigSupport, ServerConfig, ServerController}
 import de.oliver_heger.linedj.shared.actors.{ActorFactory, ManagingActorFactory}
 import de.oliver_heger.linedj.shared.archive.media.MediaFileUri
 import de.oliver_heger.linedj.utils.SystemPropertyAccess
@@ -92,7 +92,7 @@ class ControllerSpec(testSystem: ActorSystem) extends TestKit(testSystem), Async
     val configs = new Configurations
     val serverConfig = configs.xml(testConfigUrl)
 
-    Future.fromTry(controller.configLoader(serverConfig)) map : archiveConfig =>
+    Future.fromTry(controller.archiveConfigLoader(serverConfig)) map : archiveConfig =>
       archiveConfig.cacheDirectory.toString should be("/tmp/cloud-archives/cache")
       archiveConfig.archives should have size 4
 
@@ -107,24 +107,32 @@ class ControllerSpec(testSystem: ActorSystem) extends TestKit(testSystem), Async
   private def createBaseContext[C](customContext: C):
   ArchiveController.ArchiveServerContext[CloudArchiveServerConfig, C] =
     ArchiveController.ArchiveServerContext(
-      serverConfig = ArchiveServerConfig(8000, 50.seconds, TestConfig),
+      config = ArchiveServerConfig(50.seconds, TestConfig),
       contentActor = mock[ActorRef[ArchiveContentActor.ArchiveContentCommand]],
-      customContext = customContext
+      archiveContext = customContext
     )
 
   /**
-    * Creates a context object with the given archive manager.
+    * Creates a context object for the archive server with the given archive 
+    * manager.
     *
     * @param archiveManager the archive manager
     * @return the server context
     */
-  private def createServerContext(archiveManager: CloudArchiveManager):
+  private def createArchiveServerContext(archiveManager: CloudArchiveManager):
   ArchiveController.ArchiveServerContext[CloudArchiveServerConfig, Controller.CloudArchiveServerContext] =
     val customContext = Controller.CloudArchiveServerContext(
       archiveManager = archiveManager,
       credentialsManager = mock
     )
     createBaseContext(customContext)
+
+  private def createServerContext(archiveManager: CloudArchiveManager) =
+    ConfigSupport.ConfigSupportContext(
+      serverConfig = ServerConfig(8888, None),
+      config = ArchiveServerConfig(30.seconds, TestConfig),
+      context = createArchiveServerContext(archiveManager)
+    )
 
   /**
     * Provides an object with services that is required by some methods of the
@@ -249,7 +257,7 @@ class ControllerSpec(testSystem: ActorSystem) extends TestKit(testSystem), Async
     when(manager.resolverFunc).thenReturn(resolver)
     manager
 
-  "createCustomContext()" should "create a correct credentials manager" in :
+  "createArchiveContext()" should "create a correct credentials manager" in :
     val credentialsManager = createPreparedCredentialsManagerMock()
     val credentialsManagerFactory = mock[CloudArchiveCredentialsManager.Factory]
     val archiveManagerFactory = mock[CloudArchiveManager.Factory]
@@ -260,7 +268,7 @@ class ControllerSpec(testSystem: ActorSystem) extends TestKit(testSystem), Async
       .thenReturn(credentialsManager)
 
     val controller = new Controller(credentialsManagerFactory, archiveManagerFactory) with SystemPropertyAccess {}
-    controller.createCustomContext(createBaseContext(())) map : customContext =>
+    controller.createArchiveContext(createBaseContext(())) map : customContext =>
       customContext.credentialsManager should be(credentialsManager)
 
   it should "create a correct downloader factory" in :
@@ -275,7 +283,7 @@ class ControllerSpec(testSystem: ActorSystem) extends TestKit(testSystem), Async
     ).thenReturn(archiveManager)
 
     val controller = new Controller(credentialsManagerFactory, archiveManagerFactory) with SystemPropertyAccess {}
-    controller.createCustomContext(createBaseContext(())) map : customContext =>
+    controller.createArchiveContext(createBaseContext(())) map : customContext =>
       val captDownloaderFactory = ArgumentCaptor.forClass(classOf[CloudFileDownloaderFactory])
 
       verify(archiveManagerFactory).apply(
@@ -325,5 +333,5 @@ class ControllerSpec(testSystem: ActorSystem) extends TestKit(testSystem), Async
       .thenReturn(credentialsManager)
 
     val controller = new Controller(credentialsManagerFactory, archiveManagerFactory) with SystemPropertyAccess {}
-    controller.createCustomContext(baseContext) map : customContext =>
+    controller.createArchiveContext(baseContext) map : customContext =>
       customContext.archiveManager should be(archiveManager)

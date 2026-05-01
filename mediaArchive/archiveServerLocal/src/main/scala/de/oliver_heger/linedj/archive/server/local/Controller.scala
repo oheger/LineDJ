@@ -18,12 +18,11 @@ package de.oliver_heger.linedj.archive.server.local
 
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.group.ArchiveGroupActor
-import de.oliver_heger.linedj.archive.server.ArchiveServerConfig.ConfigLoader
 import de.oliver_heger.linedj.archive.server.MediaFileResolver.FileResolverFunc
 import de.oliver_heger.linedj.archive.server.ArchiveController
 import de.oliver_heger.linedj.archive.server.local.content.ArchiveContentMetadataProcessingListener
 import de.oliver_heger.linedj.archiveunion.{MediaUnionActor, MetadataUnionActor, UnionArchiveConfig}
-import de.oliver_heger.linedj.server.common.ServerController
+import de.oliver_heger.linedj.server.common.{ConfigSupport, ServerController}
 import de.oliver_heger.linedj.server.common.ServerController.given
 import de.oliver_heger.linedj.utils.SystemPropertyAccess
 import org.apache.pekko.actor as classics
@@ -61,20 +60,20 @@ class Controller(metadataListenerFactory: ArchiveContentMetadataProcessingListen
 
   override type ArchiveConfig = Seq[MediaArchiveConfig]
 
-  override type CustomContext = Unit
+  override type ArchiveContext = Unit
 
   override val defaultConfigFileName: String = DefaultConfigFileName
 
-  override def configLoader: ConfigLoader[ArchiveConfig] = config =>
+  override def archiveConfigLoader: ConfigSupport.ConfigLoader[ArchiveConfig] = config =>
     Try(MediaArchiveConfig.loadMediaArchiveConfigs(config))
 
-  override def createCustomContext(context: ArchiveController.ArchiveServerContext[ArchiveConfig, Unit])
+  override def createArchiveContext(context: ArchiveController.ArchiveServerContext[ArchiveConfig, Unit])
                                   (using services: ServerController.ServerServices): Future[Unit] =
     Future.successful(())
 
   override def fileResolverFunc(context: Context)
                                (using services: ServerController.ServerServices): FileResolverFunc =
-    MediaFileResolverLocal.localFileResolverFunc(context.serverConfig.archiveConfig)
+    MediaFileResolverLocal.localFileResolverFunc(context.config.archiveConfig)
 
   override def createContext(using services: ServerController.ServerServices): Future[Context] =
     super.createContext.andThen:
@@ -89,7 +88,7 @@ class Controller(metadataListenerFactory: ArchiveContentMetadataProcessingListen
         val propsGroupActor = ArchiveGroupActor(
           mediaUnionActor = mediaUnionActor,
           metadataUnionActor = metadataUnionActor,
-          metadataListenerBehavior = metadataListenerFactory(context.contentActor),
-          archiveConfigs = context.serverConfig.archiveConfig
+          metadataListenerBehavior = metadataListenerFactory(context.context.contentActor),
+          archiveConfigs = context.config.archiveConfig
         )
         services.managingActorFactory.createClassicActor(propsGroupActor, "archiveGroupActor")

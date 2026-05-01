@@ -16,13 +16,13 @@
 
 package de.oliver_heger.linedj.archive.server
 
-import org.apache.commons.configuration2.Configuration
+import org.apache.commons.configuration2.{Configuration, ImmutableHierarchicalConfiguration, XMLConfiguration}
 import org.apache.commons.configuration2.builder.fluent.Configurations
 import org.apache.commons.configuration2.ex.ConfigurationException
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.testkit.TestKit
-import org.scalatest.BeforeAndAfterAll
-import org.scalatest.flatspec.AsyncFlatSpecLike
+import org.scalatest.{BeforeAndAfterAll, TryValues}
+import org.scalatest.flatspec.{AnyFlatSpecLike, AsyncFlatSpecLike}
 import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration.DurationInt
@@ -45,15 +45,15 @@ object ArchiveServerConfigSpec:
     * @param config the input configuration
     * @return the value extracted by the loader
     */
-  def loadArchiveConfig(config: Configuration): Try[Int] =
+  def loadArchiveConfig(config: ImmutableHierarchicalConfiguration): Try[Int] =
     Try(config.getInt(CustomProperty))
 end ArchiveServerConfigSpec
 
 /**
   * Test class for [[ArchiveServerConfig]].
   */
-class ArchiveServerConfigSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AsyncFlatSpecLike
-  with BeforeAndAfterAll with Matchers:
+class ArchiveServerConfigSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
+  with BeforeAndAfterAll with Matchers with TryValues:
   def this() = this(ActorSystem("ArchiveServerConfigSpec"))
 
   override protected def afterAll(): Unit =
@@ -68,42 +68,31 @@ class ArchiveServerConfigSpec(testSystem: ActorSystem) extends TestKit(testSyste
     *
     * @return the [[Configuration]] loaded from the test config file
     */
-  private def loadTestConfig(): Configuration =
+  private def loadTestConfig(): XMLConfiguration =
     val configs = new Configurations
     configs.xml(TestConfigFile)
 
-  "ArchiveServerConfig" should "successfully load the configuration" in :
-    ArchiveServerConfig(TestConfigFile)(loadArchiveConfig) map : config =>
-      config.serverPort should be(8085)
-      config.archiveConfig should be(42)
-
-  it should "return a failed Future for a non-existing configuration file" in :
-    val configFileName = "non-existing-config.xml"
-    val futEx = recoverToExceptionIf[ConfigurationException]:
-      ArchiveServerConfig(configFileName)(loadArchiveConfig)
-
-    futEx map : ex =>
-      ex.getMessage should include(configFileName)
-
-  it should "use default values for unspecified configuration properties" in :
+  "ArchiveServerConfig" should "use default values for unspecified configuration properties" in :
     val config = loadTestConfig()
-    config.clearProperty(ArchiveServerConfig.PropServerPort)
 
-    ArchiveServerConfig(config)(loadArchiveConfig) map: serverConfig =>
-      serverConfig.serverPort should be(ArchiveServerConfig.DefaultServerPort)
-      serverConfig.timeout should be(ArchiveServerConfig.DefaultServerTimeout)
+    val serverConfig = ArchiveServerConfig(config)(loadArchiveConfig).success.value
+      
+    serverConfig.actorTimeout should be(ArchiveServerConfig.DefaultActorTimeout)
+    serverConfig.archiveConfig should be(42)
 
   it should "parse a numeric timeout" in :
     val TimeoutSecs = 27
     val config = loadTestConfig()
-    config.setProperty(ArchiveServerConfig.PropServerTimeout, TimeoutSecs)
+    config.setProperty(ArchiveServerConfig.PropActorTimeout, TimeoutSecs)
 
-    ArchiveServerConfig(config)(loadArchiveConfig) map: serverConfig =>
-      serverConfig.timeout should be(TimeoutSecs.seconds)
+    val serverConfig = ArchiveServerConfig(config)(loadArchiveConfig).success.value
+      
+    serverConfig.actorTimeout should be(TimeoutSecs.seconds)
 
   it should "parse a timeout with a unit" in :
     val config = loadTestConfig()
-    config.setProperty(ArchiveServerConfig.PropServerTimeout, "2min")
+    config.setProperty(ArchiveServerConfig.PropActorTimeout, "2min")
 
-    ArchiveServerConfig(config)(loadArchiveConfig) map: serverConfig =>
-      serverConfig.timeout should be(120.seconds)
+    val serverConfig = ArchiveServerConfig(config)(loadArchiveConfig).success.value
+      
+    serverConfig.actorTimeout should be(120.seconds)

@@ -21,7 +21,7 @@ import de.oliver_heger.linedj.archive.config.MediaArchiveConfig.MediaArchiveConf
 import de.oliver_heger.linedj.archivecommon.download.DownloadConfig
 import de.oliver_heger.linedj.io.LocalFsUtils
 import de.oliver_heger.linedj.shared.config.ConfigExtensions.toDuration
-import org.apache.commons.configuration2.Configuration
+import org.apache.commons.configuration2.ImmutableHierarchicalConfiguration
 import org.apache.logging.log4j.LogManager
 
 import java.nio.file.{Path, Paths}
@@ -35,17 +35,18 @@ import scala.util.{Failure, Success, Try}
   * Apache Commons Configuration 2.x library.
   */
 object MediaArchiveConfigLoaderCC2:
-  given loader: MediaArchiveConfigLoader[Configuration] = new MediaArchiveConfigLoaderCC2
+  given loader: MediaArchiveConfigLoader[ImmutableHierarchicalConfiguration] = new MediaArchiveConfigLoaderCC2
 end MediaArchiveConfigLoaderCC2
 
-private class MediaArchiveConfigLoaderCC2 extends MediaArchiveConfigLoader[Configuration]:
+private class MediaArchiveConfigLoaderCC2 extends MediaArchiveConfigLoader[ImmutableHierarchicalConfiguration]:
 
   import MediaArchiveConfig.*
 
   private val Log = LogManager.getLogger(classOf[MediaArchiveConfigLoaderCC2])
 
-  override def loadMediaArchiveConfigs(config: Configuration, nameResolver: => String): Seq[MediaArchiveConfig] =
-    val defDownloadConfig = parseDownloadConfig(config.subset(ArchivesSection), DownloadConfig.DefaultDownloadConfig)
+  override def loadMediaArchiveConfigs(config: ImmutableHierarchicalConfiguration, 
+                                       nameResolver: => String): Seq[MediaArchiveConfig] =
+    val defDownloadConfig = parseDownloadConfig(config.immutableConfigurationAt(ArchivesSection), DownloadConfig.DefaultDownloadConfig)
     val archives = config.getList(ArchivesKey + "." + PropRootPath)
     (0 until archives.size()) map : idx =>
       val key = s"$ArchivesKey($idx)"
@@ -62,9 +63,11 @@ private class MediaArchiveConfigLoaderCC2 extends MediaArchiveConfigLoader[Confi
     * @param nameResolver      a function for resolving the archive names
     * @return the ''MediaArchiveConfig'' that has been constructed
     */
-  private def extractMediaArchiveConfig(config: Configuration, defDownloadConfig: DownloadConfig,
-                                        keyPrefix: String, nameResolver: => String): MediaArchiveConfig =
-    val subConfig = config.subset(keyPrefix)
+  private def extractMediaArchiveConfig(config: ImmutableHierarchicalConfiguration, 
+                                        defDownloadConfig: DownloadConfig,
+                                        keyPrefix: String,
+                                        nameResolver: => String): MediaArchiveConfig =
+    val subConfig = config.immutableConfigurationAt(keyPrefix)
     MediaArchiveConfig(
       metadataReadChunkSize = intProperty(config, subConfig, PropMetaDataReadChunkSize),
       infoSizeLimit = intProperty(config, subConfig, PropInfoSizeLimit),
@@ -99,7 +102,7 @@ private class MediaArchiveConfigLoaderCC2 extends MediaArchiveConfigLoader[Confi
     * @param nameResolver the resolver function
     * @return the archive name
     */
-  private def resolveArchiveName(config: Configuration, nameResolver: => String): String =
+  private def resolveArchiveName(config: ImmutableHierarchicalConfiguration, nameResolver: => String): String =
     val pattern = config.getString(PropArchiveName, DefaultNamePattern)
     if pattern contains PlaceholderHost then
       Try(pattern.replace(PlaceholderHost, nameResolver)) match
@@ -118,7 +121,9 @@ private class MediaArchiveConfigLoaderCC2 extends MediaArchiveConfigLoader[Confi
     * @param key       the key of the property
     * @return the value of this string property
     */
-  private def stringProperty(c: Configuration, subConfig: Configuration, key: String): String =
+  private def stringProperty(c: ImmutableHierarchicalConfiguration, 
+                             subConfig: ImmutableHierarchicalConfiguration,
+                             key: String): String =
     subConfig.getString(key, c.getString(ArchivesSection + key))
 
   /**
@@ -131,10 +136,13 @@ private class MediaArchiveConfigLoaderCC2 extends MediaArchiveConfigLoader[Confi
     * @param optDefault the optional default value
     * @return the value of this int property
     */
-  private def intProperty(c: Configuration, subConfig: Configuration, key: String, optDefault: Option[Int] = None):
-  Int = if subConfig.containsKey(key) then subConfig getInt key
-  else optDefault.fold(c.getInt(ArchivesSection + key)): defValue =>
-    c.getInt(ArchivesSection + key, defValue)
+  private def intProperty(c: ImmutableHierarchicalConfiguration, 
+                          subConfig: ImmutableHierarchicalConfiguration,
+                          key: String,
+                          optDefault: Option[Int] = None): Int =
+    if subConfig.containsKey(key) then subConfig getInt key
+    else optDefault.fold(c.getInt(ArchivesSection + key)): defValue =>
+      c.getInt(ArchivesSection + key, defValue)
 
   /**
     * Reads a property from the given configuration object and converts it to a
@@ -148,11 +156,11 @@ private class MediaArchiveConfigLoaderCC2 extends MediaArchiveConfigLoader[Confi
     * @param optDefault the optional default value
     * @return the resulting duration
     */
-  private def durationProperty(c: Configuration,
-                               subConfig: Configuration,
+  private def durationProperty(c: ImmutableHierarchicalConfiguration,
+                               subConfig: ImmutableHierarchicalConfiguration,
                                key: String,
                                optDefault: Option[FiniteDuration] = None): FiniteDuration =
-    def getDuration(config: Configuration, key: String): Try[FiniteDuration] =
+    def getDuration(config: ImmutableHierarchicalConfiguration, key: String): Try[FiniteDuration] =
       config.getString(key).toDuration
 
     val triedDuration = if subConfig.containsKey(key) then
@@ -171,7 +179,8 @@ private class MediaArchiveConfigLoaderCC2 extends MediaArchiveConfigLoader[Confi
     * @param subConfig the sub configuration transformed for the current key
     * @return the set with excluded file extensions
     */
-  private def obtainExcludedExtensions(c: Configuration, subConfig: Configuration): Set[String] =
+  private def obtainExcludedExtensions(c: ImmutableHierarchicalConfiguration, 
+                                       subConfig: ImmutableHierarchicalConfiguration): Set[String] =
     obtainExtensionSet(c, subConfig, PropExcludedExtensions)
 
   /**
@@ -182,7 +191,8 @@ private class MediaArchiveConfigLoaderCC2 extends MediaArchiveConfigLoader[Confi
     * @param subConfig the sub configuration transformed for the current key
     * @return the set with included file extensions
     */
-  private def obtainIncludedExtensions(c: Configuration, subConfig: Configuration): Set[String] =
+  private def obtainIncludedExtensions(c: ImmutableHierarchicalConfiguration, 
+                                       subConfig: ImmutableHierarchicalConfiguration): Set[String] =
     obtainExtensionSet(c, subConfig, PropIncludedExtensions)
 
   /**
@@ -193,7 +203,9 @@ private class MediaArchiveConfigLoaderCC2 extends MediaArchiveConfigLoader[Confi
     * @param key       the key to be evaluated
     * @return the set with exclusions
     */
-  private def obtainExtensionSet(c: Configuration, subConfig: Configuration, key: String): Set[String] =
+  private def obtainExtensionSet(c: ImmutableHierarchicalConfiguration, 
+                                 subConfig: ImmutableHierarchicalConfiguration, 
+                                 key: String): Set[String] =
     import scala.jdk.CollectionConverters.*
     val extensions = subConfig.getList(key, c.getList(ArchivesSection + key))
     extensions.asScala.map(_.toString.toUpperCase(Locale.ROOT)).toSet
@@ -206,7 +218,8 @@ private class MediaArchiveConfigLoaderCC2 extends MediaArchiveConfigLoader[Confi
     * @param subConfig the sub configuration transformed for the current key
     * @return an ''Option'' for the path extracted
     */
-  private def extractTocPath(c: Configuration, subConfig: Configuration): Option[Path] =
+  private def extractTocPath(c: ImmutableHierarchicalConfiguration, 
+                             subConfig: ImmutableHierarchicalConfiguration): Option[Path] =
     Option(stringProperty(c, subConfig, PropTocFile)).map(Paths.get(_))
 
 
@@ -219,7 +232,8 @@ private class MediaArchiveConfigLoaderCC2 extends MediaArchiveConfigLoader[Confi
     *                  properties in the configuration to parse
     * @return the extracted [[DownloadConfig]]
     */
-  private def parseDownloadConfig(config: Configuration, defConfig: DownloadConfig): DownloadConfig =
+  private def parseDownloadConfig(config: ImmutableHierarchicalConfiguration,
+                                  defConfig: DownloadConfig): DownloadConfig =
     DownloadConfig(
       downloadTimeout = durationProperty(
         config,

@@ -61,8 +61,7 @@ object MediaFileTestSupport:
     */
   def createServerConfig(archiveConfigs: Seq[MediaArchiveConfig]): ArchiveServerConfig[Seq[MediaArchiveConfig]] =
     ArchiveServerConfig(
-      serverPort = 8889,
-      timeout = 3.minutes,
+      actorTimeout = 3.minutes,
       archiveConfig = archiveConfigs
     )
 end MediaFileTestSupport

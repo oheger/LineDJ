@@ -16,10 +16,9 @@
 
 package de.oliver_heger.linedj.archive.server
 
-import de.oliver_heger.linedj.archive.server.ArchiveServerConfig.ConfigLoader
 import de.oliver_heger.linedj.archive.server.MediaFileResolver.FileResolverFunc
 import de.oliver_heger.linedj.archive.server.content.ArchiveContentActor
-import de.oliver_heger.linedj.server.common.ServerController
+import de.oliver_heger.linedj.server.common.{ConfigSupport, ServerConfig, ServerController}
 import de.oliver_heger.linedj.shared.actors.{ActorManagement, ManagingActorFactory}
 import de.oliver_heger.linedj.utils.SystemPropertyAccess
 import org.apache.pekko.actor as classics
@@ -33,6 +32,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import scala.concurrent.Future
+import scala.concurrent.duration.DurationInt
 import scala.util.Try
 
 /**
@@ -84,45 +84,16 @@ class ArchiveControllerSpec(testSystem: classics.ActorSystem) extends TestKit(te
             optStopCommand shouldBe empty
             contentActor.ref.asInstanceOf[ActorRef[T]]
 
-  "ArchiveController" should "create a correct context" in :
+  "ArchiveController" should "create a correct custom context" in :
     val helper = new ControllerTestHelper
+    val archiveServerConfig = ArchiveServerConfig(10.seconds, 42)
+    val context = ConfigSupport.ConfigSupportContext(mock[ServerConfig], archiveServerConfig, ())
+      .asInstanceOf[ConfigSupport.ConfigSupportContext[helper.controller.CustomConfig, Unit]]
 
-    helper.controller.createContext(using helper.services) map : context =>
+    helper.controller.createCustomContext(context)(using helper.services) map : context =>
       context.contentActor should be(helper.contentActor)
-      context.serverConfig.serverPort should be(8080)
-      context.serverConfig.archiveConfig should be(42)
-      context.customContext should be("testCustomContext")
-
-  it should "load the configuration from an alternative location" in :
-    val ConfigFileName = "test-base-archive-server-config.xml"
-    val propertyAccess = new SystemPropertyAccess:
-      override def getSystemProperty(key: String): Option[String] =
-        key should be(ArchiveController.PropConfigFileName)
-        Some(ConfigFileName)
-    val helper = new ControllerTestHelper(propertyAccess)
-
-    helper.controller.createContext(using helper.services) map : context =>
-      context.contentActor should be(helper.contentActor)
-      context.serverConfig.serverPort should be(8085)
-      context.serverConfig.archiveConfig should be(42)
-
-  it should "return correct server parameters" in :
-    val helper = new ControllerTestHelper
-    val config = ArchiveServerConfig(
-      serverPort = 8765,
-      timeout = ArchiveServerConfig.DefaultServerTimeout,
-      archiveConfig = 1000
-    )
-    val context = ArchiveController.ArchiveServerContext(
-      serverConfig = config,
-      contentActor = helper.contentActor,
-      customContext = ()
-    ).asInstanceOf[helper.controller.Context]
-
-    helper.controller.serverParameters(context)(using helper.services) map : params =>
-      params.optLocatorParams shouldBe empty
-      params.bindingParameters should be(ServerController.BindingParameters("0.0.0.0", config.serverPort))
-
+      context.archiveContext should be("testCustomContext")
+  
   /**
     * A test helper class that manages the dependencies of the controller to
     * be tested.
@@ -159,7 +130,7 @@ class ArchiveControllerSpec(testSystem: classics.ActorSystem) extends TestKit(te
 
         override type ArchiveConfig = Int
 
-        override type CustomContext = String
+        override type ArchiveContext = String
 
         override val defaultConfigFileName: String = "archive-server-config.xml"
 
@@ -167,13 +138,13 @@ class ArchiveControllerSpec(testSystem: classics.ActorSystem) extends TestKit(te
           * @inheritdoc This implementation simply returns a value from the
           *             test configuration.
           */
-        override def configLoader: ConfigLoader[ArchiveConfig] = config =>
+        override def archiveConfigLoader: ConfigSupport.ConfigLoader[ArchiveConfig] = config =>
           Try(config.getInt("test.value"))
-
-        override def createCustomContext(context: ArchiveController.ArchiveServerContext[ArchiveConfig, Unit])
-                                        (using services: ServerController.ServerServices): Future[String] =
-          context.serverConfig.archiveConfig should be(42)
+        
+        override def createArchiveContext(context: ArchiveController.ArchiveServerContext[ArchiveConfig, Unit])
+                                         (using services: ServerController.ServerServices): Future[ArchiveContext] = 
           context.contentActor should not be null
+          context.config.archiveConfig should be(42)
           Future.successful("testCustomContext")
 
         override def fileResolverFunc(context: Context)

@@ -4,6 +4,7 @@
         <value>42</value>
     </test>
     <server>
+        <httpPort>8090</httpPort>
     </server>
     <media>
         <localArchives>

@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.archive.server.cloud
 
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.archive.server.{ArchiveController, ArchiveServerConfig}
-import de.oliver_heger.linedj.server.common.ServerController
+import de.oliver_heger.linedj.server.common.{ConfigSupport, ServerConfig, ServerController}
 import de.oliver_heger.linedj.shared.actors.ManagingActorFactory
 import de.oliver_heger.linedj.utils.SystemPropertyAccess
 import org.apache.pekko.http.scaladsl.model.StatusCodes
@@ -59,15 +59,20 @@ class CloudRoutesSpec extends AnyFlatSpec, BeforeAndAfterEach, Matchers, Scalate
       credentialsDirectory = testDirectory,
       cacheDirectory = Paths.get("some", "path")
     )
-    val config = ArchiveServerConfig(8080, 30.seconds, serverConfig)
+    val config = ArchiveServerConfig(30.seconds, serverConfig)
     val cloudContext = Controller.CloudArchiveServerContext(
       archiveManager = archiveManager,
       credentialsManager = credentialsManager
     )
-    val context = ArchiveController.ArchiveServerContext(
-      serverConfig = config,
+    val archiveContext = ArchiveController.ArchiveServerContext(
+      config = config,
       contentActor = mock,
-      customContext = cloudContext
+      archiveContext = cloudContext
+    )
+    val context = ConfigSupport.ConfigSupportContext(
+      config = config,
+      context = archiveContext,
+      serverConfig = ServerConfig(8080, None)
     )
     given ServerController.ServerServices(system, ManagingActorFactory.newDefaultManagingActorFactory)
     val controller = new Controller with SystemPropertyAccess {}
