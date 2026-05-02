@@ -21,7 +21,7 @@ import de.oliver_heger.linedj.utils.SystemPropertyAccess
 import org.apache.commons.configuration2.builder.FileBasedConfigurationBuilder
 import org.apache.commons.configuration2.builder.fluent.Parameters
 import org.apache.commons.configuration2.io.{ClasspathLocationStrategy, CombinedLocationStrategy, HomeDirectoryLocationStrategy, ProvidedURLLocationStrategy}
-import org.apache.commons.configuration2.{ImmutableHierarchicalConfiguration, XMLConfiguration}
+import org.apache.commons.configuration2.{BaseHierarchicalConfiguration, ImmutableHierarchicalConfiguration, XMLConfiguration}
 import org.apache.logging.log4j.LogManager
 
 import scala.concurrent.Future
@@ -61,6 +61,115 @@ object ConfigSupport:
   final case class ConfigSupportContext[CONF, CONTEXT](serverConfig: ServerConfig,
                                                        config: CONF,
                                                        context: CONTEXT)
+
+  /**
+    * Type alias for a function that obtains a property of a given type from a
+    * configuration. The function is passed the configuration object and the
+    * key of the desired property. It hs to return the corresponding value.
+    *
+    * @tparam T the type of the property in question
+    */
+  type GetConfigPropertyFunc[T] = (ImmutableHierarchicalConfiguration, String) => T
+
+  /** A function that returns an Int configuration property. */
+  private val getIntConfigPropertyFunc: GetConfigPropertyFunc[Int] = _.getInt(_)
+
+  /** A function that returns a string configuration property. */
+  private val getStringConfigPropertyFunc: GetConfigPropertyFunc[String] = _.getString(_)
+
+  extension (c: ImmutableHierarchicalConfiguration)
+    /**
+      * Returns a sub configuration at the given section key. The resulting
+      * configuration contains all the keys starting with this section prefix.
+      * If there is no unique key matching the section, the function returns an
+      * empty configuration.
+      *
+      * @param section the desired section
+      * @return the sub configuration at this section key
+      */
+    def subConfigOrEmpty(section: String): ImmutableHierarchicalConfiguration =
+      Try(c.immutableConfigurationAt(section)).getOrElse(new BaseHierarchicalConfiguration)
+
+    /**
+      * Checks whether this configuration contains the given key. If this is
+      * not the case, an [[IllegalArgumentException]] is thrown.
+      *
+      * @param key the key to be checked
+      */
+    def checkMandatoryProperty(key: String): Unit =
+      if !c.containsKey(key) then
+        throw new IllegalArgumentException(s"Missing mandatory configuration key: '$key'.")
+
+    /**
+      * Returns the value of a property or throws an exception if this property
+      * is not defined in this configuration. This function first checks for
+      * the presence of the property. If it is there, it delegates to the
+      * provided [[GetConfigPropertyFunc]].
+      *
+      * @param key the key of the property
+      * @param get the function to obtain the property value
+      * @tparam T the type of the property in question
+      * @return the value of the property
+      */
+    def getMandatoryProperty[T](key: String)(get: GetConfigPropertyFunc[T]): T =
+      checkMandatoryProperty(key)
+      get(c, key)
+
+    /**
+      * Returns the value of a string property or throws an exception if this
+      * property is not defined in this configuration.
+      *
+      * @param key the key of the property
+      * @return the value of this property
+      */
+    def getMandatoryStringProperty(key: String): String =
+      getMandatoryProperty(key)(getStringConfigPropertyFunc)
+
+    /**
+      * Returns the value of an Int property or throws an exception if this
+      * property is not defined in this configuration.
+      *
+      * @param key the key of the property
+      * @return the value of this property
+      */
+    def getMandatoryIntProperty(key: String): Int =
+      getMandatoryProperty(key)(getIntConfigPropertyFunc)
+
+    /**
+      * Returns an [[Option]] for the value of a property, depending on its
+      * presence. This function checks whether the key is defined in the
+      * configuration. If so, it delegates to the provided
+      * [[GetConfigPropertyFunc]] to retrieve it. Otherwise, result is
+      * ''None''.
+      *
+      * @param key the key of the property
+      * @param get the function to obtain the property value
+      * @tparam T the type of the property in question
+      * @return an [[Option]] with the value of the property
+      */
+    def getOptionalProperty[T](key: String)(get: GetConfigPropertyFunc[T]): Option[T] =
+      if c.containsKey(key) then
+        Some(get(c, key))
+      else
+        None
+
+    /**
+      * Returns an [[Option]] for the value of an optional string property.
+      *
+      * @param key the key of the property
+      * @return an [[Option]] with the value of the property
+      */
+    def getOptionalStringProperty(key: String): Option[String] =
+      getOptionalProperty(key)(getStringConfigPropertyFunc)
+
+    /**
+      * Returns an [[Option]] for the value of an optional Int property.
+      *
+      * @param key the key of the property
+      * @return an [[Option]] with the value of the property
+      */
+    def getOptionalIntProperty(key: String): Option[Int] =
+      getOptionalProperty(key)(getIntConfigPropertyFunc)
 end ConfigSupport
 
 /**

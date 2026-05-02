@@ -16,7 +16,8 @@
 
 package de.oliver_heger.linedj.server.common
 
-import org.apache.commons.configuration2.{BaseHierarchicalConfiguration, ImmutableHierarchicalConfiguration}
+import de.oliver_heger.linedj.server.common.ConfigSupport.{getMandatoryIntProperty, getMandatoryStringProperty, subConfigOrEmpty}
+import org.apache.commons.configuration2.ImmutableHierarchicalConfiguration
 
 import scala.util.Try
 
@@ -86,7 +87,7 @@ object ServerConfig:
     * @return a [[Try]] with the extracted [[ServerConfig]]
     */
   def apply(config: ImmutableHierarchicalConfiguration, optDefaultPort: Option[Int] = None): Try[ServerConfig] = Try:
-    val serverConfig = subConfig(config, SectionServer)
+    val serverConfig = config.subConfigOrEmpty(SectionServer)
     val serverPort = parseServerPort(serverConfig, optDefaultPort)
     ServerConfig(
       httpPort = serverPort,
@@ -107,8 +108,7 @@ object ServerConfig:
       case Some(port) =>
         config.getInt(PropServerPort, port)
       case None =>
-        checkMandatoryProperty(config, PropServerPort)
-        config.getInt(PropServerPort)
+        config.getMandatoryIntProperty(PropServerPort)
 
   /**
     * Parses the discovery configuration form the given server configuration. 
@@ -118,42 +118,17 @@ object ServerConfig:
     * @return an [[Option]] with the extracted [[DiscoveryConfig]]
     */
   private def parseDiscoveryConfig(serverConfig: ImmutableHierarchicalConfiguration): Option[DiscoveryConfig] =
-    val discoveryConfig = subConfig(serverConfig, SectionDiscovery)
+    val discoveryConfig = serverConfig.subConfigOrEmpty(SectionDiscovery)
     if discoveryConfig.isEmpty then
       None
     else
-      DiscoveryProperties.foreach(p => checkMandatoryProperty(discoveryConfig, p))
       Some(
         DiscoveryConfig(
-          multicastAddress = discoveryConfig.getString(PropDiscoveryMulticastAddress),
-          port = discoveryConfig.getInt(PropDiscoveryPort),
-          command = discoveryConfig.getString(PropDiscoveryCommand)
+          multicastAddress = discoveryConfig.getMandatoryStringProperty(PropDiscoveryMulticastAddress),
+          port = discoveryConfig.getMandatoryIntProperty(PropDiscoveryPort),
+          command = discoveryConfig.getMandatoryStringProperty(PropDiscoveryCommand)
         )
       )
-
-  /**
-    * Checks whether the configuration contains a mandatory key and throws an
-    * exception if this is not the case.
-    *
-    * @param config the configuration
-    * @param key    the required key
-    */
-  private def checkMandatoryProperty(config: ImmutableHierarchicalConfiguration, key: String): Unit =
-    if !config.containsKey(key) then
-      throw new IllegalArgumentException(s"Missing mandatory configuration key: '$key'.")
-
-  /**
-    * Returns a sub configuration of the given configuration at the given key.
-    * (So that the sub configuration contains only keys starting with this
-    * prefix.) If there are no such keys, an empty configuration is returned.
-    *
-    * @param config the configuration
-    * @param prefix the key prefix to select
-    * @return the sub configuration with keys starting with this prefix
-    */
-  private def subConfig(config: ImmutableHierarchicalConfiguration,
-                        prefix: String): ImmutableHierarchicalConfiguration =
-    Try(config.immutableConfigurationAt(prefix)).getOrElse(new BaseHierarchicalConfiguration)
 end ServerConfig
 
 /**

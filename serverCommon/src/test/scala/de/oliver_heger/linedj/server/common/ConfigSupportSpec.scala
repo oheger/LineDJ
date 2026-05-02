@@ -16,9 +16,10 @@
 
 package de.oliver_heger.linedj.server.common
 
-import de.oliver_heger.linedj.server.common.ConfigSupport.ConfigLoader
+import de.oliver_heger.linedj.server.common.ConfigSupport.*
 import de.oliver_heger.linedj.shared.actors.ManagingActorFactory
 import de.oliver_heger.linedj.utils.SystemPropertyAccess
+import org.apache.commons.configuration2.BaseHierarchicalConfiguration
 import org.apache.pekko.Done
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.http.scaladsl.server.Route
@@ -105,6 +106,89 @@ class ConfigSupportSpec(testSystem: ActorSystem) extends TestKit(testSystem), As
       )
       params.optLocatorParams shouldBe Some(expectedLocatorParams)
       params.bindingParameters should be(ServerController.BindingParameters("0.0.0.0", config.httpPort))
+
+  "The config extension" should "return a sub configuration if the key is defined" in :
+    val config = new BaseHierarchicalConfiguration
+    config.addProperty("server.port", 8080)
+    config.addProperty("server.name", "test-server")
+
+    val subConfig = config.subConfigOrEmpty("server")
+
+    subConfig.getInt("port") should be(8080)
+    subConfig.getString("name") should be("test-server")
+
+  it should "return an empty sub configuration if the key is not defined" in :
+    val config = new BaseHierarchicalConfiguration
+    config.addProperty("foo", "bar")
+
+    val subConfig = config.subConfigOrEmpty("server")
+
+    subConfig.isEmpty shouldBe true
+
+  it should "check for an existing mandatory property" in :
+    val config = new BaseHierarchicalConfiguration
+    config.addProperty("server.port", 8000)
+
+    config.checkMandatoryProperty("server.port")
+    succeed
+
+  it should "check for a non-existing mandatory property" in :
+    val key = "server.port"
+    val config = new BaseHierarchicalConfiguration
+
+    val exception = intercept[IllegalArgumentException]:
+      config.checkMandatoryProperty(key)
+    exception.getMessage should include(key)
+
+  it should "return a mandatory string property" in :
+    val config = new BaseHierarchicalConfiguration
+    config.addProperty("server.name", "test-server")
+
+    config.getMandatoryStringProperty("server.name") should be("test-server")
+
+  it should "handle a missing mandatory string property" in :
+    val key = "non.existing.key"
+    val config = new BaseHierarchicalConfiguration
+
+    val exception = intercept[IllegalArgumentException]:
+      config.getMandatoryStringProperty(key)
+    exception.getMessage should include(key)
+
+  it should "return a mandatory Int property" in :
+    val config = new BaseHierarchicalConfiguration
+    config.addProperty("server.port", 8787)
+
+    config.getMandatoryIntProperty("server.port") should be(8787)
+
+  it should "handle a missing mandatory Int property" in :
+    val key = "non.existing.intKey"
+    val config = new BaseHierarchicalConfiguration
+
+    val exception = intercept[IllegalArgumentException]:
+      config.getMandatoryIntProperty(key)
+    exception.getMessage should include(key)
+
+  it should "return an existing optional string property" in :
+    val config = new BaseHierarchicalConfiguration
+    config.addProperty("server.name", "test-server")
+
+    config.getOptionalStringProperty("server.name") should be(Some("test-server"))
+
+  it should "handle a non-existing optional string property" in :
+    val config = new BaseHierarchicalConfiguration
+
+    config.getOptionalStringProperty("non.existing.key") shouldBe empty
+
+  it should "return an existing optional Int property" in :
+    val config = new BaseHierarchicalConfiguration
+    config.addProperty("server.port", 8088)
+
+    config.getOptionalIntProperty("server.port") should be(Some(8088))
+
+  it should "handle a non-existing optional Int property" in :
+    val config = new BaseHierarchicalConfiguration
+
+    config.getOptionalIntProperty("some.arbitrary.key") shouldBe empty
 
   /**
     * A test helper class that manages the dependencies of the controller to
