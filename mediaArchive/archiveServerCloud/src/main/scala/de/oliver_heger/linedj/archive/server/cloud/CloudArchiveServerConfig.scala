@@ -17,11 +17,12 @@
 package de.oliver_heger.linedj.archive.server.cloud
 
 import com.github.cloudfiles.core.http.HttpRequestSender
-import de.oliver_heger.linedj.archive.cloud.{ArchiveCryptConfig, CloudArchiveConfig}
 import de.oliver_heger.linedj.archive.cloud.auth.{AuthMethod, BasicAuthMethod, OAuthMethod}
 import de.oliver_heger.linedj.archive.cloud.spi.CloudArchiveFileSystemFactory
+import de.oliver_heger.linedj.archive.cloud.{ArchiveCryptConfig, CloudArchiveConfig}
+import de.oliver_heger.linedj.server.common.ConfigSupport.{getMandatoryStringProperty, getOptionalIntProperty, getOptionalStringProperty}
 import de.oliver_heger.linedj.shared.config.ConfigExtensions.toDuration
-import org.apache.commons.configuration2.{Configuration, ImmutableHierarchicalConfiguration}
+import org.apache.commons.configuration2.ImmutableHierarchicalConfiguration
 import org.apache.commons.configuration2.ex.ConfigurationException
 import org.apache.pekko.http.scaladsl.model.Uri
 import org.apache.pekko.util.Timeout
@@ -238,8 +239,8 @@ object CloudArchiveServerConfig:
     */
   def parseConfig(config: ImmutableHierarchicalConfiguration): Try[CloudArchiveServerConfig] = Try:
     CloudArchiveServerConfig(
-      credentialsDirectory = Paths.get(mandatoryProperty(config, PropCredDirectory)),
-      cacheDirectory = Paths.get(mandatoryProperty(config, PropCacheDirectory)),
+      credentialsDirectory = Paths.get(config.getMandatoryStringProperty(PropCredDirectory)),
+      cacheDirectory = Paths.get(config.getMandatoryStringProperty(PropCacheDirectory)),
       archives = parseArchives(config)
     )
 
@@ -268,57 +269,20 @@ object CloudArchiveServerConfig:
   private def parseArchive(config: ImmutableHierarchicalConfiguration, key: String): ArchiveConfig =
     val archiveConfig = config.immutableConfigurationAt(key)
     ArchiveConfig(
-      archiveName = mandatoryProperty(archiveConfig, PropArchiveName),
-      archiveBaseUri = mandatoryProperty(archiveConfig, PropArchiveUri),
+      archiveName = archiveConfig.getMandatoryStringProperty(PropArchiveName),
+      archiveBaseUri = archiveConfig.getMandatoryStringProperty(PropArchiveUri),
       authMethod = parseAuthMethod(archiveConfig),
       fileSystem = parseFileSystem(archiveConfig),
-      optContentPath = optionalStringProperty(archiveConfig, PropContentPath),
-      optMediaPath = optionalStringProperty(archiveConfig, PropMediaPath),
-      optMetadataPath = optionalStringProperty(archiveConfig, PropMetadataPath),
-      optParallelism = optionalIntProperty(archiveConfig, PropParallelism),
-      optMaxContentSize = optionalIntProperty(archiveConfig, PropMaxSize),
-      optRequestQueueSize = optionalIntProperty(archiveConfig, PropQueueSize),
+      optContentPath = archiveConfig.getOptionalStringProperty(PropContentPath),
+      optMediaPath = archiveConfig.getOptionalStringProperty(PropMediaPath),
+      optMetadataPath = archiveConfig.getOptionalStringProperty(PropMetadataPath),
+      optParallelism = archiveConfig.getOptionalIntProperty(PropParallelism),
+      optMaxContentSize = archiveConfig.getOptionalIntProperty(PropMaxSize),
+      optRequestQueueSize = archiveConfig.getOptionalIntProperty(PropQueueSize),
       optTimeout = optionalTimeoutProperty(archiveConfig, PropTimeout),
       optCryptConfig = parseCryptConfig(archiveConfig)
     )
-
-  /**
-    * Returns the configuration property with the given key or throws a
-    * meaningful exception if it is undefined.
-    *
-    * @param config the configuration
-    * @param key    the desired key
-    * @return the string value of this property
-    */
-  private def mandatoryProperty(config: ImmutableHierarchicalConfiguration, key: String): String =
-    optionalStringProperty(config, key)
-      .getOrElse(throw new ConfigurationException(s"Missing mandatory property '$key'."))
-
-  /**
-    * Returns an [[Option]] for the value of an optional configuration
-    * property.
-    *
-    * @param config the configuration
-    * @param key    the desired key
-    * @return an [[Option]] for the value of this property
-    */
-  private def optionalStringProperty(config: ImmutableHierarchicalConfiguration, key: String): Option[String] =
-    Option(config.getString(key))
-
-  /**
-    * Returns an [[Option]] for the value of an optional '''Int'''
-    * configuration property.
-    *
-    * @param config the configuration
-    * @param key    the desired key
-    * @return an [[Option]] for the '''Int''' value of this property
-    */
-  private def optionalIntProperty(config: ImmutableHierarchicalConfiguration, key: String): Option[Int] =
-    if config.containsKey(key) then
-      Some(config.getInt(key))
-    else
-      None
-
+  
   /**
     * Returns an [[Option]] for the value of an optional configuration property
     * of type [[Timeout]].
@@ -328,7 +292,7 @@ object CloudArchiveServerConfig:
     * @return an [[Option]] for the [[Timeout]] value of this property
     */
   private def optionalTimeoutProperty(config: ImmutableHierarchicalConfiguration, key: String): Option[Timeout] =
-    optionalStringProperty(config, key) map : strValue =>
+    config.getOptionalStringProperty(key) map : strValue =>
       Timeout(strValue.toDuration.get)
 
   /**
@@ -339,12 +303,12 @@ object CloudArchiveServerConfig:
     * @return the [[AuthMethod]] for this archive
     */
   private def parseAuthMethod(config: ImmutableHierarchicalConfiguration): AuthMethod =
-    val methodType = mandatoryProperty(config, PropAuthMethod)
-    val realm = mandatoryProperty(config, PropAuthRealm)
+    val methodType = config.getMandatoryStringProperty(PropAuthMethod)
+    val realm = config.getMandatoryStringProperty(PropAuthRealm)
     methodType.toLowerCase(Locale.ROOT) match
       case "basic" => BasicAuthMethod(realm)
       case "oauth" => OAuthMethod(realm)
-      case _ => throw new ConfigurationException(s"Invalid value for '$PropAuthMethod': '$methodType'.")
+      case _ => throw new IllegalArgumentException(s"Invalid value for '$PropAuthMethod': '$methodType'.")
 
   /**
     * Extracts the type of the file system to be used for this archive from the
@@ -355,7 +319,7 @@ object CloudArchiveServerConfig:
     * @return the type of the file system for this archive
     */
   private def parseFileSystem(config: ImmutableHierarchicalConfiguration): String =
-    val fileSystem = mandatoryProperty(config, PropFileSystem)
+    val fileSystem = config.getMandatoryStringProperty(PropFileSystem)
     if !CloudArchiveFileSystemFactory.existsFactory(fileSystem) then
       throw new ConfigurationException(s"Invalid file system type: '$fileSystem'.")
     fileSystem

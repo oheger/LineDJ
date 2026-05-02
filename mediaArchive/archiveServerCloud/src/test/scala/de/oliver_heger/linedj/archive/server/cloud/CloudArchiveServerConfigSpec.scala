@@ -73,7 +73,7 @@ class CloudArchiveServerConfigSpec extends AnyFlatSpec, Matchers, TryValues:
 
     val result = CloudArchiveServerConfig.parseConfig(config)
 
-    result.failure.exception shouldBe a[ConfigurationException]
+    result.failure.exception shouldBe a[IllegalArgumentException]
     result.failure.exception.getMessage should include("credentialsDirectory")
 
   it should "return a failure if the cache path is not set" in :
@@ -82,7 +82,7 @@ class CloudArchiveServerConfigSpec extends AnyFlatSpec, Matchers, TryValues:
 
     val result = CloudArchiveServerConfig.parseConfig(config)
 
-    result.failure.exception shouldBe a[ConfigurationException]
+    result.failure.exception shouldBe a[IllegalArgumentException]
     result.failure.exception.getMessage should include("cacheDirectory")
 
   it should "parse the mandatory properties of cloud archives" in :
@@ -138,7 +138,7 @@ class CloudArchiveServerConfigSpec extends AnyFlatSpec, Matchers, TryValues:
 
       val result = CloudArchiveServerConfig.parseConfig(config)
 
-      result.failure.exception shouldBe a[ConfigurationException]
+      result.failure.exception shouldBe a[IllegalArgumentException]
       result.failure.exception.getMessage should include(property)
 
   it should "return a failure for an invalid auth method" in :
@@ -148,7 +148,7 @@ class CloudArchiveServerConfigSpec extends AnyFlatSpec, Matchers, TryValues:
 
     val result = CloudArchiveServerConfig.parseConfig(config)
 
-    result.failure.exception shouldBe a[ConfigurationException]
+    result.failure.exception shouldBe a[IllegalArgumentException]
     result.failure.exception.getMessage should include(unsupportedAuthMethod)
 
   it should "return a failure for an invalid file system" in :
