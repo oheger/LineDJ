@@ -59,6 +59,11 @@ ThisBuild / scalaVersion := VersionScala3
 ThisBuild / assemblyMergeStrategy := {
   case "module-info.class" => MergeStrategy.discard
   case PathList("META-INF", "versions", "9", "module-info.class") => MergeStrategy.discard
+
+  // For conflicts between commons-configuration 1.x and 2.x dependencies.
+  case "properties.dtd" => MergeStrategy.first
+  case "PropertyList-1.0.dtd" => MergeStrategy.first
+
   case x =>
     val oldStrategy = (ThisBuild / assemblyMergeStrategy).value
     oldStrategy(x)
