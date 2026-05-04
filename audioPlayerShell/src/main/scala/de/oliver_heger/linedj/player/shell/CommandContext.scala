@@ -16,16 +16,15 @@
 
 package de.oliver_heger.linedj.player.shell
 
-import com.github.cloudfiles.core.http.HttpRequestSender
 import de.oliver_heger.linedj.archive.server.cloud.CloudArchiveModel
 import de.oliver_heger.linedj.archive.server.model.ArchiveModel
 import de.oliver_heger.linedj.player.engine.mp3.Mp3AudioStreamFactory
 import de.oliver_heger.linedj.player.engine.stream.{AudioStreamPlayerStage, BufferedPlaylistSource}
 import de.oliver_heger.linedj.player.engine.{CompositeAudioStreamFactory, DefaultAudioStreamFactory}
+import de.oliver_heger.linedj.server.discovery.ServerDiscovery
+import de.oliver_heger.linedj.shared.actors.ActorFactory.executionContext
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
 import org.apache.pekko.actor as classic
-import org.apache.pekko.actor.typed.scaladsl.adapter.*
-import org.apache.pekko.actor.typed.{ActorRef, ActorSystem}
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport.*
 import org.apache.pekko.http.scaladsl.model.{HttpMethods, HttpRequest, HttpResponse, Uri}
 import org.apache.pekko.http.scaladsl.unmarshalling.{Unmarshal, Unmarshaller}
@@ -37,8 +36,8 @@ import java.nio.file.{Files, Path, Paths}
 import java.util.Locale
 import scala.collection.immutable.IndexedSeq
 import scala.collection.mutable.ListBuffer
+import scala.concurrent.Await
 import scala.concurrent.duration.DurationInt
-import scala.concurrent.{Await, ExecutionContext}
 
 /**
   * A data class collecting information about a command supported by the
@@ -76,9 +75,6 @@ object CommandContext extends ArchiveModel.ArchiveJsonSupport, CloudArchiveModel
   /** The command line argument to enable the buffer full sources mode. */
   private val BufferFullSourcesArgument = "buffer-full-sources"
 
-  /** The command line argument to connect to a media archive. */
-  private val ArchiveUrlArgument = "archive-url"
-
   /** The command line argument to configure timeouts for requests. */
   private val HttpTimeoutArgument = "http-timeout"
 
@@ -101,8 +97,6 @@ object CommandContext extends ArchiveModel.ArchiveJsonSupport, CloudArchiveModel
     BufferSizeArgument -> "The optional size of a buffer file (in bytes).",
     BufferFullSourcesArgument -> ("A flag (true or false) that controls whether audio sources are fully\n" +
       "loaded to the buffer."),
-    ArchiveUrlArgument -> ("Defines the URL of a media archive.\n" +
-      "If present, additional commands to interact with this archive are available."),
     HttpTimeoutArgument -> ("Allows configuring a timeout (in seconds) for HTTP requests.\n" +
       "If undefined, a default timeout of " + DefaultHttpTimeout + " is used.")
   )
@@ -134,13 +128,14 @@ object CommandContext extends ArchiveModel.ArchiveJsonSupport, CloudArchiveModel
 
     given Timeout = argsMap.get(HttpTimeoutArgument).map(t => Timeout(t.toInt.seconds)).getOrElse(DefaultHttpTimeout)
 
+    val archiveManager = ArchiveManager.apply
     val basicCommands = createBasicCommands()
-    val (archiveCommands, optArchiveActor) = createArchiveCommands(argsMap, actorSystem)
+    val archiveCommands = createArchiveCommands()
 
     val audioStreamFactory = new CompositeAudioStreamFactory(List(new Mp3AudioStreamFactory, DefaultAudioStreamFactory))
-    val streamHandler = new PlaylistStreamHandler(audioStreamFactory, createBufferConfigFunc(argsMap), optArchiveActor)
+    val streamHandler = new PlaylistStreamHandler(audioStreamFactory, createBufferConfigFunc(argsMap), archiveManager)
 
-    CommandContext(terminal, reader, actorSystem, streamHandler, optArchiveActor, basicCommands ++ archiveCommands)
+    CommandContext(terminal, reader, actorSystem, streamHandler, archiveManager, basicCommands ++ archiveCommands)
 
   /**
     * Prints help information for this application. Lists the supported command
@@ -255,48 +250,20 @@ object CommandContext extends ArchiveModel.ArchiveJsonSupport, CloudArchiveModel
   )
 
   /**
-    * Creates commands to interact with a media archive based on the provided
-    * arguments. If the arguments contain the URL of a media archive, this
-    * function creates an actor to send requests to this archive and commands
-    * that use it to load data from the archive.
+    * Creates commands to interact with a media archive. Before a media archive
+    * can be accessed, a discovery operation to obtain the URL of the archive
+    * server has to be performed. For this purpose, there is a special command.
     *
-    * @param args        the map with command line arguments
-    * @param actorSystem the actor system
-    * @param timeout     the timeout for HTTP requests
-    * @return a tuple with archive commands and an optional HTTP actor
-    *         reference
+    * @return a map with commands to interact with a media archive
     */
-  private def createArchiveCommands(args: Map[String, String],
-                                    actorSystem: classic.ActorSystem)
-                                   (using timeout: Timeout):
-  (Map[String, CommandInfo], Option[ActorRef[HttpRequestSender.HttpCommand]]) =
-    args.get(ArchiveUrlArgument) match
-      case Some(url) =>
-        given ActorSystem[_] = actorSystem.toTyped
-
-        val httpActor = actorSystem.spawn(HttpRequestSender(Uri(url)), "archiveActor")
-        (createArchiveCommands(httpActor), Some(httpActor))
-      case None =>
-        (Map.empty, None)
-
-  /**
-    * Creates commands to interact with a media archive that can be reached
-    * using the given HTTP actor.
-    *
-    * @param httpActor the actor to send requests to the archive
-    * @return a map with the corresponding commands
-    */
-  private def createArchiveCommands(httpActor: ActorRef[HttpRequestSender.HttpCommand])
-                                   (using system: ActorSystem[_],
-                                    timeout: Timeout): Map[String, CommandInfo] =
+  private def createArchiveCommands(): Map[String, CommandInfo] =
     Map(
       "archive-state" -> CommandInfo(
         minArgs = 0,
         maxArgs = 0,
         help = List("Lists the current status of managed cloud archives."),
-        run = (_, _) =>
-          handleArchiveCommand[CloudArchiveModel.CloudArchiveStateResponse](
-            httpActor,
+        run = (ctx, _) =>
+          ctx.handleArchiveCommand[CloudArchiveModel.CloudArchiveStateResponse](
             "/api/archive/archives/status",
             "archive-state"
           ): response =>
@@ -319,8 +286,7 @@ object CommandContext extends ArchiveModel.ArchiveJsonSupport, CloudArchiveModel
         ),
         run = (ctx, args) =>
           if args.isEmpty then
-            handleArchiveCommand[CloudArchiveModel.CredentialsInfo](
-              httpActor,
+            ctx.handleArchiveCommand[CloudArchiveModel.CredentialsInfo](
               "/api/archive/credentials",
               "credentials"
             ): credentialsInfo =>
@@ -330,8 +296,7 @@ object CommandContext extends ArchiveModel.ArchiveJsonSupport, CloudArchiveModel
             val value = ctx.reader.readLine(s"Enter value for '$key': ", '\u0000')
             val body = s"""[{"key":"$key","value":"$value"}]"""
             val request = HttpRequest(method = HttpMethods.PUT, uri = "/api/archive/credentials", entity = body)
-            handleArchiveCommand[CloudArchiveModel.SetCredentialsResponse](
-              httpActor,
+            ctx.handleArchiveCommand[CloudArchiveModel.SetCredentialsResponse](
               request,
               "credentials"
             ): response =>
@@ -344,12 +309,28 @@ object CommandContext extends ArchiveModel.ArchiveJsonSupport, CloudArchiveModel
                 )
                 error ::: info
       ),
+      "discover" -> CommandInfo(
+        minArgs = 3,
+        maxArgs = 3,
+        help = List(
+          "Starts a discovery operation for a server hosting a media archive.",
+          "Usage: discover <multicastAddress> <port> <command>"
+        ),
+        run = (ctx, args) =>
+          val discoveryParams = ServerDiscovery.DiscoveryParams(
+            multicastAddress = args.head,
+            port = args(1).toInt,
+            requestCode = args(2)
+          )
+          ctx.archiveManager.discover(discoveryParams)
+          result("Discovery operation started in background.")
+      ),
       "list-media" -> CommandInfo(
         minArgs = 0,
         maxArgs = 0,
         help = List("Lists information about the media contained in the media archive."),
-        run = (_, _) =>
-          handleArchiveCommand[ArchiveModel.MediaOverview](httpActor, "/api/archive/media", "list-media"): media =>
+        run = (ctx, _) =>
+          ctx.handleArchiveCommand[ArchiveModel.MediaOverview]("/api/archive/media", "list-media"): media =>
             media.media.sortBy(_.title.toLowerCase(Locale.ROOT)).map: overview =>
               s"${overview.id.checksum}: \"${overview.title}\""
       ),
@@ -360,11 +341,10 @@ object CommandContext extends ArchiveModel.ArchiveJsonSupport, CloudArchiveModel
           "Lists information about the artists contained on a specific medium.",
           "Usage: list-artists <mediumID>"
         ),
-        run = (_, args) =>
+        run = (ctx, args) =>
           val mediumID = args.head
           val requestUri = s"/api/archive/media/$mediumID/artists"
-          handleArchiveCommand[ArchiveModel.ItemsResult[ArchiveModel.ArtistInfo]](
-            httpActor,
+          ctx.handleArchiveCommand[ArchiveModel.ItemsResult[ArchiveModel.ArtistInfo]](
             requestUri,
             "list-artists"
           ): artistsResult =>
@@ -379,12 +359,11 @@ object CommandContext extends ArchiveModel.ArchiveJsonSupport, CloudArchiveModel
           "Usage: list-albums <mediumID> [<artistID>]",
           "    If an artist ID is provided, only the albums of this artist are listed."
         ),
-        run = (_, args) =>
+        run = (ctx, args) =>
           val mediumID = args.head
           val artistPath = if args.length == 2 then s"/artists/${args(1)}" else ""
           val requestUri = s"/api/archive/media/$mediumID$artistPath/albums"
-          handleArchiveCommand[ArchiveModel.ItemsResult[ArchiveModel.AlbumInfo]](
-            httpActor,
+          ctx.handleArchiveCommand[ArchiveModel.ItemsResult[ArchiveModel.AlbumInfo]](
             requestUri,
             "list-albums"
           ): albumsResult =>
@@ -399,13 +378,12 @@ object CommandContext extends ArchiveModel.ArchiveJsonSupport, CloudArchiveModel
           "Usage: list-songs <mediumID> <elementID>",
           "    where <elementID> can reference either an artist or an album."
         ),
-        run = (_, args) =>
+        run = (ctx, args) =>
           val mediumID = args.head
           val elementID = args(1)
           val requestPath = if elementID.startsWith("alb") then "albums" else "artists"
           val requestUri = s"/api/archive/media/$mediumID/$requestPath/$elementID/songs"
-          handleArchiveCommand[ArchiveModel.ItemsResult[MediaMetadata]](
-            httpActor,
+          ctx.handleArchiveCommand[ArchiveModel.ItemsResult[MediaMetadata]](
             requestUri,
             "list-songs"
           ): songsResult =>
@@ -432,63 +410,6 @@ object CommandContext extends ArchiveModel.ArchiveJsonSupport, CloudArchiveModel
     val separator = if fileCredentials.isEmpty || archiveCredentials.isEmpty then List.empty[String]
     else List("")
     header :: fileCredentials ::: separator ::: archiveCredentials
-
-  /**
-    * Convenience function to handle commands that need to send a GET request
-    * to the archive server. This function delegates to the overloaded version
-    * passing a corresponding GET request for the specified URI.
-    *
-    * @param httpActor    the actor to send requests to the archive
-    * @param uri          the URI to send to the archive
-    * @param command      the name of the command to be handled
-    * @param outputFunc   a function to generate the output
-    * @param system       the actor system
-    * @param timeout      the timeout for the request
-    * @param unmarshaller the object to unmarshal the response
-    * @tparam A the type of the result object
-    * @return the result for this command
-    */
-  private def handleArchiveCommand[A](httpActor: ActorRef[HttpRequestSender.HttpCommand],
-                                      uri: String,
-                                      command: String)
-                                     (outputFunc: A => List[String])
-                                     (using system: ActorSystem[_],
-                                      timeout: Timeout,
-                                      unmarshaller: Unmarshaller[HttpResponse, A]): CommandResult =
-    handleArchiveCommand(httpActor, HttpRequest(uri = uri), command)(outputFunc)
-
-  /**
-    * Generic function to handle commands that query data from a media archive.
-    * The function performs the following steps:
-    *  - It sends the given request to the archive.
-    *  - It deserializes the response to the target type.
-    *  - It invokes the output generator function to transform the result to a
-    *    list of strings to be output to the console.
-    *
-    * @param httpActor    the actor to send requests to the archive
-    * @param request      the request to send to the archive
-    * @param command      the name of the command to be handled
-    * @param outputFunc   a function to generate the output
-    * @param system       the actor system
-    * @param timeout      the timeout for the request
-    * @param unmarshaller the object to unmarshal the response
-    * @tparam A the type of the result object
-    * @return the result for this command
-    */
-  private def handleArchiveCommand[A](httpActor: ActorRef[HttpRequestSender.HttpCommand],
-                                      request: HttpRequest,
-                                      command: String)
-                                     (outputFunc: A => List[String])
-                                     (using system: ActorSystem[_],
-                                      timeout: Timeout,
-                                      unmarshaller: Unmarshaller[HttpResponse, A]): CommandResult =
-    given ExecutionContext = system.executionContext
-
-    val lines = for
-      result <- HttpRequestSender.sendRequestSuccess(httpActor, request)
-      data <- Unmarshal(result.response).to[A]
-    yield outputFunc(data)
-    CommandResult(Output.AsyncOutput(command, lines))
 
   /**
     * Convenience function to create a [[CommandResult]] object with only a
@@ -617,25 +538,69 @@ end CommandContext
   * loop of this application. When executing a command, the command gets
   * access to an instance of this class.
   *
-  * @param terminal        the object to generate output
-  * @param reader          the object to read input from the terminal
-  * @param actorSystem     the actor system
-  * @param streamHandler   the handler for audio streams
-  * @param optArchiveActor optional reference to an actor for sending HTTP
-  *                        requests to a configured media archive
-  * @param commands        the map with supported commands
+  * @param terminal       the object to generate output
+  * @param reader         the object to read input from the terminal
+  * @param actorSystem    the actor system
+  * @param streamHandler  the handler for audio streams
+  * @param archiveManager the manager for a media archive
+  * @param commands       the map with supported commands
   */
 final case class CommandContext(terminal: Terminal,
                                 reader: LineReader,
                                 actorSystem: classic.ActorSystem,
                                 streamHandler: PlaylistStreamHandler,
-                                optArchiveActor: Option[ActorRef[HttpRequestSender.HttpCommand]],
+                                archiveManager: ArchiveManager,
                                 commands: Map[String, CommandInfo]):
   /**
     * Shuts down this context by releasing all resources in use.
     */
   def shutdown(): Unit =
     streamHandler.shutdown()
-    optArchiveActor.foreach(_ ! HttpRequestSender.Stop)
+    archiveManager.close()
     Await.ready(actorSystem.terminate(), 30.seconds)
+
+  /**
+    * Convenience function to handle commands that need to send a GET request
+    * to the archive server. This function delegates to the overloaded version
+    * passing a corresponding GET request for the specified URI.
+    *
+    * @param uri          the URI to send to the archive
+    * @param command      the name of the command to be handled
+    * @param outputFunc   a function to generate the output
+    * @param unmarshaller the object to unmarshal the response
+    * @tparam A the type of the result object
+    * @return the result for this command
+    */
+  def handleArchiveCommand[A](uri: String,
+                              command: String)
+                             (outputFunc: A => List[String])
+                             (using unmarshaller: Unmarshaller[HttpResponse, A]): CommandResult =
+    handleArchiveCommand(HttpRequest(uri = uri), command)(outputFunc)
+
+  /**
+    * Generic function to handle commands that query data from a media archive.
+    * The function performs the following steps:
+    *  - It sends the given request to the archive.
+    *  - It deserializes the response to the target type.
+    *  - It invokes the output generator function to transform the result to a
+    *    list of strings to be output to the console.
+    *
+    * @param request      the request to send to the archive
+    * @param command      the name of the command to be handled
+    * @param outputFunc   a function to generate the output
+    * @param unmarshaller the object to unmarshal the response
+    * @tparam A the type of the result object
+    * @return the result for this command
+    */
+  private def handleArchiveCommand[A](request: HttpRequest,
+                                      command: String)
+                                     (outputFunc: A => List[String])
+                                     (using unmarshaller: Unmarshaller[HttpResponse, A]): CommandResult =
+    given classic.ActorSystem = actorSystem
+
+    val lines = for
+      result <- archiveManager.sendArchiveRequest(request)
+      data <- Unmarshal(result.response).to[A]
+    yield outputFunc(data)
+    CommandResult(Output.AsyncOutput(command, lines))
 end CommandContext

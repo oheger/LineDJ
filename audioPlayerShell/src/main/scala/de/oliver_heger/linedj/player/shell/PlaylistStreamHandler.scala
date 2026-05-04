@@ -58,14 +58,13 @@ end PlaylistStreamHandler
   *
   * @param audioStreamFactory the [[AudioStreamFactory]]
   * @param bufferFunc         the function to configure a buffered source
-  * @param optArchiveActor    optional reference to an actor for sending 
-  *                           requests to a media archive
+  * @param archiveManager     the manager for a media archive
   * @param system             the implicit actor system
   * @param timeout            the timeout for HTTP requests
   */
 private class PlaylistStreamHandler(audioStreamFactory: AudioStreamFactory,
                                     bufferFunc: BufferFunc,
-                                    optArchiveActor: Option[ActorRef[HttpRequestSender.HttpCommand]])
+                                    archiveManager: ArchiveManager)
                                    (using system: classic.ActorSystem,
                                     timeout: Timeout):
   /** The execution context for operations with futures. */
@@ -176,27 +175,23 @@ private class PlaylistStreamHandler(audioStreamFactory: AudioStreamFactory,
   /**
     * A function to resolve audio sources in the playlist. The string is 
     * checked whether it points to a local file. If so, this file is loaded and
-    * played. Otherwise, and if an actor for communicating with a media archive 
-    * is available, the archive is queried to download the media file.
+    * played. Otherwise, the archive is queried to download the media file.
     *
     * @param path the path to the audio file
     * @return a ''Future'' with the source to be played
     */
   private def resolveAudioSource(path: String): Future[AudioStreamPlayerStage.AudioStreamSource] =
     val localPath = Paths.get(path)
-    optArchiveActor match
-      case Some(archiveActor) if !Files.isRegularFile(localPath) =>
-        given ActorSystem[_] = system.toTyped
-
-        val requestUri = s"/api/archive/files/$path/download?stripMetadata=true"
-        HttpRequestSender.sendRequestSuccess(archiveActor, HttpRequest(uri = requestUri)).map: result =>
-          val optFileName = result.response.header[`Content-Disposition`].flatMap(_.params.get("filename"))
-          AudioStreamPlayerStage.AudioStreamSource(
-            optFileName.getOrElse(s"$path.mp3"),
-            result.response.entity.dataBytes
-          )
-      case _ =>
-        resolveLocalPath(localPath)
+    if Files.isRegularFile(localPath) then
+      resolveLocalPath(localPath)
+    else
+      val requestUri = s"/api/archive/files/$path/download?stripMetadata=true"
+      archiveManager.sendArchiveRequest(HttpRequest(uri = requestUri)).map: result =>
+        val optFileName = result.response.header[`Content-Disposition`].flatMap(_.params.get("filename"))
+        AudioStreamPlayerStage.AudioStreamSource(
+          optFileName.getOrElse(s"$path.mp3"),
+          result.response.entity.dataBytes
+        )
 
   /**
     * Resolves an audio source from a path to the local file system.
