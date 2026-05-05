@@ -27,7 +27,10 @@ import org.apache.pekko.actor.typed.{ActorRef, ActorSystem, Behavior}
 import org.apache.pekko.http.scaladsl.model.HttpRequest
 import org.apache.pekko.util.Timeout
 
-import scala.concurrent.Future
+import java.awt.Desktop
+import java.net.URI
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 object ArchiveManager:
   /**
@@ -122,6 +125,29 @@ object ArchiveManager:
         nextHandle.futResult.filter(_.nonEmpty) // An empty result is returned by a canceled discovery.
           .foreach(result => ctx.self ! ArchiveManagerCommand.DiscoveryResult(result))
         handleArchiveCommand(optSender, Some(nextHandle))
+
+      case (ctx, ArchiveManagerCommand.DiscoveryResult(result)) if result.endsWith(".html") =>
+        // In this case, a Web application was discovered; so, open it in the Browser if possible.
+        ctx.log.info("Received HTML URL as discovery result: '{}'.", result)
+        if Desktop.isDesktopSupported then
+          given ExecutionContext = ctx.executionContext
+
+          ctx.log.info("Opening URL in browser.")
+          Future:
+            Desktop.getDesktop.browse(URI.create(result))
+          .onComplete:
+            case Success(_) => Output.output(Output.SyncOutput(List("Browser opened.")))
+            case Failure(exception) =>
+              val output = Output.SyncOutput(
+                lines = List(
+                  "Could not open browser.",
+                  exception.getMessage
+                ),
+                style = Output.StyleError
+              )
+        else
+          ctx.log.warn("Ignoring discovery result, since no Desktop support is available.")
+        Behaviors.same
 
       case (ctx, ArchiveManagerCommand.DiscoveryResult(result)) =>
         ctx.log.info("Received discovery result: '{}'", result)
