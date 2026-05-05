@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.server.discovery
 
 import de.oliver_heger.linedj.shared.actors.ActorFactory
 import org.apache.pekko.actor as classic
-import org.apache.pekko.actor.ActorRef
+import org.apache.pekko.actor.{ActorRef, Cancellable}
 import org.apache.pekko.io.{IO, Udp}
 import org.apache.pekko.pattern.{BackoffOpts, BackoffSupervisor}
 import org.apache.pekko.util.ByteString
@@ -206,6 +206,9 @@ object ServerDiscovery:
     /** The actor representing the UDP socket. */
     private var socketActor: ActorRef = uninitialized
 
+    /** A handle to stop the timeout notification if no longer needed. */
+    private var timeoutHandle: Cancellable = uninitialized
+
     override def preStart(): Unit =
       initDiscovery()
 
@@ -237,10 +240,14 @@ object ServerDiscovery:
         val response = data.utf8String
         log.info("Received response '{}' from {}.", response, remote)
         promiseResult.success(response)
-        context.stop(self)
+        timeoutHandle.cancel()
+        closeSocket()
 
       case DiscoveryTimeout =>
         handleTimeout()
+
+      case Udp.Unbound =>
+        context.stop(self)
 
     /**
       * Handles a timeout by throwing an exception which causes a restart of
@@ -257,7 +264,7 @@ object ServerDiscovery:
     private def initDiscovery(): Unit =
       import context.dispatcher
       udp ! Udp.Bind(self, new InetSocketAddress(0))
-      context.system.scheduler.scheduleOnce(discoveryParams.timeout, self, DiscoveryTimeout)
+      timeoutHandle = context.system.scheduler.scheduleOnce(discoveryParams.timeout, self, DiscoveryTimeout)
 
     /**
       * Checks whether there is a socket actor and - if so - sends it a message
