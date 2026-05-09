@@ -23,7 +23,7 @@ import org.scalatest.Inspectors.forEvery
 import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
-import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import java.util.concurrent.{BlockingQueue, LinkedBlockingQueue, TimeUnit}
 import scala.concurrent.Future
 
@@ -145,6 +145,46 @@ class CachingActorSpec extends ScalaTestWithActorTestKit, AsyncFlatSpecLike, Mat
 
     probeWatch.expectTerminated(actor)
     succeed
+
+  it should "support querying multiple keys" in :
+    val keysToQuery = List(1, 2, 3, -4, 5, -7, 29)
+    // Prepopulate the store.
+    val store = CachingActor.mapStore[Int, String]
+    store.put(1, valueFor(1))
+    store.put(2, valueFor(2))
+
+    val actor = testKit.spawn(CachingActor.newInstance(testResolverFunc, store))
+    actor.getMultiple(keysToQuery) map : response =>
+      response.resolved.size + response.failures.size should be(keysToQuery.size)
+      forEvery(keysToQuery.filter(_ > 0)): key =>
+        response.resolved(key) should be(valueFor(key))
+      forEvery(keysToQuery.filter(_ < 0)): key =>
+        response.failures(key) shouldBe a[IllegalArgumentException]
+        response.failures(key).getMessage should include(valueFor(key))
+
+  it should "handle duplicates when querying multiple keys" in :
+    val KnownKey = 1
+    val KeyToResolve = 11
+    val knownKeyValue = new AtomicInteger
+    val resolvedKeyStore = new AtomicReference[String]
+
+    val store = new CachingActor.Store[Int, String]:
+      override def get(key: Int): Option[String] =
+        if key == KnownKey then
+          Some(s"value-${knownKeyValue.incrementAndGet()}")
+        else
+          None
+
+      override def put(key: Int, value: String): Unit =
+        resolvedKeyStore.compareAndSet(null, value) shouldBe true
+
+    val actor = testKit.spawn(CachingActor.newInstance(testResolverFunc, store))
+    actor.getMultiple(List(KnownKey, KeyToResolve, KeyToResolve, KnownKey, KeyToResolve)) map : response =>
+      val expectedResponse = CachingActor.MultiCacheResponse(
+        resolved = Map(KnownKey -> "value-1", KeyToResolve -> valueFor(KeyToResolve)),
+        failures = Map.empty
+      )
+      response should be(expectedResponse)
 
   /**
     * A helper class that provides a resolver function that can be monitored

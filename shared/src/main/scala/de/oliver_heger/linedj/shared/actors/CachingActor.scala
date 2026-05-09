@@ -21,8 +21,9 @@ import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import org.apache.pekko.actor.typed.{ActorRef, Behavior, Scheduler}
 import org.apache.pekko.util.Timeout
 
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Success, Try}
+import scala.util.{Failure, Success, Try}
 
 /**
   * An actor implementation that provides a generic caching functionality.
@@ -117,6 +118,20 @@ object CachingActor:
                                        triedValue: Try[V])
 
   /**
+    * A data class representing the response to a query for multiple keys from
+    * the cache. An instant distinguishes between the keys that could be 
+    * resolved successfully and those for which the resolver function threw an
+    * exception.
+    *
+    * @param resolved a map with resolved keys and their values
+    * @param failures a map with failed keys and the exceptions thrown
+    * @tparam K the type of keys
+    * @tparam V the type of values
+    */
+  final case class MultiCacheResponse[K, V](resolved: Map[K, V],
+                                            failures: Map[K, Throwable])
+
+  /**
     * An enumeration defining the commands supported by this actor
     * implementation.
     *
@@ -132,6 +147,17 @@ object CachingActor:
       */
     case Get(key: K,
              replyTo: ActorRef[CacheResponse[K, V]])
+
+    /**
+      * A command to query multiple keys at once. If the values of multiple
+      * keys are needed, using this command instead of sending many [[Get]]
+      * requests is typically more convenient and efficient.
+      *
+      * @param keys    the keys to be queried
+      * @param replyTo the actor to send the response to
+      */
+    case GetMultiple(keys: Iterable[K],
+                     replyTo: ActorRef[MultiCacheResponse[K, V]])
 
     /**
       * A command to stop this actor instance.
@@ -172,6 +198,22 @@ object CachingActor:
     def get(key: K)(using scheduler: Scheduler, ec: ExecutionContext, timeout: Timeout): Future[V] =
       actor.ask[CacheResponse[K, V]](ref => CacheCommand.Get(key, ref)).flatMap: response =>
         Future.fromTry(response.triedValue)
+
+    /**
+      * Queries the cache managed by this actor for multiple keys at once and 
+      * returns a [[Future]] with the result. Unless there is a timeout, the
+      * resulting [[Future]] does not fail. The result object allows to 
+      * distinguish between keys that could be resolved successfully and those 
+      * that failed.
+      *
+      * @param keys      the keys to query
+      * @param scheduler the scheduler for this operation
+      * @param timeout   the timeout for this operation
+      * @return a [[Future]] with a result object for the queried keys
+      */
+    def getMultiple(keys: Iterable[K])(using scheduler: Scheduler, timeout: Timeout):
+    Future[MultiCacheResponse[K, V]] =
+      actor.ask[MultiCacheResponse[K, V]](ref => CacheCommand.GetMultiple(keys, ref))
 
   /**
     * A simple [[Store]] implementation based on a map.
@@ -234,6 +276,32 @@ object CachingActor:
         inProgress.getOrElse(key, Nil).foreach(_ ! response)
         triedValue.foreach(v => store.put(key, v))
         handleCacheCommand(resolver, store, inProgress - key)
+
+      case (ctx, CacheCommand.GetMultiple(keys, replyTo)) =>
+        import ctx.{executionContext, system}
+        val (knownKeys, unknownKeys) = keys.foldRight((Map.empty[K, V], Set.empty[K])):
+          case (key, t@(known, unknown)) =>
+            if known.contains(key) || unknown.contains(key) then t
+            else
+              store.get(key) match
+                case Some(value) => (known + (key -> value), unknown)
+                case None => (known, unknown + key)
+        val self = ctx.self
+
+        // Use a huge timeout for ask, so that timeouts are handled by the caller.
+        given Timeout = Timeout(100.days)
+
+        Future:
+          val requests = unknownKeys.map: key =>
+            self.ask[CacheResponse[K, V]](ref => CacheCommand.Get(key, ref))
+          Future.sequence(requests) foreach : results =>
+            val (resolved, failures) = results.foldRight((knownKeys, Map.empty[K, Throwable])):
+              case (result, (res, fail)) =>
+                result.triedValue match
+                  case Success(value) => (res + (result.key -> value), fail)
+                  case Failure(exception) => (res, fail + (result.key -> exception))
+            replyTo ! MultiCacheResponse(resolved, failures)
+        Behaviors.same
 
       case (_, CacheCommand.Stop()) =>
         Behaviors.stopped
