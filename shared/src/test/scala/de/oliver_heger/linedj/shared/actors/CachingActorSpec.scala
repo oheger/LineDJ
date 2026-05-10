@@ -186,6 +186,28 @@ class CachingActorSpec extends ScalaTestWithActorTestKit, AsyncFlatSpecLike, Mat
       )
       response should be(expectedResponse)
 
+  it should "support a store with LRU logic" in :
+    val Capacity = 4
+    val resolver = new ResolverWithQueues
+    val actor = testKit.spawn(CachingActor.newInstance(resolver.resolver, CachingActor.lruStore(Capacity)))
+    val futResults = (1 to Capacity) map : index =>
+      val futResult = actor.get(index)
+      resolver.nextInput should be(index)
+      resolver.passValue("value" + index)
+      futResult
+
+    Future.sequence(futResults) flatMap : _ =>
+      actor.get(1) flatMap : res1 =>
+        res1 should be("value1")
+        val fut42 = actor.get(42)
+        resolver.nextInput should be(42)
+        resolver.passValue("special-value")
+        fut42 map : res42 =>
+          res42 should be("special-value")
+          actor.get(2)
+          resolver.passValue("value2.2")
+          resolver.nextInput should be(2)
+
   /**
     * A helper class that provides a resolver function that can be monitored
     * and controlled via two blocking queues: From one queue, the keys passed

@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.shared.actors
 
+import de.oliver_heger.linedj.utils.LRUCache
 import org.apache.pekko.actor.typed.scaladsl.AskPattern.*
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import org.apache.pekko.actor.typed.{ActorRef, Behavior, Scheduler}
@@ -183,6 +184,19 @@ object CachingActor:
     */
   def mapStore[K, V]: Store[K, V] = new MapStore
 
+  /**
+    * Returns a new [[Store]] implementation based on a [[LRUCache]] object.
+    * Using this store, the size of the cache can be restricted. It keeps 
+    * entries that have been accessed recently, while older ones are discarded
+    * when the maximum capacity is reached.
+    *
+    * @param capacity the number of entries to store in the cache
+    * @tparam K the type of the keys
+    * @tparam V the type of the values
+    * @return the new [[Store]] object with LRU semantics
+    */
+  def lruStore[K, V](capacity: Int): Store[K, V] = new LRUStore(capacity)
+
   extension [K, V](actor: ActorRef[CacheCommand[K, V]])
     /**
       * Queries the cache managed by this actor for the given key and returns a 
@@ -227,6 +241,22 @@ object CachingActor:
     override def put(key: K, value: V): Unit =
       map = map + (key -> value)
   end MapStore
+
+  /**
+    * A [[Store]] implementation that uses a [[LRUCache]] to hold its data.
+    *
+    * @param capacity the number of entries the cache can store
+    * @tparam K the type of the keys
+    * @tparam V the type of the values
+    */
+  private class LRUStore[K, V](capacity: Int) extends Store[K, V]:
+    /** The internal cache instance that holds the data. */
+    private val cache = new LRUCache[K, V](capacity)()
+
+    override def get(key: K): Option[V] = cache.get(key)
+
+    override def put(key: K, value: V): Unit = cache.addItem(key, value)
+  end LRUStore
 
   /**
     * Type alias for the commands that are handled internally by the actor
