@@ -16,17 +16,17 @@
 
 package de.oliver_heger.linedj.archive.server.content
 
+import de.oliver_heger.linedj.shared.actors.CachingActor
 import de.oliver_heger.linedj.shared.archive.metadata.Checksums
 import org.apache.pekko.actor.typed.scaladsl.AskPattern.*
-import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors}
 import org.apache.pekko.actor.typed.{ActorRef, Behavior, Scheduler}
 import org.apache.pekko.util.Timeout
 
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 import java.util.Locale
-import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
+import scala.concurrent.{ExecutionContext, Future}
 
 /**
   * An actor implementation for generating and managing IDs for a specific
@@ -65,47 +65,11 @@ object IdManagerActor:
     */
   type EntityName = Option[String]
 
-  /** The algorithm used by the default hash-based ID calculator function. */
-  private val HashAlgorithm = "SHA-1"
-
-  /** An ID value that is returned for an undefined name. */
-  private val UndefinedID = "0"
-
   /**
-    * An enumeration defining the commands available to query ID values for
-    * entities in the archive.
+    * A type alias for the command type supported by the actor returned by the
+    * factory.
     */
-  enum QueryIdCommand:
-    /**
-      * A command to query the ID for a single entity.
-      *
-      * @param name    the entity name for which an ID is requested
-      * @param replyTo the actor expecting the response message
-      */
-    case GetId(name: EntityName,
-               replyTo: ActorRef[GetIdResponse])
-
-    /**
-      * A command to query the IDs for multiple entities in parallel.
-      * This command is typically used when constructing the content of the
-      * archive, since for this use case, many entities are involved.
-      *
-      * @param names   a collection with the names to be taken into account
-      * @param replyTo the actor expecting the response message
-      */
-    case GetIds(names: Iterable[EntityName],
-                replyTo: ActorRef[GetIdsResponse])
-  end QueryIdCommand
-
-  /**
-    * A data class to represent the response of a [[QueryIdCommand.GetId]]
-    * message. An instance holds the entity name and the associated ID.
-    *
-    * @param name the name of the affected entity
-    * @param id   the ID for this entity name
-    */
-  final case class GetIdResponse(name: EntityName,
-                                 id: String)
+  type QueryIdCommand = CachingActor.CacheCommand[EntityName, String]
 
   /**
     * A data class to represent the response of a [[QueryIdCommand.GetIds]]
@@ -116,47 +80,11 @@ object IdManagerActor:
     */
   final case class GetIdsResponse(ids: Map[EntityName, String])
 
-  /**
-    * An internal data type to represent the possible states of an entry in the
-    * ID value cache. When an ID is requested which is not yet known, the actor
-    * adds an [[IdCacheState.IdPending]] object to the cache to indicate that
-    * the computation of this ID is currently in progress. This allows handling
-    * incoming requests for the same key while the computation is still
-    * running. When the result is available the entry in the cache is replaced
-    * by an [[IdCacheState.IdAvailable]] instance, and all clients in the
-    * pending instance receive a notification.
-    */
-  private enum IdCacheState:
-    /**
-      * State indicating that the ID value for this element is available.
-      *
-      * @param id the ID value
-      */
-    case IdAvailable(id: String)
+  /** The algorithm used by the default hash-based ID calculator function. */
+  private val HashAlgorithm = "SHA-1"
 
-    /**
-      * State indicating that the ID computation is still in progress. The
-      * state stores information about the waiting clients, so that they can be
-      * notified when the ID becomes available.
-      *
-      * @param requests the pending requests
-      */
-    case IdPending(requests: List[QueryIdCommand.GetId])
-  end IdCacheState
-
-  /**
-    * An internally used message class this actor sends to itself when the
-    * computation of an ID value is finished.
-    *
-    * @param key   the key of the affected entity
-    * @param value the calculated ID value
-    */
-  private case class IdCalculated(key: String, value: String)
-
-  /**
-    * Type alias for the union type of the commands processed by this actor.
-    */
-  private type IdManagerCommand = QueryIdCommand | IdCalculated
+  /** An ID value that is returned for an undefined name. */
+  private val UndefinedID = "0"
 
   /**
     * A default [[IdCalculatorFunc]] that uses a standard hash algorithm to
@@ -178,15 +106,19 @@ object IdManagerActor:
       *                 new actor instance; this can be used to have disjunct
       *                 IDs for different types of entities
       * @param idFunc   the function to compute ID values
+      * @param ec       the execution context
       * @return the [[Behavior]] of the new actor instance
       */
-    def apply(idPrefix: String, idFunc: IdCalculatorFunc = HashIdCalculatorFunc): Behavior[QueryIdCommand]
+    def apply(idPrefix: String, idFunc: IdCalculatorFunc = HashIdCalculatorFunc)
+             (using ec: ExecutionContext): Behavior[QueryIdCommand]
 
   /**
     * A default [[Factory]] for creating new actor instances.
     */
-  val newInstance: Factory = (idPrefix, idFunc) =>
-    handleCommand(idPrefix, idFunc, Map.empty).narrow
+  val newInstance: Factory = new Factory:
+    override def apply(idPrefix: String, idFunc: IdCalculatorFunc)
+                      (using ec: ExecutionContext): Behavior[QueryIdCommand] =
+      CachingActor.newInstance(hashCalculatorResolverFunc(idPrefix, idFunc))
 
   /**
     * A [[Timeout]] in implicit scope for the ''ask'' operations used by this
@@ -203,89 +135,30 @@ object IdManagerActor:
       *
       * @param names     a collection of names to request IDs for
       * @param scheduler the scheduler for the ask operation
+      * @param ec        the execution context
       * @return a [[Future]] with the response message
       */
-    def getIds(names: Iterable[EntityName])(using scheduler: Scheduler): Future[GetIdsResponse] =
-      a.ask[GetIdsResponse]: ref =>
-        QueryIdCommand.GetIds(names, ref)
+    def getIds(names: Iterable[EntityName])
+              (using scheduler: Scheduler, ec: ExecutionContext): Future[GetIdsResponse] =
+      a.ask[CachingActor.MultiCacheResponse[EntityName, String]]: ref =>
+        CachingActor.CacheCommand.GetMultiple(names, ref)
+      .map: cacheResponse =>
+        GetIdsResponse(cacheResponse.resolved)
 
   /**
-    * The main command handler function of the ID manager actor.
+    * Returns a function to resolve unknown keys. This implementation applies
+    * the given [[IdCalculatorFunc]] on the key and handles all corner cases.
     *
-    * @param idPrefix the prefix for IDs
-    * @param idFunc   the function to compute IDs
-    * @param ids      the cache for already computed ID values
-    * @return the next behavior of this actor
+    * @param idPrefix the prefix for all identifiers
+    * @param idFunc   the function to compute ID values
+    * @param ec       the execution context
+    * @return the function to resolve unknown cache keys
     */
-  private def handleCommand(idPrefix: String,
-                            idFunc: IdCalculatorFunc,
-                            ids: Map[String, IdCacheState]): Behavior[IdManagerCommand] =
-    Behaviors.receive:
-      case (context, request@QueryIdCommand.GetId(name, replyTo)) =>
-        val (nextIds, optResponse) = name match
-          case None =>
-            (ids, Some(GetIdResponse(None, idPrefix + UndefinedID)))
-          case Some(value) =>
-            getOrCalculateId(context, request, value, idPrefix, idFunc, ids)
-        optResponse.foreach(replyTo.!)
-        if nextIds ne ids then
-          handleCommand(idPrefix, idFunc, nextIds)
-        else
-          Behaviors.same
-
-      case (context, IdCalculated(key, value)) =>
-        ids(key) match
-          case IdCacheState.IdPending(requests) =>
-            context.log.info("ID calculated for key '{}'. Notifying {} client(s).", key, requests.size)
-            requests.foreach: request =>
-              request.replyTo ! GetIdResponse(request.name, value)
-            val nextIds = ids + (key -> IdCacheState.IdAvailable(value))
-            handleCommand(idPrefix, idFunc, nextIds)
-          case _ => // Should actually not happen
-            Behaviors.same
-
-      case (context, QueryIdCommand.GetIds(names, replyTo)) =>
-        import context.{executionContext, system}
-        val nameRequests = names.toSet.map: name =>
-          context.self.ask[GetIdResponse]: ref =>
-            QueryIdCommand.GetId(name, ref)
-        Future.sequence(nameRequests).foreach: responses =>
-          val idMapping = responses.map(r => r.name -> r.id).toMap
-          replyTo ! GetIdsResponse(idMapping)
-        Behaviors.same
-
-  /**
-    * Obtains the ID for the given name either from the cache or by computing
-    * it and updating the cache. Return a tuple with the updated cache and an
-    * optional response to be sent to the requesting actor.
-    *
-    * @param context  the context of this actor
-    * @param request  the request for an ID to be processed
-    * @param name     the name of the entity for which an ID is requested
-    * @param idPrefix the prefix for IDs
-    * @param idFunc   the function to compute IDs
-    * @param ids      the cache for already computed ID values
-    * @return the updated cache and a response to send
-    */
-  private def getOrCalculateId(context: ActorContext[IdManagerCommand],
-                               request: QueryIdCommand.GetId,
-                               name: String,
-                               idPrefix: String,
-                               idFunc: IdCalculatorFunc,
-                               ids: Map[String, IdCacheState]): (Map[String, IdCacheState], Option[GetIdResponse]) =
-    val key = name.toLowerCase(Locale.ROOT)
-    ids.get(key) match
-      case Some(IdCacheState.IdAvailable(id)) =>
-        (ids, Some(GetIdResponse(Some(name), id)))
-      case Some(IdCacheState.IdPending(requests)) =>
-        val nextPending = IdCacheState.IdPending(request :: requests)
-        (ids + (key -> nextPending), None)
-      case None =>
-        context.log.info("Calculating ID for '{}'.", key)
-        import context.executionContext
-        Future:
-          s"${idPrefix}_${idFunc(key)}"
-        .foreach: id =>
-          context.self ! IdCalculated(key, id)
-        val pending = IdCacheState.IdPending(List(request))
-        (ids + (key -> pending), None)
+  private def hashCalculatorResolverFunc(idPrefix: String, idFunc: IdCalculatorFunc)
+                                        (using ec: ExecutionContext):
+  CachingActor.KeyResolverFunc[EntityName, String] =
+    case Some(key) =>
+      Future:
+        s"${idPrefix}_${idFunc(key.toLowerCase(Locale.ROOT))}"
+    case None =>
+      Future.successful(idPrefix + UndefinedID)

@@ -16,15 +16,18 @@
 
 package de.oliver_heger.linedj.archive.server.content
 
+import de.oliver_heger.linedj.archive.server.content.IdManagerActor.getIds
+import de.oliver_heger.linedj.shared.actors.CachingActor
 import org.apache.pekko.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
 import org.apache.pekko.actor.typed.Scheduler
 import org.scalatest.Inspectors.forEvery
+import org.scalatest.TryValues
 import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
 import java.util.Locale
-import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.{ArrayBlockingQueue, TimeUnit}
+import scala.concurrent.Future
+import scala.util.Success
 
 object IdManagerActorSpec:
   /** The ID prefix used by default for test cases. */
@@ -34,7 +37,7 @@ end IdManagerActorSpec
 /**
   * Test class for [[IdManagerActor]].
   */
-class IdManagerActorSpec extends ScalaTestWithActorTestKit with AsyncFlatSpecLike with Matchers:
+class IdManagerActorSpec extends ScalaTestWithActorTestKit with AsyncFlatSpecLike with Matchers with TryValues:
 
   import IdManagerActorSpec.*
 
@@ -65,128 +68,37 @@ class IdManagerActorSpec extends ScalaTestWithActorTestKit with AsyncFlatSpecLik
     succeed
 
   "IdManagerActor.GetId" should "generate ID values" in :
-    val probe = testKit.createTestProbe[IdManagerActor.GetIdResponse]()
     val name1 = Some("TestEntity1")
     val name2 = Some("TestEntity2")
 
     val actor = testKit.spawn(IdManagerActor.newInstance(IdPrefix))
-    actor ! IdManagerActor.QueryIdCommand.GetId(name1, probe.ref)
-    actor ! IdManagerActor.QueryIdCommand.GetId(name2, probe.ref)
-
-    val result1 = probe.expectMessageType[IdManagerActor.GetIdResponse]
-    val result2 = probe.expectMessageType[IdManagerActor.GetIdResponse]
-    result1.name should be(name1)
-    result2.name should be(name2)
-    forEvery(List(result1, result2)): result =>
-      result.id should startWith(IdPrefix + "_")
-    result1.id should not be result2.id
+    for
+      result1 <- actor.get(name1)
+      result2 <- actor.get(name2)
+    yield
+      forEvery(List(result1, result2)): result =>
+        result should startWith(IdPrefix + "_")
+      result1 should not be result2
 
   it should "generate ID values in a case-insensitive way" in :
-    val probe = testKit.createTestProbe[IdManagerActor.GetIdResponse]()
     val name1 = Some("Test Entity")
     val name2 = Some("TEST ENTITY")
     val name3 = Some("test entity")
 
     val actor = testKit.spawn(IdManagerActor.newInstance(IdPrefix))
-    actor ! IdManagerActor.QueryIdCommand.GetId(name1, probe.ref)
-    actor ! IdManagerActor.QueryIdCommand.GetId(name2, probe.ref)
-    actor ! IdManagerActor.QueryIdCommand.GetId(name3, probe.ref)
+    val futResults = Future.sequence(List(name1, name2, name3).map(actor.get(_)))
 
-    val results = List(
-      probe.expectMessageType[IdManagerActor.GetIdResponse],
-      probe.expectMessageType[IdManagerActor.GetIdResponse],
-      probe.expectMessageType[IdManagerActor.GetIdResponse]
-    )
-    results.map(_.name) should contain theSameElementsAs List(name1, name2, name3)
-    val ids = results.map(_.id).toSet
-    ids should have size 1
+    futResults map : results =>
+      val ids = results.toSet
+      ids should have size 1
 
   it should "return an ID value for the undefined name" in :
-    val probe = testKit.createTestProbe[IdManagerActor.GetIdResponse]()
+    val probe = testKit.createTestProbe[CachingActor.CacheResponse[IdManagerActor.EntityName, String]]()
 
     val actor = testKit.spawn(IdManagerActor.newInstance(IdPrefix))
-    actor ! IdManagerActor.QueryIdCommand.GetId(None, probe.ref)
+    actor ! CachingActor.CacheCommand.Get(None, probe.ref)
 
-    probe.expectMessage(IdManagerActor.GetIdResponse(None, IdPrefix + "0"))
-    succeed
-
-  it should "cache calculated ID values" in :
-    val hashCount = new AtomicInteger
-    val hashFunc: IdManagerActor.IdCalculatorFunc = name =>
-      hashCount.incrementAndGet()
-      name + "_hashed"
-    val name = Some("this is test input")
-    val probe = testKit.createTestProbe[IdManagerActor.GetIdResponse]()
-
-    val actor = testKit.spawn(IdManagerActor.newInstance(IdPrefix, hashFunc))
-    actor ! IdManagerActor.QueryIdCommand.GetId(name, probe.ref)
-    actor ! IdManagerActor.QueryIdCommand.GetId(name, probe.ref)
-
-    val expectedResult = IdManagerActor.GetIdResponse(name, IdPrefix + "_" + name.get + "_hashed")
-    probe.expectMessage(expectedResult)
-    probe.expectMessage(expectedResult)
-    hashCount.get() should be(1)
-
-  it should "handle requests asynchronously" in :
-    val idRequestQueue = new ArrayBlockingQueue[String](8, true)
-    val idResultQueue = new ArrayBlockingQueue[String](8, true)
-    // Use a synthetic calculator func that puts its parameters in the request queue and then waits for an item
-    // in the result queue. That way it can be controlled when results are available, and which requests to the
-    // actor are in processing state at the same time. The queues are configured to be fair to have a deterministic
-    // order in the processing of results.
-    val idFunc: IdManagerActor.IdCalculatorFunc = name =>
-      idRequestQueue.offer(name)
-      idResultQueue.take()
-
-    val name1 = "test-name-1"
-    val name2 = "test-name-2"
-    val id1 = "id-1"
-    val id2 = "id-2"
-    val probe = testKit.createTestProbe[IdManagerActor.GetIdResponse]()
-
-    val actor = testKit.spawn(IdManagerActor.newInstance(IdPrefix, idFunc))
-    actor ! IdManagerActor.QueryIdCommand.GetId(Some(name1), probe.ref)
-    actor ! IdManagerActor.QueryIdCommand.GetId(Some(name2), probe.ref)
-
-    idRequestQueue.poll(3, TimeUnit.SECONDS) should be(name1)
-    idRequestQueue.poll(3, TimeUnit.SECONDS) should be(name2)
-    idResultQueue.offer(id1)
-    idResultQueue.offer(id2)
-
-    val expectedResults = List(
-      IdManagerActor.GetIdResponse(Some(name1), IdPrefix + "_" + id1),
-      IdManagerActor.GetIdResponse(Some(name2), IdPrefix + "_" + id2)
-    )
-    val results = List(
-      probe.expectMessageType[IdManagerActor.GetIdResponse],
-      probe.expectMessageType[IdManagerActor.GetIdResponse]
-    )
-    results should contain theSameElementsAs expectedResults
-
-  it should "handle concurrent requests for the same name" in :
-    val idRequestQueue = new ArrayBlockingQueue[String](8, true)
-    val idResultQueue = new ArrayBlockingQueue[String](8, true)
-    // See above.
-    val idFunc: IdManagerActor.IdCalculatorFunc = name =>
-      idRequestQueue.offer(name)
-      idResultQueue.take()
-
-    val name = "a-very-popular-test-name"
-    val id = "popular-id"
-    val probe = testKit.createTestProbe[IdManagerActor.GetIdResponse]()
-    val idRequest = IdManagerActor.QueryIdCommand.GetId(Some(name), probe.ref)
-    val requestCount = 16
-
-    val actor = testKit.spawn(IdManagerActor.newInstance(IdPrefix, idFunc))
-    (1 to requestCount).foreach(_ => actor ! idRequest)
-
-    idRequestQueue.poll(3, TimeUnit.SECONDS) should be(name)
-    idRequestQueue.poll(100, TimeUnit.MILLISECONDS) should be(null)
-    idResultQueue.offer(id)
-
-    val expectedResult = IdManagerActor.GetIdResponse(Some(name), IdPrefix + "_" + id)
-    (1 to requestCount).foreach: _ =>
-      probe.expectMessage(expectedResult)
+    probe.expectMessage(CachingActor.CacheResponse(None, Success(IdPrefix + "0")))
     succeed
 
   "IdManagerActor.GetIds" should "handle requests for multiple entities" in :

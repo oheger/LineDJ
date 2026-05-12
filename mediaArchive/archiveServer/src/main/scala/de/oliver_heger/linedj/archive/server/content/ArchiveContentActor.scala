@@ -102,6 +102,7 @@ object ArchiveContentActor:
     */
   private def setUpBehavior(fileActorFactory: MediaFileActor.Factory): Behavior[CommandType] =
     Behaviors.setup[CommandType]: ctx =>
+      import ctx.executionContext
       val artistIdManager = ctx.spawn(IdManagerActor.newInstance(ArtistIDPrefix), "artistIdManager")
       val albumIdManager = ctx.spawn(IdManagerActor.newInstance(AlbumIDPrefix), "albumIdManager")
       val fileManager = ctx.spawn(fileActorFactory(), "fileActor")

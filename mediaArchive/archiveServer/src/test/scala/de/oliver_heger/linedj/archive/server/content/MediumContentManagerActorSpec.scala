@@ -16,8 +16,8 @@
 
 package de.oliver_heger.linedj.archive.server.content
 
-import de.oliver_heger.linedj.archive.server.model
 import de.oliver_heger.linedj.archive.server.model.{ArchiveCommands, ArchiveModel}
+import de.oliver_heger.linedj.shared.actors.CachingActor
 import de.oliver_heger.linedj.shared.archive.metadata.{Checksums, MediaMetadata}
 import org.apache.pekko.actor.testkit.typed.scaladsl.{ScalaTestWithActorTestKit, TestProbe}
 import org.apache.pekko.actor.typed.ActorRef
@@ -27,8 +27,8 @@ import org.scalatest.matchers.should.Matchers
 
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicInteger
-import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
+import scala.concurrent.{ExecutionContext, Future}
 
 object MediumContentManagerActorSpec:
   /** ID for a test medium. */
@@ -147,6 +147,9 @@ class MediumContentManagerActorSpec extends ScalaTestWithActorTestKit with AnyFl
 
   import MediumContentManagerActor.given
   import MediumContentManagerActorSpec.*
+
+  /** The implicit execution context to be used by tests. */
+  given ExecutionContext = testKit.system.executionContext
 
   /**
     * Creates a default ID manager actor that can be used by test cases. The
@@ -372,9 +375,10 @@ class MediumContentManagerActorSpec extends ScalaTestWithActorTestKit with AnyFl
     managerActor ! dataRequest1
     managerActor ! dataRequest2
 
-    val idsRequest = probeIdManager.expectMessageType[IdManagerActor.QueryIdCommand.GetIds]
+    val idsRequest = 
+      probeIdManager.expectMessageType[CachingActor.CacheCommand.GetMultiple[IdManagerActor.EntityName, String]]
     probeIdManager.expectNoMessage(100.millis)
-    idsRequest.replyTo ! IdManagerActor.GetIdsResponse(Map(Some(Artist) -> artistID))
+    idsRequest.replyTo ! CachingActor.MultiCacheResponse(Map(Some(Artist) -> artistID), Map.empty)
     val expectedArtistInfos = List(ArchiveModel.ArtistInfo(artistID, Artist))
     val result1 = probeClient1.expectMessageType[ArchiveCommands.GetMediumDataResponse[ArchiveModel.ArtistInfo]]
     val result2 = probeClient2.expectMessageType[ArchiveCommands.GetMediumDataResponse[ArchiveModel.ArtistInfo]]
@@ -406,15 +410,17 @@ class MediumContentManagerActorSpec extends ScalaTestWithActorTestKit with AnyFl
     managerActor ! MediumContentManagerActor.MediumContentManagerCommand.UpdateData(List(song1))
 
     managerActor ! dataRequest
-    val idsRequest1 = probeIdManager.expectMessageType[IdManagerActor.QueryIdCommand.GetIds]
+    val idsRequest1 = 
+      probeIdManager.expectMessageType[CachingActor.CacheCommand.GetMultiple[IdManagerActor.EntityName, String]]
     managerActor ! MediumContentManagerActor.MediumContentManagerCommand.UpdateData(List(song1, song2))
-    val idsRequest2 = probeIdManager.expectMessageType[IdManagerActor.QueryIdCommand.GetIds]
-    idsRequest1.replyTo ! IdManagerActor.GetIdsResponse(Map.empty)
+    val idsRequest2 = 
+      probeIdManager.expectMessageType[CachingActor.CacheCommand.GetMultiple[IdManagerActor.EntityName, String]]
+    idsRequest1.replyTo ! CachingActor.MultiCacheResponse(Map.empty, Map.empty)
     val ids: Map[IdManagerActor.EntityName, String] = Map(
       Some(Artist1) -> artist1ID,
       Some(Artist2) -> artist2ID
     )
-    idsRequest2.replyTo ! IdManagerActor.GetIdsResponse(ids)
+    idsRequest2.replyTo ! CachingActor.MultiCacheResponse(ids, Map.empty)
 
     val response = probeClient.expectMessageType[ArchiveCommands.GetMediumDataResponse[ArchiveModel.ArtistInfo]]
     val expectedArtistInfos = List(
@@ -441,8 +447,9 @@ class MediumContentManagerActorSpec extends ScalaTestWithActorTestKit with AnyFl
     managerActor ! MediumContentManagerActor.MediumContentManagerCommand.UpdateData(songData)
 
     managerActor ! dataRequest
-    val idRequest = probeIdManager.expectMessageType[IdManagerActor.QueryIdCommand.GetIds]
-    idRequest.replyTo ! IdManagerActor.GetIdsResponse(Map(Some("Dire Straits") -> "someID"))
+    val idRequest = 
+      probeIdManager.expectMessageType[CachingActor.CacheCommand.GetMultiple[IdManagerActor.EntityName, String]]
+    idRequest.replyTo ! CachingActor.MultiCacheResponse(Map(Some("Dire Straits") -> "someID"), Map.empty)
     probeClient.expectMessageType[ArchiveCommands.GetMediumDataResponse[ArchiveModel.ArtistInfo]]
     val nextSongData = createMetadata(artist = Some("Marillion"), album = "Misplaced Childhood") :: songData
     managerActor ! MediumContentManagerActor.MediumContentManagerCommand.UpdateData(nextSongData)
