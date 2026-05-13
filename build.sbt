@@ -210,6 +210,7 @@ lazy val LineDJ = (project in file("."))
   archiveServer,
   archiveServerCloud,
   archiveServerLocal,
+  archiveServerModel,
   archiveStartup,
   archiveUnion,
   audioPlatform,
@@ -387,6 +388,19 @@ lazy val archiveHttp = (project in file("mediaArchive/archiveHttp"))
   ) dependsOn(shared % "compile->compile;test->test", archiveCommon, id3Extract, cloudAccess)
 
 /**
+  * The archive server model project. It exposes data model classes
+  * representing the model of the archive server. It can be consumed by clients
+  * of the archive server.
+  */
+lazy val archiveServerModel = (project in file("mediaArchive/archiveServerModel"))
+  .enablePlugins(SbtOsgi)
+  .settings(defaultSettings)
+  .settings(OSGi.osgiSettings)
+  .settings(
+    name := "linedj-archive-server-model"
+  ) dependsOn shared
+
+/**
   * The archive server project. This project provides basic functionality for
   * archive server applications. There are concrete projects implementing
   * specific archive servers.
@@ -399,7 +413,7 @@ lazy val archiveServer = (project in file("mediaArchive/archiveServer"))
     libraryDependencies ++= pekkoHttpDependencies,
     libraryDependencies += beanUtilsDependency,
     libraryDependencies += commonsConfig2Dependency,
-  ) dependsOn(shared % "compile->compile;test->test", archive, serverCommon)
+  ) dependsOn(shared % "compile->compile;test->test", archive, serverCommon, archiveServerModel)
 
 /**
   * The archive server local project. This is an HTTP server application that
