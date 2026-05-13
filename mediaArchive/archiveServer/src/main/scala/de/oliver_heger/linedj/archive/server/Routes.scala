@@ -16,7 +16,8 @@
 
 package de.oliver_heger.linedj.archive.server
 
-import de.oliver_heger.linedj.archive.server.model.{ArchiveCommands, ArchiveModel}
+import de.oliver_heger.linedj.archive.server.content.ArchiveCommands
+import de.oliver_heger.linedj.archive.server.model.ArchiveModel
 import de.oliver_heger.linedj.extract.id3.stream.ID3SkipStage
 import de.oliver_heger.linedj.shared.archive.metadata.{Checksums, MediaMetadata}
 import org.apache.pekko.actor as classics

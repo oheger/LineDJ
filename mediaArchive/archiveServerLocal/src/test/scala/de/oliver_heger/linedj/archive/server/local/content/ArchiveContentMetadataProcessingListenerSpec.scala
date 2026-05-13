@@ -16,7 +16,8 @@
 
 package de.oliver_heger.linedj.archive.server.local.content
 
-import de.oliver_heger.linedj.archive.server.model.{ArchiveCommands, ArchiveModel}
+import de.oliver_heger.linedj.archive.server.content.ArchiveCommands
+import de.oliver_heger.linedj.archive.server.model.ArchiveModel
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumDescription, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.{Checksums, MediaMetadata, MetadataProcessingEvent}
 import de.oliver_heger.linedj.shared.archive.union.{MetadataProcessingError, MetadataProcessingSuccess}

@@ -23,8 +23,8 @@ import de.oliver_heger.linedj.archive.cloud.auth.oauth.OAuthStorageServiceImpl
 import de.oliver_heger.linedj.archive.cloud.auth.{BasicAuthMethod, Credentials, DefaultAuthConfigFactory}
 import de.oliver_heger.linedj.archive.cloud.{CloudFileDownloaderFactory, DefaultCloudFileDownloaderFactory}
 import de.oliver_heger.linedj.archive.server.MediaFileResolver.UnresolvableFileException
-import de.oliver_heger.linedj.archive.server.content.ArchiveContentActor
-import de.oliver_heger.linedj.archive.server.model.{ArchiveCommands, ArchiveModel}
+import de.oliver_heger.linedj.archive.server.content.{ArchiveCommands, ArchiveContentActor}
+import de.oliver_heger.linedj.archive.server.model.ArchiveModel
 import de.oliver_heger.linedj.archive.server.{ArchiveController, ArchiveServerConfig}
 import de.oliver_heger.linedj.server.common.{ConfigSupport, ServerConfig, ServerController}
 import de.oliver_heger.linedj.shared.actors.{ActorFactory, ManagingActorFactory}

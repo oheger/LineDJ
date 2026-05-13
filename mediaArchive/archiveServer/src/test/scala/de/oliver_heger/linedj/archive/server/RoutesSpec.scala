@@ -18,8 +18,8 @@ package de.oliver_heger.linedj.archive.server
 
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.archive.server.MediaFileResolver.FileResolverFunc
-import de.oliver_heger.linedj.archive.server.content.ArchiveContentActor
-import de.oliver_heger.linedj.archive.server.model.{ArchiveCommands, ArchiveModel}
+import de.oliver_heger.linedj.archive.server.content.{ArchiveCommands, ArchiveContentActor}
+import de.oliver_heger.linedj.archive.server.model.ArchiveModel
 import de.oliver_heger.linedj.server.common.{ConfigSupport, ServerConfig, ServerController}
 import de.oliver_heger.linedj.shared.actors.ManagingActorFactory
 import de.oliver_heger.linedj.shared.archive.media.MediaFileUri

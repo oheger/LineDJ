@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.archive.server.content
 
 import de.oliver_heger.linedj.archive.server.content.IdManagerActor.getIds
 import de.oliver_heger.linedj.archive.server.content.MediumContentManagerActor.*
-import de.oliver_heger.linedj.archive.server.model.{ArchiveCommands, ArchiveModel}
+import de.oliver_heger.linedj.archive.server.model.ArchiveModel
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import org.apache.pekko.actor.typed.{ActorRef, Behavior, Scheduler}

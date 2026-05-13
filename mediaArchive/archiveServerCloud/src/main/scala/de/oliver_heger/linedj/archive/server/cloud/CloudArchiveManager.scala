@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.archive.server.cloud
 
 import de.oliver_heger.linedj.archive.cloud.auth.Credentials
 import de.oliver_heger.linedj.archive.cloud.{CloudArchiveConfig, CloudFileDownloader, CloudFileDownloaderFactory, DefaultCloudFileDownloaderFactory}
-import de.oliver_heger.linedj.archive.server.model.ArchiveCommands
+import de.oliver_heger.linedj.archive.server.content.ArchiveCommands
 import de.oliver_heger.linedj.shared.actors.ActorFactory
 import de.oliver_heger.linedj.shared.actors.ActorFactory.executionContext
 import org.apache.pekko.actor as classic

@@ -17,7 +17,8 @@
 package de.oliver_heger.linedj.archive.server.cloud
 
 import de.oliver_heger.linedj.FileTestHelper
-import de.oliver_heger.linedj.archive.server.model.{ArchiveCommands, ArchiveModel}
+import de.oliver_heger.linedj.archive.server.content.ArchiveCommands
+import de.oliver_heger.linedj.archive.server.model.ArchiveModel
 import de.oliver_heger.linedj.shared.archive.media.MediaFileUri
 import de.oliver_heger.linedj.shared.archive.metadata.{Checksums, MediaMetadata}
 import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit

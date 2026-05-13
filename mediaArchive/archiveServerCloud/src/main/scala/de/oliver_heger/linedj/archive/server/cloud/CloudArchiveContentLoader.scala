@@ -17,7 +17,8 @@
 package de.oliver_heger.linedj.archive.server.cloud
 
 import de.oliver_heger.linedj.archive.metadata.persistence.ArchiveTocSerializer
-import de.oliver_heger.linedj.archive.server.model.{ArchiveCommands, ArchiveModel}
+import de.oliver_heger.linedj.archive.server.content.ArchiveCommands
+import de.oliver_heger.linedj.archive.server.model.ArchiveModel
 import de.oliver_heger.linedj.archivecommon.parser.MetadataParser
 import de.oliver_heger.linedj.io.parser.JsonStreamParser
 import de.oliver_heger.linedj.io.stream.StreamSizeRestrictionStage

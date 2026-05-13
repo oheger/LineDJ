@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.archive.server.cloud
 import de.oliver_heger.linedj.archive.cloud.{ArchiveCryptConfig, CloudArchiveConfig, CloudFileDownloader, CloudFileDownloaderFactory, DefaultCloudFileDownloaderFactory}
 import de.oliver_heger.linedj.archive.cloud.auth.{BasicAuthMethod, Credentials}
 import de.oliver_heger.linedj.archive.server.cloud.CloudArchiveManagerSpec.{TestArchiveIndex, TestArchiveName, TestServerConfig}
-import de.oliver_heger.linedj.archive.server.model.ArchiveCommands
+import de.oliver_heger.linedj.archive.server.content.ArchiveCommands
 import de.oliver_heger.linedj.shared.actors.{ActorFactory, ManagingActorFactory}
 import de.oliver_heger.linedj.shared.actors.ActorFactory.executionContext
 import org.apache.pekko.Done

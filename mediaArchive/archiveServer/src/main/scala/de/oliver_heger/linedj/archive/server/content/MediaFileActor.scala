@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.archive.server.content
 
 import de.oliver_heger.linedj.archive.server.content.MediaFileActor.MediaFileCommand.AddFile
-import de.oliver_heger.linedj.archive.server.model.{ArchiveCommands, ArchiveModel}
+import de.oliver_heger.linedj.archive.server.model.ArchiveModel
 import de.oliver_heger.linedj.shared.archive.media.MediaFileUri
 import de.oliver_heger.linedj.shared.archive.metadata.{Checksums, MediaMetadata}
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
