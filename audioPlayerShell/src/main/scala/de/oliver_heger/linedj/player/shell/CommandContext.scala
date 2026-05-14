@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.player.shell
 
-import de.oliver_heger.linedj.archive.server.cloud.CloudArchiveModel
+import de.oliver_heger.linedj.archive.server.cloud.model.CloudArchiveModel
 import de.oliver_heger.linedj.archive.server.model.ArchiveModel
 import de.oliver_heger.linedj.player.engine.mp3.Mp3AudioStreamFactory
 import de.oliver_heger.linedj.player.engine.stream.{AudioStreamPlayerStage, BufferedPlaylistSource}

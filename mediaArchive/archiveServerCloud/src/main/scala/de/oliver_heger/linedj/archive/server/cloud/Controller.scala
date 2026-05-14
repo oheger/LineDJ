@@ -25,6 +25,7 @@ import de.oliver_heger.linedj.archive.cloud.auth.oauth.OAuthStorageServiceImpl
 import de.oliver_heger.linedj.archive.server.ArchiveController
 import de.oliver_heger.linedj.archive.server.MediaFileResolver.{FileResolverFunc, UnresolvableFileException}
 import de.oliver_heger.linedj.archive.server.cloud.Controller.CloudArchiveServerContext
+import de.oliver_heger.linedj.archive.server.cloud.model.CloudArchiveModel
 import de.oliver_heger.linedj.server.common.{ConfigSupport, ServerController}
 import de.oliver_heger.linedj.server.common.ServerController.given
 import de.oliver_heger.linedj.utils.SystemPropertyAccess

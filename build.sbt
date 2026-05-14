@@ -209,6 +209,7 @@ lazy val LineDJ = (project in file("."))
   archiveLocalStartup,
   archiveServer,
   archiveServerCloud,
+  archiveServerCloudModel,
   archiveServerLocal,
   archiveServerModel,
   archiveStartup,
@@ -431,6 +432,18 @@ lazy val archiveServerLocal = (project in file("mediaArchive/archiveServerLocal"
   ) dependsOn(shared % "compile->compile;test->test", archiveUnion, archiveServer)
 
 /**
+  * The archive server cloud model project. It exposes data model classes to be
+  * consumed by clients of the cloud archive server.
+  */
+lazy val archiveServerCloudModel = (project in file("mediaArchive/archiveServerCloudModel"))
+  .enablePlugins(SbtOsgi)
+  .settings(defaultSettings)
+  .settings(OSGi.osgiSettings)
+  .settings(
+    name := "linedj-archive-server-cloud-model",
+  ) dependsOn shared
+
+/**
   * The archive server cloud project. This is an HTTP server application that
   * provides access to media files hosted on cloud servers.
   */
@@ -442,7 +455,8 @@ lazy val archiveServerCloud = (project in file("mediaArchive/archiveServerCloud"
     libraryDependencies ++= pekkoHttpDependencies,
     libraryDependencies += commonsConfig2Dependency,
     Compile / mainClass := Some("de.oliver_heger.linedj.archive.server.cloud.Server"),
-  ) dependsOn(shared % "compile->compile;test->test", cloudAccess, archiveServer, protocolOneDrive, protocolWebDav)
+  ) dependsOn(shared % "compile->compile;test->test", cloudAccess, archiveServer, archiveServerCloudModel,
+      protocolOneDrive, protocolWebDav)
 
 /**
   * The WebDav protocol project. This is a module adding support for WebDav
@@ -1112,7 +1126,8 @@ lazy val audioPlayerShell = (project in file("audioPlayerShell"))
         oldStrategy(x)
     }
   ) dependsOn(
-    playerEngine, mp3PlaybackContextFactory, log4jConfFragment, archiveServer, archiveServerCloud, serverDiscovery
+    playerEngine, mp3PlaybackContextFactory, log4jConfFragment, archiveServerModel, archiveServerCloudModel,
+    serverDiscovery
   )
 
 /**

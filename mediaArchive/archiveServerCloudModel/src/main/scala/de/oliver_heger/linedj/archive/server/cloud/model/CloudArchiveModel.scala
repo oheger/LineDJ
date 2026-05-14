@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archive.server.cloud
+package de.oliver_heger.linedj.archive.server.cloud.model
 
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import spray.json.{DefaultJsonProtocol, RootJsonFormat}

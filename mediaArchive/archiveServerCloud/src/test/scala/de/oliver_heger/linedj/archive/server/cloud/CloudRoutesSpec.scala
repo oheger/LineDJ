@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.archive.server.cloud
 
 import de.oliver_heger.linedj.FileTestHelper
+import de.oliver_heger.linedj.archive.server.cloud.model.CloudArchiveModel
 import de.oliver_heger.linedj.archive.server.{ArchiveController, ArchiveServerConfig}
 import de.oliver_heger.linedj.server.common.{ConfigSupport, ServerConfig, ServerController}
 import de.oliver_heger.linedj.shared.actors.ManagingActorFactory
