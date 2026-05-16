@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.platform.startup
+package de.oliver_heger.linedj.platform.startup.impl
 
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.osgi.OsgiActorSystemFactory
@@ -318,11 +318,11 @@ class ActivatorSpec extends AnyFlatSpec with Matchers with MockitoSugar:
       */
     private def createActivator(): Activator =
       new Activator:
-        override private[startup] def createActorSystemFactory(context: BundleContext): OsgiActorSystemFactory =
+        override private[impl] def createActorSystemFactory(context: BundleContext): OsgiActorSystemFactory =
           context should be(bundleContext)
           actorSystemFactory
 
-        override private[startup] def createExecutor(): ScheduledExecutorService =
+        override private[impl] def createExecutor(): ScheduledExecutorService =
           executorService
 
         override def getSystemProperty(key: String): Option[String] =

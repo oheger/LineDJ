@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.platform.startup
+package de.oliver_heger.linedj.platform.startup.impl
 
 import com.typesafe.config.ConfigFactory
 import de.oliver_heger.linedj.utils.SystemPropertyAccess
@@ -141,7 +141,7 @@ class Activator extends BundleActivator with SystemPropertyAccess:
     * @param context the current [[BundleContext]]
     * @return the factory for creating the actor system
     */
-  private[startup] def createActorSystemFactory(context: BundleContext): OsgiActorSystemFactory =
+  private[impl] def createActorSystemFactory(context: BundleContext): OsgiActorSystemFactory =
     OsgiActorSystemFactory(context, ConfigFactory.empty())
 
   /**
@@ -150,7 +150,7 @@ class Activator extends BundleActivator with SystemPropertyAccess:
     *
     * @return the executor to wait for the configured delay
     */
-  private[startup] def createExecutor(): ScheduledExecutorService =
+  private[impl] def createExecutor(): ScheduledExecutorService =
     Executors.newSingleThreadScheduledExecutor()
 
   /**

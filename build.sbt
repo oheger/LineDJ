@@ -539,8 +539,8 @@ lazy val platformStartup = (project in file("platformStartup"))
       "*"
     ),
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.platform.startup"),
-    OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.platform.startup"),
-    OsgiKeys.bundleActivator := Some("de.oliver_heger.linedj.platform.startup.Activator")
+    OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.platform.startup.impl"),
+    OsgiKeys.bundleActivator := Some("de.oliver_heger.linedj.platform.startup.impl.Activator")
   ) dependsOn shared
 
 /**
