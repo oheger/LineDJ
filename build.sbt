@@ -502,6 +502,7 @@ lazy val platform = (project in file("platform"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-platform",
+    libraryDependencies += ("com.github.oheger" %% "cloud-files-core" % VersionCloudFiles),
     libraryDependencies ++= jguiraffeDependencies,
     libraryDependencies ++= osgiDependencies,
     libraryDependencies ++= logDependencies,
