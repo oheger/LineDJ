@@ -198,7 +198,6 @@ lazy val LineDJ = (project in file("."))
   .settings(
     name := "linedj-parent"
   ) aggregate(
-  actorSystem,
   appShutdownOneForAll,
   appWindowHiding,
   archive,
@@ -230,6 +229,7 @@ lazy val LineDJ = (project in file("."))
   mp3PlaybackContextFactory,
   persistentPlaylistHandler,
   platform,
+  platformStartup,
   playerEngine,
   playerEngineConfig,
   playerServer,
@@ -511,21 +511,24 @@ lazy val platform = (project in file("platform"))
     OsgiKeys.privatePackage := Seq.empty,
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/managementapp_component.xml")
-  ) dependsOn(shared, actorSystem)
+  ) dependsOn(shared, platformStartup)
 
 /**
-  * A project providing the client-side actor system. This project uses the
-  * Pekko OSGi-integration to setup an actor system and making it available as
-  * OSGi service. It can then be used by all client applications.
+  * A project containing startup code for the LineDJ platform. This project
+  * uses the Pekko OSGi-integration to set up an actor system and make it
+  * available as OSGi service. It can then be used by all client applications.
+  * Also, a configuration file for the platform is read and exposed.
   */
-lazy val actorSystem = (project in file("actorSystem"))
+lazy val platformStartup = (project in file("platformStartup"))
   .enablePlugins(SbtOsgi)
   .settings(defaultSettings)
   .settings(OSGi.osgiSettings)
   .settings(
-    name := "linedj-actorSystem",
+    name := "linedj-platformStartup",
     libraryDependencies ++= osgiDependencies,
     libraryDependencies += ("org.apache.pekko" %% "pekko-osgi" % VersionPekko),
+    libraryDependencies += commonsConfig2Dependency,
+    libraryDependencies += beanUtilsDependency,
     // need to import packages of pekko modules whose configuration has to be added
     OsgiKeys.importPackage := Seq(
       OSGi.ScalaImport,
@@ -535,8 +538,9 @@ lazy val actorSystem = (project in file("actorSystem"))
       "org.apache.pekko.serialization.jackson",
       "*"
     ),
-    OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.actorsystem"),
-    OsgiKeys.bundleActivator := Some("de.oliver_heger.linedj.actorsystem.Activator")
+    OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.platform.startup"),
+    OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.platform.startup"),
+    OsgiKeys.bundleActivator := Some("de.oliver_heger.linedj.platform.startup.Activator")
   ) dependsOn shared
 
 /**
