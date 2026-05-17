@@ -17,27 +17,44 @@
 package de.oliver_heger.linedj.platform.startup.impl
 
 import com.typesafe.config.ConfigFactory
+import de.oliver_heger.linedj.platform.startup.ConfigService
 import de.oliver_heger.linedj.utils.SystemPropertyAccess
+import org.apache.commons.configuration2.builder.fluent.Configurations
+import org.apache.commons.configuration2.{BaseHierarchicalConfiguration, ImmutableHierarchicalConfiguration}
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.osgi.OsgiActorSystemFactory
 import org.osgi.framework.*
 
 import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.{Executors, ScheduledExecutorService, TimeUnit}
+import scala.util.{Failure, Success, Try}
 
 object Activator:
   /**
-    * Constant for a system property that defines the name of the actor
-    * system.
+    * Constant for a system property that defines the name or path to the
+    * configuration file with settings for the LineDJ platform. The activator
+    * loads this configuration file and exposes the settings via a service.
     */
-  final val PropActorSystemName = "LineDJ_ActorSystemName"
+  final val PropConfigFile = "LineDJ_PlatformConfigFile"
 
   /**
-    * Constant for a system property that defines the delay after the SpiFly
-    * weaving bundle has started to wait for its completion. The property value
-    * is interpreted as a number in milliseconds.
+    * The name of the section in the platform configuration that contains the
+    * platform-related properties.
     */
-  final val PropSpiFlyDelayMs = "LineDJ_SpiFlyDelayMs"
+  final val PlatformSection = "platform"
+
+  /**
+    * Constant for the configuration property that defines the name of the
+    * actor system.
+    */
+  final val PropActorSystemName = "actorSystemName"
+
+  /**
+    * Constant for the configuration property that defines the delay after the
+    * SpiFly weaving bundle has started to wait for its completion. The
+    * property value is interpreted as a number in milliseconds.
+    */
+  final val PropSpiFlyDelayMs = "spiFlyDelayMs"
 
   /** The default name of the actor system. */
   final val DefaultActorSystemName = "LineDJ_PlatformActorSystem"
@@ -72,15 +89,37 @@ object Activator:
     * @tparam A the type of the value to be cleaned up
     */
   private def safeCleanup[A](ref: AtomicReference[A])(f: A => Unit): Unit =
-    Option(ref.get()).foreach { value =>
+    Option(ref.get()).foreach: value =>
       if ref.compareAndSet(value, null.asInstanceOf[A]) then
         f(value)
-    }
+
+  /**
+    * Tries to load the platform configuration file from the given name.
+    * Creates a service object that exposes this file if the load operation was
+    * successful.
+    *
+    * @param name the name of the configuration file
+    * @return a [[Try]] with the loaded configuration
+    */
+  private def loadPlatformConfigFile(name: String): Try[ConfigService] = Try:
+    val ccl = Thread.currentThread().getContextClassLoader
+    val platformConfig = try
+      // Changing the CCL is necessary, since commons-configuration does a dynamic class loading
+      // for the result class of the builder. This fails in the OSGi environment unless a correct
+      // classloader is set.
+      Thread.currentThread().setContextClassLoader(getClass.getClassLoader)
+      val configs = new Configurations
+      configs.xml(name)
+    finally
+      Thread.currentThread().setContextClassLoader(ccl)
+
+    new ConfigService:
+      override val config: ImmutableHierarchicalConfiguration = platformConfig
 end Activator
 
 /**
   * A bundle activator which creates and registers the central client-side
-  * actor system as OSGi service.
+  * actor system and the platform configuration as OSGi services.
   *
   * This class uses functionality provided by the Pekko OSGi integration to
   * correctly set up an actor system in an OSGi environment. Actually, the
@@ -100,6 +139,11 @@ end Activator
   * The actor system is then registered as an OSGi service. Some components
   * have a dependency on this actor system. They can start automatically as
   * soon as this object becomes available.
+  *
+  * In addition, this class checks for the presence of a system property that
+  * defines the name or path to a platform configuration file. If this
+  * property is defined and the configuration file can be loaded, it is exposed
+  * as a [[ConfigService]] registration.
   */
 class Activator extends BundleActivator with SystemPropertyAccess:
 
@@ -115,17 +159,30 @@ class Activator extends BundleActivator with SystemPropertyAccess:
     * Stores the registration for the actor system service, so that it can be
     * unregistered when the bundle is stopped.
     */
-  private val serviceRegistration = new AtomicReference[ServiceRegistration[ActorSystem]]
+  private val actorSystemRegistration = new AtomicReference[ServiceRegistration[ActorSystem]]
+
+  /**
+    * Stores the optional registration for the config service which is
+    * initialized if a configuration file is specified. Note that this field is
+    * accessed only in the OSGi thread; therefore, no special synchronization
+    * is needed.
+    */
+  private var configRegistration: Option[ServiceRegistration[ConfigService]] = None
 
   override def start(context: BundleContext): Unit =
     println("Starting LineDJ ActorSystem activator.")
 
+    val optConfigService = fetchConfigService
+    configRegistration = optConfigService.map: service =>
+      context.registerService(classOf[ConfigService], service, null)
+    val platformConfig = fetchPlatformConfig(optConfigService)
+
     executorService.set(createExecutor())
     if isSpiFlyBundleActive(context) then
-      triggerDelayedRegistration(context)
+      triggerDelayedRegistration(context, platformConfig)
     else
       println("Waiting for the start of the SpiFly dynamic weaving bundle.")
-      val listener = createBundleListener(context)
+      val listener = createBundleListener(context, platformConfig)
       context.addBundleListener(listener)
       bundleListener.set(listener)
 
@@ -133,7 +190,8 @@ class Activator extends BundleActivator with SystemPropertyAccess:
     println("Stopping LineDJ ActorSystem activator.")
     shutdownExecutorService()
     removeBundleListener(context)
-    safeCleanup(serviceRegistration)(_.unregister())
+    safeCleanup(actorSystemRegistration)(_.unregister())
+    configRegistration.foreach(_.unregister())
 
   /**
     * Returns the [[OsgiActorSystemFactory]] to create the actor system.
@@ -159,37 +217,41 @@ class Activator extends BundleActivator with SystemPropertyAccess:
     * actor system.
     *
     * @param context the bundle context
+    * @param config  the platform configuration
     * @return the bundle listener
     */
-  private def createBundleListener(context: BundleContext): BundleListener =
+  private def createBundleListener(context: BundleContext,
+                                   config: ImmutableHierarchicalConfiguration): BundleListener =
     (event: BundleEvent) =>
       if event.getType == BundleEvent.STARTED && event.getBundle.getSymbolicName == SpiFlyBundleName then
-        triggerDelayedRegistration(context)
+        triggerDelayedRegistration(context, config)
 
   /**
     * Schedules a task that creates and registers the actor system after a
     * proper delay.
     *
     * @param context the bundle context
+    * @param config  the platform configuration
     */
-  private def triggerDelayedRegistration(context: BundleContext): Unit =
+  private def triggerDelayedRegistration(context: BundleContext, config: ImmutableHierarchicalConfiguration): Unit =
     Option(executorService.get()).foreach {
-      val delay = fetchSpiFlyDelay()
+      val delay = fetchSpiFlyDelay(config)
       println(s"Waiting $delay ms for the completion of the SpiFly weaving process.")
-      _.schedule(createRegistrationTask(context), delay, TimeUnit.MILLISECONDS)
+      _.schedule(createRegistrationTask(context, config), delay, TimeUnit.MILLISECONDS)
     }
 
   /**
     * Returns a task for creating and registering the actor system.
     *
     * @param context the bundle context
+    * @param config  the platform configuration
     * @return the task
     */
-  private def createRegistrationTask(context: BundleContext): Runnable =
+  private def createRegistrationTask(context: BundleContext, config: ImmutableHierarchicalConfiguration): Runnable =
     () =>
       val factory = createActorSystemFactory(context)
-      val system = factory.createActorSystem(fetchActorSystemName())
-      serviceRegistration.set(context.registerService(classOf[ActorSystem], system, null))
+      val system = factory.createActorSystem(fetchActorSystemName(config))
+      actorSystemRegistration.set(context.registerService(classOf[ActorSystem], system, null))
       shutdownExecutorService()
       removeBundleListener(context)
 
@@ -208,21 +270,50 @@ class Activator extends BundleActivator with SystemPropertyAccess:
     safeCleanup(bundleListener)(context.removeBundleListener)
 
   /**
-    * Determines the name of the actor system to be created. The name can be
-    * specified using a system property. If it is not provided, a default name
-    * is used.
+    * Creates the [[ConfigService]] if a configuration file is defined in the
+    * system properties and the file can be loaded.
+    *
+    * @return an [[Option]] with the [[ConfigService]]
+    */
+  private def fetchConfigService: Option[ConfigService] =
+    getSystemProperty(PropConfigFile) flatMap : name =>
+      loadPlatformConfigFile(name) match
+        case Failure(exception) =>
+          println(s"Failed to load platform configuration file '$name'.")
+          exception.printStackTrace()
+          None
+        case Success(value) =>
+          Some(value)
+
+  /**
+    * Obtains the section with the platform configuration from the given
+    * optional config service. If the service is undefined or the configuration
+    * does not have a platform section, and empty configuration is returned, so
+    * that default values for all properties are used.
+    *
+    * @param optConfigService an [[Option]] with the [[ConfigService]]
+    * @return the platform configuration
+    */
+  private def fetchPlatformConfig(optConfigService: Option[ConfigService]): ImmutableHierarchicalConfiguration =
+    optConfigService.flatMap(svc => Try(svc.config.immutableConfigurationAt(PlatformSection)).toOption)
+      .getOrElse(new BaseHierarchicalConfiguration)
+
+  /**
+    * Determines the name of the actor system to be created from the given
+    * configuration. If it is not provided, a default name is used.
     *
     * @return the name of the actor system
     */
-  private def fetchActorSystemName(): String =
-    getSystemProperty(PropActorSystemName) getOrElse DefaultActorSystemName
+  private def fetchActorSystemName(config: ImmutableHierarchicalConfiguration): String =
+    config.getString(PropActorSystemName, DefaultActorSystemName)
 
   /**
     * Determines the delay to wait for the SpiFly weaving process from the
-    * corresponding system property. If it is not provided, a default delay is
-    * used.
+    * corresponding configuration property. If it is not provided, a default
+    * delay is used.
     *
+    * @param config the platform configuration
     * @return the SpiFly delay (in milliseconds)
     */
-  private def fetchSpiFlyDelay(): Long =
-    getSystemProperty(PropSpiFlyDelayMs).map(_.toLong) getOrElse DefaultSpiFlyDelay
+  private def fetchSpiFlyDelay(config: ImmutableHierarchicalConfiguration): Long =
+    config.getLong(PropSpiFlyDelayMs, DefaultSpiFlyDelay)

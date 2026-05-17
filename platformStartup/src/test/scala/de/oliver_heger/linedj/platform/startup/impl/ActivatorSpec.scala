@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.platform.startup.impl
 
+import de.oliver_heger.linedj.platform.startup.ConfigService
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.osgi.OsgiActorSystemFactory
 import org.mockito.ArgumentCaptor
@@ -75,27 +76,54 @@ class ActivatorSpec extends AnyFlatSpec with Matchers with MockitoSugar:
 
     verify(helper.bundleContext, never()).addBundleListener(any())
 
-  it should "obtain the name of the actor system from system properties" in :
-    val ActorSystemName = "myTestActorSystem"
+  it should "not register a config service if no config file is specified" in :
     val spiFlyBundle = createBundle("org.apache.aries.spifly.dynamic.bundle")
     val helper = new ActivatorTestHelper
 
     helper.initExistingBundles(Array(spiFlyBundle))
-      .setSystemProperty(Activator.PropActorSystemName, ActorSystemName)
       .start()
-      .expectSchedule(Activator.DefaultSpiFlyDelay)
-      .verifyActorSystemRegistration(ActorSystemName)
+      .stop()
+      .verifyNoConfigServiceRegistration()
+
+  it should "register a config service if a config file is specified" in :
+    val spiFlyBundle = createBundle("org.apache.aries.spifly.dynamic.bundle")
+    val helper = new ActivatorTestHelper
+
+    helper.initExistingBundles(Array(spiFlyBundle))
+      .setSystemProperty(Activator.PropConfigFile, "test-platform-config.xml")
+      .start()
+
+    val configService = helper.registeredConfigService
+    configService.config.getString("platform.actorSystemName") should be("testActorSystem")
+
+  it should "not register a config service if the config file cannot be loaded" in :
+    val spiFlyBundle = createBundle("org.apache.aries.spifly.dynamic.bundle")
+    val helper = new ActivatorTestHelper
+
+    helper.initExistingBundles(Array(spiFlyBundle))
+      .setSystemProperty(Activator.PropConfigFile, "non-existing-config.xml")
+      .start()
+      .verifyNoConfigServiceRegistration()
+
+  it should "obtain properties from the configuration" in :
+    val spiFlyBundle = createBundle("org.apache.aries.spifly.dynamic.bundle")
+    val helper = new ActivatorTestHelper
+
+    helper.initExistingBundles(Array(spiFlyBundle))
+      .setSystemProperty(Activator.PropConfigFile, "test-platform-config.xml")
+      .start()
+      .expectSchedule(333)
+      .verifyActorSystemRegistration("testActorSystem")
       .verifyExecutorClosed()
 
-  it should "obtain the SpiFly delay from system properties" in :
-    val SpiFlyDelay = 1234L
+  it should "handle a configuration without a platform section" in :
     val spiFlyBundle = createBundle("org.apache.aries.spifly.dynamic.bundle")
     val helper = new ActivatorTestHelper
 
     helper.initExistingBundles(Array(spiFlyBundle))
-      .setSystemProperty(Activator.PropSpiFlyDelayMs, SpiFlyDelay.toString)
+      .setSystemProperty(Activator.PropConfigFile, "test-invalid-platform-config.xml")
       .start()
-      .expectSchedule(SpiFlyDelay)
+      .expectSchedule(Activator.DefaultSpiFlyDelay)
       .verifyActorSystemRegistration()
       .verifyExecutorClosed()
 
@@ -107,7 +135,17 @@ class ActivatorSpec extends AnyFlatSpec with Matchers with MockitoSugar:
       .start()
       .expectSchedule(Activator.DefaultSpiFlyDelay)
       .stop()
-      .verifyServiceUnregistered()
+      .verifyActorSystemUnregistered()
+
+  it should "unregister the config service when the bundle is stopped" in :
+    val spiFlyBundle = createBundle("org.apache.aries.spifly.dynamic.bundle")
+    val helper = new ActivatorTestHelper
+
+    helper.initExistingBundles(Array(spiFlyBundle))
+      .setSystemProperty(Activator.PropConfigFile, "test-platform-config.xml")
+      .start()
+      .stop()
+      .verifyConfigServiceUnregistered()
 
   it should "handle a stop call before the registration of the actor system" in :
     val helper = new ActivatorTestHelper
@@ -178,7 +216,10 @@ class ActivatorSpec extends AnyFlatSpec with Matchers with MockitoSugar:
     private val actorSystemFactory = createFactoryMock()
 
     /** The service registration for the actor system. */
-    private val serviceRegistration = createServiceRegistration()
+    private val actorSystemRegistration = createActorSystemRegistration()
+
+    /** The service registration for the config service. */
+    private val configServiceRegistration = createConfigServiceRegistration()
 
     /** A map to simulate system properties. */
     private val systemProperties = collection.mutable.Map.empty[String, String]
@@ -238,6 +279,26 @@ class ActivatorSpec extends AnyFlatSpec with Matchers with MockitoSugar:
       this
 
     /**
+      * Verifies that an instance of the config service has been registered and
+      * returns this instance.
+      *
+      * @return the registered config service
+      */
+    def registeredConfigService: ConfigService =
+      val captService = ArgumentCaptor.forClass(classOf[ConfigService])
+      verify(bundleContext).registerService(argEq(classOf[ConfigService]), captService.capture(), argEq(null))
+      captService.getValue
+
+    /**
+      * Verifies that no registration for a config service was done.
+      *
+      * @return this test helper
+      */
+    def verifyNoConfigServiceRegistration(): ActivatorTestHelper =
+      verify(bundleContext, never()).registerService(argEq(classOf[ConfigService]), any[ConfigService](), argEq(null))
+      this
+
+    /**
       * Expects that a task was scheduled on the executor service with the
       * given delay. Simulates the execution of this task.
       *
@@ -285,8 +346,27 @@ class ActivatorSpec extends AnyFlatSpec with Matchers with MockitoSugar:
       *
       * @return this test helper
       */
-    def verifyServiceUnregistered(): ActivatorTestHelper =
-      verify(serviceRegistration, times(1)).unregister()
+    def verifyActorSystemUnregistered(): ActivatorTestHelper =
+      verifyUnregistration(actorSystemRegistration)
+
+    /**
+      * Verifies that the config service has been unregistered.
+      *
+      * @return this test helper
+      */
+    def verifyConfigServiceUnregistered(): ActivatorTestHelper =
+      verifyUnregistration(configServiceRegistration)
+
+    /**
+      * Verifies that the given service registration has been unregistered
+      * exactly once.
+      *
+      * @param registration the registration to check
+      * @tparam S the type of the service
+      * @return this test helper
+      */
+    private def verifyUnregistration[S](registration: ServiceRegistration[S]): ActivatorTestHelper =
+      verify(registration, times(1)).unregister()
       this
 
     /**
@@ -300,15 +380,28 @@ class ActivatorSpec extends AnyFlatSpec with Matchers with MockitoSugar:
       factory
 
     /**
-      * Creates a mock for the service registration that can be used to verify
-      * that the service is correctly unregistered when the activator is
-      * stopped.
+      * Creates a mock for the service registration of the actor system that
+      * can be used to verify that the service is correctly unregistered when
+      * the activator is stopped.
       *
       * @return the mock registration
       */
-    private def createServiceRegistration(): ServiceRegistration[ActorSystem] =
+    private def createActorSystemRegistration(): ServiceRegistration[ActorSystem] =
       val registration = mock[ServiceRegistration[ActorSystem]]
       when(bundleContext.registerService(classOf[ActorSystem], actorSystem, null)).thenReturn(registration)
+      registration
+
+    /**
+      * Creates a mock for the service registration of the config service that
+      * can be used to verify that the service is correctly unregistered when
+      * the activator is stopped.
+      *
+      * @return the mock registration
+      */
+    private def createConfigServiceRegistration(): ServiceRegistration[ConfigService] =
+      val registration = mock[ServiceRegistration[ConfigService]]
+      when(bundleContext.registerService(argEq(classOf[ConfigService]), any[ConfigService](), argEq(null)))
+        .thenReturn(registration)
       registration
 
     /**
