@@ -1,0 +1,84 @@
+= Platform Startup
+
+This module performs initialization tasks that are required to start up the LineDJ platform. It is especially responsible for the creation of the central actor system used by the LineDJ platform modules.
+
+== Description
+Many modules of the LineDJ platform make use of an _actor system_ to implement their functionality; most tasks that require concurrency and multi-threading are executed by actors. The actor system can be obtained from the central `ClientApplicationContext` and thus is available to all platform modules.
+
+The _Platform startup_ module creates the actor system and registers it as a service in the OSGi registry. This is a precondition for the platform to start up successfully.
+
+In addition, the module can load a central configuration file with settings for the platform as a whole (in contrast to the application-specific configuration files). It makes the configuration available as a service of type xref:src/main/scala/de/oliver_heger/linedj/platform/startup/ConfigService.scala[ConfigService]; interested modules can declare a dependency on this service.
+
+== Configuration
+A couple of configuration options are supported to customize the actor system and the platform. Some of these options have to be set as system properties. They override default settings from the Apache Pekko reference configuration or define the configuration file to be loaded.
+
+The options related to Apache Pekko mainly control the remoting subsystem of Pekko (refer to the https://pekko.apache.org/docs/pekko/current/remoting-artery.html[Remoting documentation]).
+Table <<tab_system_properties>> lists the system properties that are evaluated:
+
+[#tab_system_properties]
+.System properties supported by the Platform startup module
+[cols="1,3,1",options="header"]
+|====
+| Setting
+| Description
+| Default value
+
+| pekko.remote.netty.tcp.hostname
+| The host name to be used by Pekko remoting. This overrides the corresponding property from the Pekko remoting configuration.
+| (none)
+
+| pekko.remote.netty.tcp.port
+| The port on which the remoting subsystem listens. This overrides the corresponding property from the Pekko remoting configuration.
+| 0
+
+| LineDJ_PlatformConfigFile
+| Points to the platform configuration file. This can bei either a file name or a full path. In the former case, the file is looked up in the user's home directory. If this property is undefined, the module does not load a configuration file, and it registers no configuration service.
+| (none)
+|====
+
+_Notes:_
+
+The default values for the Apache Pekko properties are typically appropriate for a LineDJ application acting as client of the media archive. They cause the remoting subsystem to bind to the local IP address under a random port.
+
+For the media archive itself, at least a port number should be defined; so that client applications have a defined address to connect to. If the machine the
+archive runs on has multiple network interfaces, the IP address or the host name to be used should be specified in the _hostname_ property. The best way to
+do this is probably a small shell script starting up the OSGi container with corresponding system properties. Below is an example script that starts an
+https://felix.apache.org/[Apache Felix] container and sets the properties for host name and port:
+
+[source,bash]
+----
+java -Dpekko.remote.netty.tcp.hostname=ArchiveHost \
+  -Dpekko.remote.netty.tcp.port=1234 \
+  -jar bin/felix.jar
+----
+
+If via the `LineDJ_PlatformConfigFile` system property a configuration file is specified, the module loads this file and evaluates some optional properties. The file is expected to be an XML document. Listing <<lst_example_config>> gives an example how this file is supposed to look like. Table <<tab_config_properties>> lists the supported properties and describes them.
+
+[#lst_example_config]
+.Example configuration file
+[source,xml]
+----
+<configuration>
+    <platform>
+        <actorSystemName>testActorSystem</actorSystemName>
+        <spiFlyDelayMs>333</spiFlyDelayMs>
+    </platform>
+</configuration>
+----
+
+[#tab_config_properties]
+.Configuration properties supported by the Platform startup module
+[cols="1,3,1",options="header"]
+|====
+| Setting
+| Description
+| Default value
+
+| actorSystemName
+| The name to be set for the actor system.
+| LineDJ_PlatformActorSystem
+
+| spiFlyDelayMs
+| Defines a delay (in milliseconds) for the startup of the actor system to give the https://aries.apache.org/documentation/modules/spi-fly.html[Apache Aries SpiFly] bundle time to perform its weaving task.
+| 500
+|====
