@@ -22,6 +22,7 @@ import de.oliver_heger.linedj.platform.mediaifc.config.MediaIfcConfigData
 import de.oliver_heger.linedj.shared.actors.ActorFactory
 import net.sf.jguiraffe.gui.builder.window.WindowManager
 import org.apache.commons.configuration.Configuration
+import org.apache.commons.configuration2.ImmutableHierarchicalConfiguration
 import org.apache.pekko.actor.ActorSystem
 
 /**
@@ -39,24 +40,28 @@ import org.apache.pekko.actor.ActorSystem
 trait ClientApplicationContext:
   /**
     * Returns the actor system running on the client.
+    *
     * @return the central actor system
     */
   def actorSystem: ActorSystem
 
   /**
     * Returns the factory for creating new actors.
+    *
     * @return the actor factory
     */
   def actorFactory: ActorFactory
 
   /**
     * Returns the facade for accessing the media archive.
+    *
     * @return the ''MediaFacade''
     */
   def mediaFacade: MediaFacade
 
   /**
     * Returns the (local) message bus.
+    *
     * @return the local message bus
     */
   def messageBus: MessageBus
@@ -66,6 +71,7 @@ trait ClientApplicationContext:
     * As the window manager is related to the correct initialization of the UI
     * platform (especially in case of JavaFX), it is important that all client
     * applications running in a deployment use the same instance.
+    *
     * @return the shared window manager
     */
   def windowManager: WindowManager
@@ -74,6 +80,7 @@ trait ClientApplicationContext:
     * Returns the configuration of the management application. This
     * configuration can be used by other modules to store some settings which
     * are not really application-specific, but more central.
+    *
     * @return the configuration of the management application
     */
   def managementConfiguration: Configuration
@@ -84,6 +91,15 @@ trait ClientApplicationContext:
     * registered in the OSGi registry and queried via this method. If an object
     * exists, an application needing access to the media archive should offer
     * an option to the user to display the configuration dialog.
+    *
     * @return an option with configuration data for the media archive
     */
   def mediaIfcConfig: Option[MediaIfcConfigData]
+
+  /**
+    * Returns the platform configuration. This configuration contains global
+    * settings for the whole LineDJ platform that is running.
+    *
+    * @return the platform configuration
+    */
+  def platformConfig: ImmutableHierarchicalConfiguration

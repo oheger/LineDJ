@@ -22,11 +22,13 @@ import de.oliver_heger.linedj.platform.comm.{MessageBus, MessageBusListener}
 import de.oliver_heger.linedj.platform.mediaifc.config.MediaIfcConfigData
 import de.oliver_heger.linedj.platform.mediaifc.ext.{ArchiveAvailabilityExtension, AvailableMediaExtension, MetadataCache, StateListenerExtension}
 import de.oliver_heger.linedj.platform.mediaifc.{MediaFacade, MediaFacadeFactory}
+import de.oliver_heger.linedj.platform.startup.ConfigService
 import de.oliver_heger.linedj.shared.actors.ActorFactory
 import net.sf.jguiraffe.di.BeanContext
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.window.WindowManager
 import org.apache.commons.configuration.{PropertiesConfiguration, XMLConfiguration}
+import org.apache.commons.configuration2.BaseHierarchicalConfiguration
 import org.apache.pekko.actor.{Actor, ActorSystem, Terminated}
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.*
@@ -67,6 +69,7 @@ object ClientManagementApplicationSpec:
   */
 class ClientManagementApplicationSpec extends AnyFlatSpec with Matchers with BeforeAndAfterAll
   with MockitoSugar with ApplicationTestSupport:
+
   import ClientManagementApplicationSpec.*
 
   override protected def afterAll(): Unit =
@@ -137,12 +140,13 @@ class ClientManagementApplicationSpec extends AnyFlatSpec with Matchers with Bef
     * @return the map with the message bus bean
     */
   private def messageBusBeanMap(bus: MessageBus): Map[String, AnyRef] =
-  Map("LineDJ_messageBus" -> bus)
+    Map("LineDJ_messageBus" -> bus)
 
   /**
     * Creates a mock media facade factory. If a facade is passed in, it is
     * returned. Otherwise, a mock facade is created and returned by the
     * factory.
+    *
     * @param optFacade an optional facade to be returned
     * @return the factory mock
     */
@@ -153,21 +157,21 @@ class ClientManagementApplicationSpec extends AnyFlatSpec with Matchers with Bef
     when(factory.createMediaFacade(any(), any())).thenReturn(facade)
     factory
 
-  "A ClientManagementApplication" should "provide access to the actor system" in:
+  "A ClientManagementApplication" should "provide access to the actor system" in :
     val actorSystem = mock[ActorSystem]
     val app = new ClientManagementApplication
 
     app initActorSystem actorSystem
     app.actorSystem should be(actorSystem)
 
-  it should "provide access to an initialized actor factory" in:
+  it should "provide access to an initialized actor factory" in :
     val actorSystem = mock[ActorSystem]
     val app = new ClientManagementApplication
 
     app initActorSystem actorSystem
     app.actorFactory.actorSystem should be(actorSystem)
 
-  it should "create the media facade" in:
+  it should "create the media facade" in :
     val actorSystem = mock[ActorSystem]
     val facade = mock[MediaFacade]
     val factory = createMediaFacadeFactoryMock(Some(facade))
@@ -184,7 +188,7 @@ class ClientManagementApplicationSpec extends AnyFlatSpec with Matchers with Bef
     app.mediaFacade should be(facade)
     verify(facade).activate(true)
 
-  it should "return the message bus from the media facade" in:
+  it should "return the message bus from the media facade" in :
     val actorSystem = mock[ActorSystem]
     val facade = mock[MediaFacade]
     val factory = createMediaFacadeFactoryMock(Some(facade))
@@ -196,7 +200,7 @@ class ClientManagementApplicationSpec extends AnyFlatSpec with Matchers with Bef
 
     app.messageBus should be(bus)
 
-  it should "configure the media facade" in:
+  it should "configure the media facade" in :
     val bus = mock[MessageBus]
     val appCtx = createAppCtxWithBeans(messageBusBeanMap(bus))
     val facade = mock[MediaFacade]
@@ -207,7 +211,7 @@ class ClientManagementApplicationSpec extends AnyFlatSpec with Matchers with Bef
     app.createMediaFacade(appCtx) should be(facade)
     verify(facade).initConfiguration(appCtx.getConfiguration)
 
-  it should "register a message bus listener for shutdown handling" in:
+  it should "register a message bus listener for shutdown handling" in :
     val actorSystem = mock[ActorSystem]
     val app = new ClientManagementAppWithMsgBus
     app initActorSystem actorSystem
@@ -221,7 +225,7 @@ class ClientManagementApplicationSpec extends AnyFlatSpec with Matchers with Bef
     }
     verify(exitHandler).run()
 
-  it should "ignore a Shutdown message with wrong content" in:
+  it should "ignore a Shutdown message with wrong content" in :
     val actorSystem = mock[ActorSystem]
     val app = new ClientManagementAppWithMsgBus
     app initActorSystem actorSystem
@@ -252,43 +256,48 @@ class ClientManagementApplicationSpec extends AnyFlatSpec with Matchers with Bef
     val ext = extensions.find(_.getClass == t.runtimeClass)
     ext.get.asInstanceOf[E]
 
-  it should "create an extension for the media archive availability" in:
+  it should "create an extension for the media archive availability" in :
     val facade = mock[MediaFacade]
     val app = new ClientManagementApplication
 
     findExtension[ArchiveAvailabilityExtension](app, createAppCtxWithBC(), facade)
 
-  it should "create an extension for state listeners of the media archive" in:
+  it should "create an extension for state listeners of the media archive" in :
     val facade = mock[MediaFacade]
     val app = new ClientManagementApplication
 
     val ext = findExtension[StateListenerExtension](app, createAppCtxWithBC(), facade)
     ext.mediaFacade should be(facade)
 
-  it should "create an extension for available media of the media archive" in:
+  it should "create an extension for available media of the media archive" in :
     val facade = mock[MediaFacade]
     val app = new ClientManagementApplication
 
     val ext = findExtension[AvailableMediaExtension](app, createAppCtxWithBC(), facade)
     ext.mediaFacade should be(facade)
 
-  it should "create an extension for the metadata cache" in:
+  it should "create an extension for the metadata cache" in :
     val facade = mock[MediaFacade]
     val appCtx = createAppCtxWithBC()
     val CacheSize = 2222
-    appCtx.getConfiguration.addProperty("media.cacheSize", CacheSize)
+    val platformConfig = new BaseHierarchicalConfiguration
+    platformConfig.addProperty("media.cacheSize", CacheSize)
+    val configService = mock[ConfigService]
+    when(configService.config).thenReturn(platformConfig)
     val app = new ClientManagementApplication
+    app.initPlatformConfig(configService)
 
     val cacheExt = findExtension[MetadataCache](app, appCtx, facade)
     cacheExt.mediaFacade should be(facade)
     cacheExt.cacheSize should be(CacheSize)
 
-  it should "use a default size for the metadata cache" in:
+  it should "use a default size for the metadata cache" in :
     val cacheExt = findExtension[MetadataCache](new ClientManagementApplication,
       createAppCtxWithBC(), mock[MediaFacade])
     cacheExt.cacheSize should be(ClientManagementApplication.DefaultMetadataCacheSize)
 
-  it should "register media archive extensions on the message bus" in:
+  it should "register media archive extensions on the message bus" in :
+
     def createListener(): MessageBusListener =
       val listener = mock[MessageBusListener]
       val receive = mock[Actor.Receive]
@@ -314,7 +323,7 @@ class ClientManagementApplicationSpec extends AnyFlatSpec with Matchers with Bef
     inOrder.verify(bus).registerListener(extension2.receive)
     inOrder.verify(facade).activate(true)
 
-  it should "provide access to the shared window manager" in:
+  it should "provide access to the shared window manager" in :
     val actorSystem = mock[ActorSystem]
     val app = new ClientManagementApplicationTestImpl
     app initActorSystem actorSystem
@@ -322,7 +331,7 @@ class ClientManagementApplicationSpec extends AnyFlatSpec with Matchers with Bef
 
     app.mockWindowManager should be(app.mockWindowManager)
 
-  it should "correctly extract the window manager and stage factory from the bean context" in:
+  it should "correctly extract the window manager and stage factory from the bean context" in :
     val appCtx = mock[ApplicationContext]
     val beanCtx = mock[BeanContext]
     val windowManager = mock[WindowManager]
@@ -358,27 +367,27 @@ class ClientManagementApplicationSpec extends AnyFlatSpec with Matchers with Bef
     io.verify(system).terminate()
     io.verify(bundle).stop()
 
-  it should "set an OSGi-compliant exit handler" in:
+  it should "set an OSGi-compliant exit handler" in :
     val term = mock[Terminated]
     checkExitHandler(Future.successful(term))
 
-  it should "exit the app even if shutdown of the actor system fails" in:
+  it should "exit the app even if shutdown of the actor system fails" in :
     val futTerm = Future.failed[Terminated](new RuntimeException("BOOM"))
     checkExitHandler(futTerm)
 
-  it should "return undefined configuration data per default" in:
+  it should "return undefined configuration data per default" in :
     val app = new ClientManagementApplicationTestImpl
 
     app.mediaIfcConfig should be(None)
 
-  it should "track services of type MediaIfcConfigData" in:
+  it should "track services of type MediaIfcConfigData" in :
     val confData = mock[MediaIfcConfigData]
     val app = new ClientManagementAppWithMsgBus
 
     app setMediaIfcConfig confData
     app.mediaIfcConfig should be(Some(confData))
 
-  it should "detect a removed config data service" in:
+  it should "detect a removed config data service" in :
     val confData = mock[MediaIfcConfigData]
     val app = new ClientManagementAppWithMsgBus
     app setMediaIfcConfig confData
@@ -386,7 +395,7 @@ class ClientManagementApplicationSpec extends AnyFlatSpec with Matchers with Bef
     app unsetMediaIfcConfig confData
     app.mediaIfcConfig should be(None)
 
-  it should "send a notification for an updated media interface config" in:
+  it should "send a notification for an updated media interface config" in :
     val confData = mock[MediaIfcConfigData]
     val app = new ClientManagementAppWithMsgBus
 
@@ -394,7 +403,7 @@ class ClientManagementApplicationSpec extends AnyFlatSpec with Matchers with Bef
     val msg = app.mockBus.expectMessageType[ClientManagementApplication.MediaIfcConfigUpdated]
     msg.currentConfigData should be(Some(confData))
 
-  it should "send a notification for a removed media interface config" in:
+  it should "send a notification for a removed media interface config" in :
     val confData = mock[MediaIfcConfigData]
     val app = new ClientManagementAppWithMsgBus
     app setMediaIfcConfig confData
@@ -404,7 +413,7 @@ class ClientManagementApplicationSpec extends AnyFlatSpec with Matchers with Bef
     val msg = app.mockBus.expectMessageType[ClientManagementApplication.MediaIfcConfigUpdated]
     msg.currentConfigData should be(None)
 
-  it should "ignore an unrelated remove notification" in:
+  it should "ignore an unrelated remove notification" in :
     val confData = mock[MediaIfcConfigData]
     val app = new ClientManagementAppWithMsgBus
     app setMediaIfcConfig confData
@@ -414,7 +423,7 @@ class ClientManagementApplicationSpec extends AnyFlatSpec with Matchers with Bef
     app.mediaIfcConfig should be(Some(confData))
     app.mockBus.expectNoMessage(100.millis)
 
-  it should "provide access to the management configuration" in:
+  it should "provide access to the management configuration" in :
     val app = runApp(new ClientManagementApplicationTestImpl)
 
     app.managementConfiguration should be theSameInstanceAs app.getUserConfiguration
@@ -422,21 +431,21 @@ class ClientManagementApplicationSpec extends AnyFlatSpec with Matchers with Bef
     config.getFile.getName should be(UserConfigFile)
     config.getFile.delete()
 
-  it should "create a correct ServiceDependenciesManager" in:
+  it should "create a correct ServiceDependenciesManager" in :
     val componentContext = createComponentContext()
     val app = runApp(new ClientManagementAppWithMsgBus(), optCompCtx = Some(componentContext))
 
     val depManager = app.createServiceDependenciesManager()
     depManager.bundleContext should be(componentContext.getBundleContext)
 
-  it should "register the ServiceDependenciesManager at the message bus" in:
+  it should "register the ServiceDependenciesManager at the message bus" in :
     val app = new ClientManagementAppWithMsgBus
     runApp(app)
 
     val optRec = app.mockBus.findListenerForMessage(RegisterService(ServiceDependency("foo")))
     optRec shouldBe defined
 
-  it should "create a correct MediaFacadeActorsServiceWrapper" in:
+  it should "create a correct MediaFacadeActorsServiceWrapper" in :
     val componentContext = createComponentContext()
     val app = runApp(new ClientManagementAppWithMsgBus(), optCompCtx = Some(componentContext))
 
@@ -444,13 +453,18 @@ class ClientManagementApplicationSpec extends AnyFlatSpec with Matchers with Bef
     facadeWrapper.clientAppContext should be(app)
     facadeWrapper.bundleContext should be(componentContext.getBundleContext)
 
-  it should "activate the MediaFacadeActorsServiceWrapper" in:
+  it should "activate the MediaFacadeActorsServiceWrapper" in :
     val wrapper = mock[MediaFacadeActorsServiceWrapper]
     val app = new ClientManagementAppWithMsgBus:
       override private[app] def createFacadeServiceWrapper() = wrapper
     runApp(app)
 
     verify(wrapper).activate()
+
+  it should "return an empty platform configuration if no config service is available" in :
+    val app = new ClientManagementApplication
+
+    app.platformConfig.isEmpty shouldBe true
 
   /**
     * A test implementation of the management application which prevents
@@ -460,8 +474,10 @@ class ClientManagementApplicationSpec extends AnyFlatSpec with Matchers with Bef
     *
     * @param mockExtensions       a flag whether extensions for the media
     *                             interface should be mocked
+    *
     * @param mockShutdownHandling a flag whether registration of a shutdown
     *                             listener should be mocked
+    *
     * @param mockOsgiSupport      a flag whether listener registrations for
     *                             OSGi support should be mocked
     */
@@ -479,8 +495,8 @@ class ClientManagementApplicationSpec extends AnyFlatSpec with Matchers with Bef
     override private[app] def createMediaIfcExtensions(appCtx: ApplicationContext,
                                                        facade: MediaFacade):
     Iterable[MessageBusListener] =
-    if mockExtensions then List.empty
-    else super.createMediaIfcExtensions(appCtx, facade)
+      if mockExtensions then List.empty
+      else super.createMediaIfcExtensions(appCtx, facade)
 
     override private[app] def extractWindowManager(appCtx: ApplicationContext): WindowManager = mockWindowManager
 

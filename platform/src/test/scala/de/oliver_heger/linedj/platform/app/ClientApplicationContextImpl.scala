@@ -22,6 +22,7 @@ import de.oliver_heger.linedj.platform.mediaifc.config.MediaIfcConfigData
 import de.oliver_heger.linedj.shared.actors.ActorFactory
 import net.sf.jguiraffe.gui.builder.window.{WindowManager, WindowManagerImpl}
 import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
+import org.apache.commons.configuration2.{BaseHierarchicalConfiguration, ImmutableHierarchicalConfiguration}
 import org.apache.pekko.actor.ActorSystem
 import org.mockito.Mockito
 import org.scalatestplus.mockito.MockitoSugar.mock
@@ -54,5 +55,7 @@ class ClientApplicationContextImpl(override val managementConfiguration: Configu
                                    override val actorFactory: ActorFactory = mock[ActorFactory],
                                    override val mediaFacade: MediaFacade = mock[MediaFacade],
                                    override val windowManager: WindowManager = new WindowManagerImpl,
-                                   override val mediaIfcConfig: Option[MediaIfcConfigData] = None)
+                                   override val mediaIfcConfig: Option[MediaIfcConfigData] = None,
+                                   override val platformConfig: ImmutableHierarchicalConfiguration =
+                                   new BaseHierarchicalConfiguration)
   extends ClientApplicationContext

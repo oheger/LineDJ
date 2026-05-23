@@ -20,10 +20,12 @@ import de.oliver_heger.linedj.platform.comm.{MessageBus, MessageBusListener}
 import de.oliver_heger.linedj.platform.mediaifc.config.MediaIfcConfigData
 import de.oliver_heger.linedj.platform.mediaifc.ext.{ArchiveAvailabilityExtension, AvailableMediaExtension, MetadataCache, StateListenerExtension}
 import de.oliver_heger.linedj.platform.mediaifc.{MediaFacade, MediaFacadeFactory}
+import de.oliver_heger.linedj.platform.startup.ConfigService
 import de.oliver_heger.linedj.shared.actors.ActorFactory
 import net.sf.jguiraffe.gui.app.{Application, ApplicationContext}
 import net.sf.jguiraffe.gui.builder.window.WindowManager
 import org.apache.commons.configuration.Configuration
+import org.apache.commons.configuration2.{BaseHierarchicalConfiguration, ImmutableHierarchicalConfiguration}
 import org.apache.commons.logging.Log
 import org.apache.pekko.actor.ActorSystem
 import org.osgi.framework.BundleContext
@@ -51,7 +53,7 @@ object ClientManagementApplication:
     * components are given the chance to execute their specific shutdown logic,
     * e.g. to store some current data. This property defines the maximum time
     * span (in milliseconds) to wait until all components have finished their
-    * shutdown. Afterwards, the platform is forced to stop.
+    * shutdown. Afterward, the platform is forced to stop.
     */
   final val PropShutdownTimeout = "platform.shutdownTimeout"
 
@@ -63,6 +65,12 @@ object ClientManagementApplication:
 
   /** The default timeout for shutting down the platform. */
   final val DefaultShutdownTimeoutMillis = 5000
+
+  /**
+    * An empty configuration that is returned as platform configuration if no
+    * config service is available.
+    */
+  private val EmptyPlatformConfig: ImmutableHierarchicalConfiguration = new BaseHierarchicalConfiguration
 
   /**
     * A message published by [[ClientManagementApplication]] on the UI message
@@ -95,6 +103,7 @@ object ClientManagementApplication:
         systemBundle.stop()
       }
     }
+end ClientManagementApplication
 
 /**
   * An application which represents the LineDJ client platform in an OSGi
@@ -139,6 +148,11 @@ object ClientManagementApplication:
   * [[de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors]]
   * service is registered when the actors implementing the media facade
   * interface have been retrieved.
+  *
+  * This application declares an optional dependency to the [[ConfigService]]
+  * which manages the platform configuration. It then exposes the platform
+  * configuration via the [[ClientApplicationContext]] interface. If the
+  * service is not available, an empty platform configuration is returned.
   */
 class ClientManagementApplication extends Application with ClientApplicationContext with ApplicationSyncStartup:
 
@@ -150,6 +164,12 @@ class ClientManagementApplication extends Application with ClientApplicationCont
     * care for its synchronization has to be taken.
     */
   private val refMediaIfcConfig = new AtomicReference[MediaIfcConfigData]
+
+  /**
+    * Holds a reference to the platform configuration. This property is set
+    * from the OSGi management thread and queried from other threads.
+    */
+  private val refPlatformConfig = new AtomicReference(EmptyPlatformConfig)
 
   /** Stores the central actor system. */
   private var system: ActorSystem = _
@@ -187,6 +207,8 @@ class ClientManagementApplication extends Application with ClientApplicationCont
 
   override def managementConfiguration: Configuration = getUserConfiguration
 
+  override def platformConfig: ImmutableHierarchicalConfiguration = refPlatformConfig.get()
+
   /**
     * Sets a service reference of type ''MediaIfcConfigData''. This method is
     * called by the SCR when such a service is detected.
@@ -217,8 +239,19 @@ class ClientManagementApplication extends Application with ClientApplicationCont
   def initActorSystem(system: ActorSystem): Unit =
     log.info("Actor system was set.")
     this.system = system
+
     given ActorSystem = system
+
     factory = ActorFactory.defaultActorFactory
+
+  /**
+    * Initializes the service for the platform configuration. This method is
+    * called by the SCR.
+    *
+    * @param configService the service for the platform configuration
+    */
+  def initPlatformConfig(configService: ConfigService): Unit =
+    refPlatformConfig.set(configService.config)
 
   /**
     * Initializes the ''MediaFacadeFactory'' service. This method is called by
@@ -295,8 +328,7 @@ class ClientManagementApplication extends Application with ClientApplicationCont
   Iterable[MessageBusListener] =
     List(new ArchiveAvailabilityExtension, new StateListenerExtension(facade),
       new AvailableMediaExtension(facade),
-      new MetadataCache(facade,
-        appCtx.getConfiguration.getInt(PropMetadataCacheSize, DefaultMetadataCacheSize)))
+      new MetadataCache(facade, platformConfig.getInt(PropMetadataCacheSize, DefaultMetadataCacheSize)))
 
   /**
     * Extracts the shared window manager from the application context. This

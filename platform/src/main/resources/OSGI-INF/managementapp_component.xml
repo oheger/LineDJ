@@ -36,4 +36,10 @@
   <reference interface="de.oliver_heger.linedj.platform.mediaifc.config.MediaIfcConfigData"
              name="mediaIfcConfig" policy="dynamic"
              bind="setMediaIfcConfig" unbind="unsetMediaIfcConfig" cardinality="0..1"/>
+
+  <reference interface="de.oliver_heger.linedj.platform.startup.ConfigService"
+             name="configService"
+             policy="dynamic"
+             bind="initPlatformConfig"
+             cardinality="0..1"/>
 </component>

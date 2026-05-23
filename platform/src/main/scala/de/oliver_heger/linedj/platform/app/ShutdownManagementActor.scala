@@ -81,13 +81,13 @@ class ShutdownManagementActor(val managementApp: ClientManagementApplication,
 
   /**
     * Stores the handle to the scheduled timeout notification. It needs to be
-    * cancelled when shutdown is complete.
+    * canceled when shutdown is complete.
     */
   private var cancellable: Cancellable = _
 
   override def preStart(): Unit =
     super.preStart()
-    val timeout = managementApp.managementConfiguration.getInt(ClientManagementApplication.PropShutdownTimeout,
+    val timeout = managementApp.platformConfig.getInt(ClientManagementApplication.PropShutdownTimeout,
       ClientManagementApplication.DefaultShutdownTimeoutMillis).millis
     cancellable = scheduleMessageOnce(timeout, self, ShutdownTimeout)
 

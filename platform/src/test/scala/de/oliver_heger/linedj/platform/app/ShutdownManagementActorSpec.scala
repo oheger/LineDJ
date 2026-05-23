@@ -17,10 +17,10 @@
 package de.oliver_heger.linedj.platform.app
 
 import de.oliver_heger.linedj.platform.bus.ComponentID
-import org.apache.commons.configuration.PropertiesConfiguration
+import org.apache.commons.configuration2.BaseHierarchicalConfiguration
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props}
 import org.apache.pekko.testkit.TestKit
-import org.mockito.Mockito._
+import org.mockito.Mockito.*
 import org.mockito.invocation.InvocationOnMock
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
@@ -28,7 +28,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import java.util.concurrent.{BlockingQueue, CountDownLatch, LinkedBlockingQueue, TimeUnit}
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 object ShutdownManagementActorSpec:
   /** A set with test component IDs. */
@@ -65,7 +65,7 @@ object ShutdownManagementActorSpec:
       */
     def generateProps(managementApp: ClientManagementApplication, components: Set[ComponentID]): Props =
       ShutdownManagementActor.props(managementApp, components)
-
+end ShutdownManagementActorSpec
 
 /**
   * Test class for ''ShutdownManagementActor''.
@@ -78,41 +78,40 @@ class ShutdownManagementActorSpec(testSystem: ActorSystem) extends TestKit(testS
     TestKit shutdownActorSystem system
     super.afterAll()
 
-  import ShutdownManagementActorSpec._
+  import ShutdownManagementActorSpec.*
 
-  "ShutdownManagementActor" should "trigger a shutdown when confirmations of all components arrived" in:
+  "ShutdownManagementActor" should "trigger a shutdown when confirmations of all components arrived" in :
     val helper = new ShutdownActorTestHelper with TestActorCreator
 
     helper.sendShutdownConfirmations(TestComponents.toSeq: _*)
       .expectPlatformShutdown()
 
-  it should "not trigger a shutdown before all confirmations arrive" in:
+  it should "not trigger a shutdown before all confirmations arrive" in :
     val componentIDs = TestComponents.toSeq drop 1
     val helper = new ShutdownActorTestHelper with TestActorCreator
 
     helper.sendShutdownConfirmations(componentIDs: _*)
       .expectNoPlatformShutdown()
 
-  it should "not trigger multiple shutdowns" in:
+  it should "not trigger multiple shutdowns" in :
     val helper = new ShutdownActorTestHelper(shutdownLatchCount = 2) with TestActorCreator
 
     helper.sendShutdownConfirmations(TestComponents.toSeq: _*)
       .sendShutdownConfirmations(ComponentID())
       .expectNoPlatformShutdown()
 
-  it should "take a shutdown timeout into account" in:
-    val helper = new ShutdownActorTestHelper with TestActorCreator
+  it should "take a shutdown timeout into account" in :
+    val helper = new ShutdownActorTestHelper(optShutdownTimeout = Some(100.millis)) with TestActorCreator
 
-    helper.initShutdownTimeout(100.millis)
-      .expectPlatformShutdown()
+    helper.expectPlatformShutdown()
 
-  it should "use the correct default shutdown timeout if none is configured" in:
+  it should "use the correct default shutdown timeout if none is configured" in :
     val helper = new ShutdownActorTestHelper with MockSchedulerTestActorCreator
 
     val invocation = helper.expectSchedule()
     invocation.initialDelay should be(ClientManagementApplication.DefaultShutdownTimeoutMillis.millis)
 
-  it should "cancel the scheduled job when shutdown is complete" in:
+  it should "cancel the scheduled job when shutdown is complete" in :
     val helper = new ShutdownActorTestHelper with MockSchedulerTestActorCreator
 
     helper.sendShutdownConfirmations(TestComponents.toSeq: _*)
@@ -125,29 +124,21 @@ class ShutdownManagementActorSpec(testSystem: ActorSystem) extends TestKit(testS
     *
     * @param shutdownLatchCount the count value to initialize the latch that
     *                           is triggered when a shutdown happens
+    *
+    * @param optShutdownTimeout an optional shutdown timeout
     */
-  private class ShutdownActorTestHelper(shutdownLatchCount: Int = 1):
+  private class ShutdownActorTestHelper(shutdownLatchCount: Int = 1,
+                                        optShutdownTimeout: Option[FiniteDuration] = None):
     this: TestActorCreator =>
 
     /** A latch to determine whether the application was shutdown. */
     private val latchShutdown = new CountDownLatch(shutdownLatchCount)
 
-    /** The configuration of the client application. */
-    private val managementConfig = new PropertiesConfiguration
+    /** The platform configuration managed by the client application. */
+    private val platformConfig = createPlatformConfig()
 
     /** The actor instance to be tested. */
     private val shutdownActor = createShutdownActor()
-
-    /**
-      * Initializes the platform timeout property in the configuration of the
-      * management application.
-      *
-      * @param timeout the timeout to be set
-      * @return this test helper
-      */
-    def initShutdownTimeout(timeout: FiniteDuration): ShutdownActorTestHelper =
-      managementConfig.setProperty(ClientManagementApplication.PropShutdownTimeout, timeout.toMillis)
-      this
 
     /**
       * Sends shutdown confirmation messages for the given components to the
@@ -162,7 +153,7 @@ class ShutdownManagementActorSpec(testSystem: ActorSystem) extends TestKit(testS
 
     /**
       * Checks whether the client management application was triggered to
-      * shutdown the platform.
+      * shut down the platform.
       *
       * @return this test helper
       */
@@ -191,6 +182,18 @@ class ShutdownManagementActorSpec(testSystem: ActorSystem) extends TestKit(testS
       this
 
     /**
+      * Creates the platform configuration to be returned by the mock
+      * application.
+      *
+      * @return the platform configuration
+      */
+    private def createPlatformConfig(): BaseHierarchicalConfiguration =
+      val config = new BaseHierarchicalConfiguration
+      optShutdownTimeout.foreach: timeout =>
+        config.setProperty(ClientManagementApplication.PropShutdownTimeout, timeout.toMillis)
+      config
+
+    /**
       * Creates an initialized mock for the client management application to be
       * shutdown by the actor under test.
       *
@@ -202,7 +205,7 @@ class ShutdownManagementActorSpec(testSystem: ActorSystem) extends TestKit(testS
         latchShutdown.countDown()
         null
       }).when(app).shutdown()
-      when(app.managementConfiguration).thenReturn(managementConfig)
+      when(app.platformConfig).thenReturn(platformConfig)
       app
 
     /**
