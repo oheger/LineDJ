@@ -510,7 +510,7 @@ lazy val platform = (project in file("platform"))
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.platform.*"),
     OsgiKeys.privatePackage := Seq.empty,
     OsgiKeys.additionalHeaders :=
-      Map("Service-Component" -> "OSGI-INF/managementapp_component.xml")
+      Map("Service-Component" -> "OSGI-INF/*.xml")
   ) dependsOn(shared, platformStartup, serverDiscovery)
 
 /**
