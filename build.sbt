@@ -1161,7 +1161,8 @@ lazy val serverDiscovery = (project in file("serverDiscovery"))
   .settings(
     name := "linedj-server-discovery",
     libraryDependencies ++= logDependencies,
-    libraryDependencies ++= pekkoHttpDependencies
+    libraryDependencies ++= pekkoHttpDependencies,
+    OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.server.discovery"),
   ) dependsOn (shared, serverCommon % "test->compile;test->test")
 
 /**
