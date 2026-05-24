@@ -74,6 +74,9 @@ bus.) As this may not always be the most convenient form of interaction, there
 are some extension mechanisms in place managing dedicated data. Those are
 described later on.
 
+=== Client for the media archive
+If configured, this module starts a discovery operation to locate an HTTP server with media files in the local network. When this operation yields a success result, the module registers a service instance of type xref:src/main/scala/de/oliver_heger/linedj/platform/archiveclient/ArchiveService.scala[ArchiveService] that allows interaction with the media archive. Applications can declare a dependency to this service and by that gain access to the media archive.
+
 === Central configuration
 
 The client application context offers a way to query or store central
@@ -81,6 +84,8 @@ configuration. In addition, each client application can have its own specific
 configuration. Access to configuration data is provided by the
 http://commons.apache.org/proper/commons-configuration/[Apache Commons Configuration]
 library.
+
+There can also be an optional central configuration file for the platform as a whole. This is read and made available by the xref:../platformStartup/README.adoc[Platform Startup] module. The `ClientApplicationContext` exposes the platform configuration as a property. If no platform configuration is defined, this property holds an empty configuration.
 
 === Application management
 
@@ -278,20 +283,74 @@ is reached media that have not been accessed recently are removed from the
 cache (the cache has LRU semantics).
  
 == Configuration
- 
-The following table lists the configuration options supported by the
-_Platform_ module:
+The _Platform_ module obtains its configuration from the central platform configuration provided by the xref:../platformStartup/README.adoc[Platform Startup] module. The startup module evaluates a system property named `LineDJ_PlatformConfigFile` that can contain the name or path of the platform configuration file. If it is defined, the module reads the configuration file and makes it available to other modules.
 
+The platform configuration file is expected to be an XML file containing a section named `platform` which is evaluated by components in this module. The following fragment shows an example with the relevant configuration properties:
+
+[source,xml]
+----
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<configuration>
+    <platform>
+        <shutdownTimeout>10000</shutdownTimeout>
+        <media>
+            <cacheSize>3000</cacheSize>
+        </media>
+        <mediaArchive>
+            <discovery>
+                <multicastAddress>231.1.2.3</multicastAddress>
+                <port>10101</port>
+                <requestCode>Hello!</requestCode>
+                <timeout>58s</timeout>
+                <minBackoff>19sec</minBackoff>
+                <maxBackoff>5min</maxBackoff>
+            </discovery>
+            <requestTimeout>38s</requestTimeout>
+        </mediaArchive>
+    </platform>
+</configuration>
+----
+
+Table <<tab_platform_config>> lists the configuration options supported by the _Platform_ module:
+
+[#tab_platform_config]
 .Configuration settings of the Platform module
-[cols="1,2",options="header"]
+[cols="1,3,1",options="header"]
 |====
-| Setting | Description
-| media.cacheSize | The number of entries that can be stored in the _Metadata
-Cache_ extension. When this limit is reached older media are removed from the
-cache.
-| platform.shutdownTimeout | Defines a timeout (in milliseconds) for the
-shutdown handler to wait for the shutdown completed notifications of registered
-shutdown observers. (Refer to <<Shutdown management>>.) After this time is
-over, the shutdown takes place, no matter whether there are still outstanding
-notifications.
+| Setting | Description | Default
+
+| media / cacheSize
+| The number of entries that can be stored in the _Metadata Cache_ extension. When this limit is reached older media are removed from the cache.
+| 2500
+| shutdownTimeout
+| Defines a timeout (in milliseconds) for the shutdown handler to wait for the shutdown completed notifications of registered shutdown observers. (Refer to <<Shutdown management>>.) After this time is over, the shutdown takes place, no matter whether there are still outstanding notifications.
+| 5000
+
+| mediaArchive / discovery / multicastAddress
+| Specifies the multicast address for the discovery operation for the archive server. The discovery component sends a UDP request to this address. This is a mandatory property; if it is unspecified, no discovery operation is performed.
+| None
+
+| mediaArchive / discovery / port
+| Specifies the port for the discovery operation for the archive server. This is the port the archive server is listening on for incoming discovery requests. This is a mandatory property; if it is unspecified, no discovery operation is performed.
+| None
+
+| mediaArchive / discovery / requestCode
+| Specifies the request code to send to the archive server during the discovery operation. The server typically only reacts on the correct code. This is a mandatory property; if it is unspecified, no discovery operation is performed.
+| None
+
+| mediaArchive / discovery / timeout
+| The timeout when waiting for the response of a discovery request. If no response is received within this timeout, the discovery component considers the current discovery operation a failure and retries it later. The value is expected to be in seconds per default, but can have an optional unit identifier.
+| 10 sec
+
+| mediaArchive / discovery / minBackoff
+| Defines the minimum delay before retrying a failed discovery request. The value is expected to be in seconds per default, but can have an optional unit identifier.
+| 5 sec
+
+| mediaArchive / discovery / maxBackoff
+| Defines the maximum delay for retrying a failed discovery request. When discovery requests are not answered the discovery component doubles the delay between requests every time. With this property, users can specify a maximum delay. The value is expected to be in seconds per default, but can have an optional unit identifier.
+| 2 min
+
+| mediaArchive / requestTimeout
+| This property determines the timeout when sending requests to the media archive server. The archive client service considers requests that are not answered in this time as failed.
+| 30 sec
 |====
