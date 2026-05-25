@@ -32,7 +32,7 @@ import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 import scala.concurrent.Promise
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
-import scala.util.Using
+import scala.util.{Failure, Success, Using}
 
 object ServerDiscoverySpec:
   /** The multicast address of the test server. */
@@ -231,7 +231,7 @@ class ServerDiscoverySpec(testSystem: ActorSystem) extends TestKit(testSystem), 
             delay should be < TimeUnit.MILLISECONDS.toNanos(150)
           requestTime
 
-  it should "stop sending requests after receiving a response" in:
+  it should "stop sending requests after receiving a response" in :
     val requestQueue = new LinkedBlockingQueue[Long]
     val locatorParams = createLocatorParams(trackingHandler(requestQueue, ignoredRequests = 1))
     runLocatorTest("discoveryFinished", locatorParams):
@@ -246,6 +246,21 @@ class ServerDiscoverySpec(testSystem: ActorSystem) extends TestKit(testSystem), 
       runTestWithResource(handle):
         nextRequestTime(requestQueue)
         requestQueue.poll(250, TimeUnit.MILLISECONDS) should be(null: Any)
+
+  it should "indicate a canceled discovery operation" in :
+    val locatorParams = createLocatorParams(trackingHandler(new LinkedBlockingQueue[Long]))
+    runLocatorTest("discoveryCanceled", locatorParams):
+      val discoveryParams = createDiscoveryParams(locatorParams)
+      val refCancelException = new AtomicReference[Throwable]
+
+      val handle = ServerDiscovery.discover(discoveryParams, "canceledDiscovery")
+
+      handle.close()
+      handle.futResult.onComplete:
+        case Success(_) => fail("Unexpected success result on canceled discovery handle.")
+        case Failure(e) => refCancelException.set(e)
+
+      awaitCond(refCancelException.get() != null && refCancelException.get().isInstanceOf[ServerDiscovery.DiscoveryCanceledException])
 
   "UdpRequestActor" should "close the socket when it terminates" in :
     val probeUdpActor = TestProbe()

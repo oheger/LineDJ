@@ -82,6 +82,13 @@ object ServerDiscovery:
                                    maxBackoff: FiniteDuration = DefaultMaxBackoff)
 
   /**
+    * An exception class that is used to indicate a canceled discovery
+    * operation. If the [[DiscoveryHandle]] is closed before a server was
+    * discovered, the [[Future]] of the handle fails with this exception.
+    */
+  final class DiscoveryCanceledException extends RuntimeException
+
+  /**
     * A trait to represent a handle to perform a server discovery operation.
     * The operation is done in background by sending multicast UDP requests as
     * configured until a response is received. The trait exposes a [[Future]]
@@ -89,7 +96,9 @@ object ServerDiscovery:
     *
     * When the handle is no longer needed, it should be closed to free
     * consumed resources. This can be done while discovery is still in progress
-    * or after the result is available.
+    * or after the result is available. If discovery is still in progress, the
+    * [[Future]] wrapped by this handle completes in failure state with a
+    * [[DiscoveryCanceledException]] exception.
     */
   trait DiscoveryHandle extends AutoCloseable:
     /**
@@ -153,7 +162,7 @@ object ServerDiscovery:
       override def futResult: Future[String] = promiseResult.future
 
       override def close(): Unit =
-        promiseResult.trySuccess("")
+        promiseResult.tryFailure(new DiscoveryCanceledException)
 
   /**
     * Creates the actor to handle the discovery operation. The actual work is 
