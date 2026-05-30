@@ -164,12 +164,17 @@ object BackoffActor:
     */
   private def backoffBehavior(params: BackoffParameters, name: String): Behavior[BackoffCommand] =
     Behaviors.setup: context =>
-      def handleBackoffCommand(currentDelay: FiniteDuration): Behavior[BackoffCommand] =
+      def handleBackoffCommand(currentDelay: FiniteDuration,
+                               taskInProgress: Boolean,
+                               stopped: Boolean): Behavior[BackoffCommand] =
         Behaviors.receiveMessage:
           case BackoffCommand.ExecuteTask =>
             context.pipeToSelf(params.taskFunc()):
               result => BackoffCommand.ProcessTaskResult(result.getOrElse(params.failureResult))
-            Behaviors.same
+            handleBackoffCommand(currentDelay, taskInProgress = true, stopped)
+
+          case BackoffCommand.ProcessTaskResult(_) if stopped =>
+            stop()
 
           case BackoffCommand.ProcessTaskResult(result) =>
             val optNextDelay = result match
@@ -183,14 +188,21 @@ object BackoffActor:
             optNextDelay.map: delay =>
               context.log.debug("[{}]: Next execution after {}.", name, delay)
               context.scheduleOnce(delay, context.self, BackoffCommand.ExecuteTask)
-              handleBackoffCommand(delay)
+              handleBackoffCommand(delay, taskInProgress = false, stopped)
             .getOrElse(Behaviors.same)
 
-          case BackoffCommand.Stop =>
-            context.log.info("[{}]: Stopping actor.", name)
-            Behaviors.stopped
+          case BackoffCommand.Stop if taskInProgress =>
+            context.log.info("Received Stop command while task is active. Waiting for completion.")
+            handleBackoffCommand(currentDelay, taskInProgress, stopped = true)
 
-      handleBackoffCommand(0.seconds)
+          case BackoffCommand.Stop =>
+            stop()
+
+      def stop(): Behavior[BackoffCommand] =
+        context.log.info("[{}]: Stopping actor.", name)
+        Behaviors.stopped
+
+      handleBackoffCommand(0.seconds, taskInProgress = false, stopped = false)
 
   /**
     * Computes the next delay based on the current delay and the backoff 

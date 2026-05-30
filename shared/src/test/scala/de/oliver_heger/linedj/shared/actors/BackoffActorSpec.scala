@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.shared.actors
 
 import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
 import org.apache.pekko.testkit.TestKit
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
@@ -26,7 +27,7 @@ import org.scalatest.time.SpanSugar.convertIntToGrainOfTime
 import java.time.{Duration, Instant}
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 import java.util.concurrent.atomic.AtomicInteger
-import scala.concurrent.Future
+import scala.concurrent.{Future, Promise}
 
 object BackoffActorSpec:
   /** The timeout (in ms) when checking that no call was done. */
@@ -84,7 +85,11 @@ class BackoffActorSpec(testSystem: ActorSystem) extends TestKit(testSystem), Any
   Matchers:
   def this() = this(ActorSystem("BackoffActorSpec"))
 
+  /** The test kit for typed actors. */
+  private val typedTestKit = ActorTestKit()
+
   override protected def afterAll(): Unit =
+    typedTestKit.shutdownTestKit()
     TestKit.shutdownActorSystem(system)
     super.afterAll()
 
@@ -238,19 +243,40 @@ class BackoffActorSpec(testSystem: ActorSystem) extends TestKit(testSystem), Any
     checkDelay(Duration.ofMillis(params.minBackoff.toMillis), Duration.between(t1, t2))
 
   it should "stop itself when closing the handle" in :
-    val ActorName = "reuse"
+    val ActorName = "stopVerification"
     val queue = new LinkedBlockingQueue[Instant]
     val params = BackoffActor.BackoffParameters(
       taskFunc = limitedTrackingTaskFunc(queue, 25),
       minBackoff = (NoCallTimeoutMs - 10).millis,
       maxBackoff = 1.second
     )
+    val actorFactory = new TrackingActorFactory(implicitly)
 
-    val handle = BackoffActor.newInstance(params, ActorName)
+    val handle = BackoffActor.newInstance(params, ActorName)(using actorFactory)
     nextCallTime(queue)
     handle.close()
 
+    actorFactory.expectTypedActorTerminated(ActorName, typedTestKit)
     expectNoCall(queue)
-    // This would fail with a non-unique actor name if the old instance still existed.
-    val handle2 = BackoffActor.newInstance(params, ActorName)
-    handle2.close()
+
+  it should "not stop itself while the task function is active" in :
+    val ActorName = "syncTaskAction"
+    val queue = new LinkedBlockingQueue[Instant]
+    val promiseTaskResult = Promise[BackoffActor.TaskResult]()
+    val taskFunc: BackoffActor.TaskFunc = () =>
+      queue.offer(Instant.now())
+      promiseTaskResult.future
+    val params = BackoffActor.BackoffParameters(
+      taskFunc = taskFunc,
+      minBackoff = 10.millis,
+      maxBackoff = 100.millis
+    )
+    val actorFactory = new TrackingActorFactory(implicitly)
+
+    val handle = BackoffActor.newInstance(params, ActorName)(using actorFactory)
+    nextCallTime(queue)
+    handle.close()
+
+    actorFactory.expectTypedActorNotTerminated(ActorName, typedTestKit)
+    promiseTaskResult.success(BackoffActor.TaskResult.Backoff)
+    actorFactory.expectTypedActorTerminated(ActorName, typedTestKit)
