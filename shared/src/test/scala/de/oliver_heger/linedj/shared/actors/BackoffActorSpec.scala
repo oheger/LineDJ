@@ -25,8 +25,8 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.SpanSugar.convertIntToGrainOfTime
 
 import java.time.{Duration, Instant}
-import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 import scala.concurrent.{Future, Promise}
 
 object BackoffActorSpec:
@@ -280,3 +280,37 @@ class BackoffActorSpec(testSystem: ActorSystem) extends TestKit(testSystem), Any
     actorFactory.expectTypedActorNotTerminated(ActorName, typedTestKit)
     promiseTaskResult.success(BackoffActor.TaskResult.Backoff)
     actorFactory.expectTypedActorTerminated(ActorName, typedTestKit)
+
+  it should "stop itself when receiving a Cancel result" in :
+    val ActorName = "stopAfterCancel"
+    val CancelIndex = 3
+    val queue = new LinkedBlockingQueue[Instant]
+    val params = BackoffActor.BackoffParameters(
+      taskFunc = limitedTrackingTaskFunc(queue, CancelIndex),
+      minBackoff = 10.millis,
+      maxBackoff = 1.hour,
+      incrementFactor = 1.1
+    )
+    val actorFactory = new TrackingActorFactory(implicitly)
+
+    BackoffActor.newInstance(params, ActorName)(using actorFactory)
+
+    actorFactory.expectTypedActorTerminated(ActorName, typedTestKit)
+
+  it should "allow stopping the actor multiple times" in :
+    val ActorName = "multiStop"
+    val CancelIndex = 4
+    val queue = new LinkedBlockingQueue[Instant]
+    val params = BackoffActor.BackoffParameters(
+      taskFunc = limitedTrackingTaskFunc(queue, CancelIndex),
+      minBackoff = 10.millis,
+      maxBackoff = 1.hour,
+      incrementFactor = 1.1
+    )
+    val actorFactory = new TrackingActorFactory(implicitly)
+
+    val handle = BackoffActor.newInstance(params, ActorName)(using actorFactory)
+    (1 to 8).foreach(_ => handle.close())
+    actorFactory.expectTypedActorTerminated(ActorName, typedTestKit)
+    // Can only test that no exception is thrown; testing for dead letters is unreliable.
+    handle.close()

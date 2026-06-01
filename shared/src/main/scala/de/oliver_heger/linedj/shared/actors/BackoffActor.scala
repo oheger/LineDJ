@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.shared.actors
 import org.apache.pekko.actor.typed.Behavior
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.concurrent.duration.{DurationLong, FiniteDuration}
 
 /**
@@ -33,11 +33,14 @@ import scala.concurrent.duration.{DurationLong, FiniteDuration}
   *    configured backoff parameters
   *  - reset its internal state and invoke the function again after the minimum
   *    configured delay
-  *  - stop the periodic invocation of the function.
+  *  - stop the periodic invocation of the function and terminate.
   *
   * A typical use case is to perform a task with a retry logic. Clients
   * interact with the actor via a handle that can be used to cancel the
-  * activity at any time.
+  * activity at any time. Closing the handle also terminates the actor. It is
+  * safe to call _close()_ on the handle multiple times; the implementation
+  * ensures that the actor only receives a single message to stop itself (so,
+  * no dead letter logs should be printed).
   */
 object BackoffActor:
   /**
@@ -62,7 +65,7 @@ object BackoffActor:
 
     /**
       * This result indicates that no more invocations of the task function are
-      * desired. The actor instance remains passive until it gets closed.
+      * desired. The actor instance can be stopped.
       */
     case Cancel
   end TaskResult
@@ -124,10 +127,16 @@ object BackoffActor:
     */
   final val newInstance: Factory = new Factory:
     override def apply(params: BackoffParameters, name: String)(using actorFactory: ActorFactory): BackoffHandle =
-      val behavior = backoffBehavior(params, name)
+      given ExecutionContext = actorFactory.actorSystem.dispatcher
+
+      val stopPromise = Promise[Unit]()
+      val behavior = backoffBehavior(params, name, stopPromise)
       val backoffActor = actorFactory.createTypedActor(behavior, name)
+      stopPromise.future foreach : _ =>
+        backoffActor ! BackoffCommand.Stop
+
       backoffActor ! BackoffCommand.ExecuteTask
-      () => backoffActor ! BackoffCommand.Stop
+      () => stopPromise.trySuccess(())
 
   /**
     * An (internal) enumeration defining the commands supported by the backoff 
@@ -157,20 +166,25 @@ object BackoffActor:
 
   /**
     * Creates the behavior for a backoff actor based on the given parameters.
+    * The passed in [[Promise]] is used to sync the termination of the actor;
+    * it prevents multiple stop commands which would cause dead letter logs.
     *
-    * @param params the [[BackoffParameters]]
-    * @param name   the name for this actor instance
+    * @param params      the [[BackoffParameters]]
+    * @param name        the name for this actor instance
+    * @param stopPromise the [[Promise]] to control termination
     * @return the behavior of the new actor
     */
-  private def backoffBehavior(params: BackoffParameters, name: String): Behavior[BackoffCommand] =
+  private def backoffBehavior(params: BackoffParameters,
+                              name: String,
+                              stopPromise: Promise[Unit]): Behavior[BackoffCommand] =
     Behaviors.setup: context =>
       def handleBackoffCommand(currentDelay: FiniteDuration,
                                taskInProgress: Boolean,
                                stopped: Boolean): Behavior[BackoffCommand] =
         Behaviors.receiveMessage:
           case BackoffCommand.ExecuteTask =>
-            context.pipeToSelf(params.taskFunc()):
-              result => BackoffCommand.ProcessTaskResult(result.getOrElse(params.failureResult))
+            context.pipeToSelf(params.taskFunc()): result =>
+              BackoffCommand.ProcessTaskResult(result.getOrElse(params.failureResult))
             handleBackoffCommand(currentDelay, taskInProgress = true, stopped)
 
           case BackoffCommand.ProcessTaskResult(_) if stopped =>
@@ -184,12 +198,13 @@ object BackoffActor:
                 Some(params.minBackoff)
               case TaskResult.Cancel =>
                 context.log.info("[{}]: Got Cancel result. Stopping periodic execution.", name)
+                stopPromise.trySuccess(())
                 None
             optNextDelay.map: delay =>
               context.log.debug("[{}]: Next execution after {}.", name, delay)
               context.scheduleOnce(delay, context.self, BackoffCommand.ExecuteTask)
               handleBackoffCommand(delay, taskInProgress = false, stopped)
-            .getOrElse(Behaviors.same)
+            .getOrElse(handleBackoffCommand(currentDelay, taskInProgress = false, stopped))
 
           case BackoffCommand.Stop if taskInProgress =>
             context.log.info("Received Stop command while task is active. Waiting for completion.")
