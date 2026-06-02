@@ -1163,7 +1163,7 @@ lazy val serverDiscovery = (project in file("serverDiscovery"))
     libraryDependencies ++= logDependencies,
     libraryDependencies ++= pekkoHttpDependencies,
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.server.discovery"),
-  ) dependsOn (shared, serverCommon % "test->compile;test->test")
+  ) dependsOn (shared % "compile->compile;test->test", serverCommon % "test->compile;test->test")
 
 /**
   * Project for the player server. This project exposes player functionality

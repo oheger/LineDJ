@@ -19,10 +19,12 @@ package de.oliver_heger.linedj.server.discovery
 import de.oliver_heger.linedj.server.common.{ServerLocator, findFreePort}
 import de.oliver_heger.linedj.server.discovery.ServerDiscoverySpec.{TestServerCode, TestServerResponse, createDiscoveryParams, createLocatorParams}
 import de.oliver_heger.linedj.shared.actors.ActorFactory.executionContext
-import de.oliver_heger.linedj.shared.actors.{ActorFactory, ManagingActorFactory}
+import de.oliver_heger.linedj.shared.actors.{ActorFactory, ManagingActorFactory, TrackingActorFactory}
+import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
 import org.apache.pekko.actor.{ActorSystem, Props}
 import org.apache.pekko.io.Udp
 import org.apache.pekko.testkit.{TestKit, TestProbe}
+import org.scalatest.Inspectors.forEvery
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{BeforeAndAfterAll, TryValues}
@@ -30,7 +32,6 @@ import org.scalatest.{BeforeAndAfterAll, TryValues}
 import java.net.InetSocketAddress
 import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
-import scala.concurrent.Promise
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.util.{Failure, Success, Using}
 
@@ -43,6 +44,9 @@ object ServerDiscoverySpec:
 
   /** The response sent by the test server. */
   private val TestServerResponse = "I am here!"
+
+  /** The discovery timeout used by tests. */
+  private val TestTimeout = 500.millis
 
   /**
     * Creates an object with parameters for the locator using the test values
@@ -72,7 +76,7 @@ object ServerDiscoverySpec:
     * @return the discovery parameters
     */
   private def createDiscoveryParams(locatorParams: ServerLocator.LocatorParams,
-                                    timeout: FiniteDuration = ServerDiscovery.DefaultTimeout,
+                                    timeout: FiniteDuration = TestTimeout,
                                     minBackoff: FiniteDuration = ServerDiscovery.DefaultMinBackoff,
                                     maxBackoff: FiniteDuration = ServerDiscovery.DefaultMaxBackoff):
   ServerDiscovery.DiscoveryParams =
@@ -93,7 +97,11 @@ class ServerDiscoverySpec(testSystem: ActorSystem) extends TestKit(testSystem), 
   Matchers, TryValues:
   def this() = this(ActorSystem("ServerDiscoverySpec"))
 
+  /** A test kit for testing typed actors. */
+  private val typedTestKit = ActorTestKit()
+
   override protected def afterAll(): Unit =
+    typedTestKit.shutdownTestKit()
     TestKit.shutdownActorSystem(system)
     super.afterAll()
 
@@ -159,15 +167,17 @@ class ServerDiscoverySpec(testSystem: ActorSystem) extends TestKit(testSystem), 
     requestTimeQueue.poll(3, TimeUnit.SECONDS)
 
   "ServerDiscovery" should "discover a server" in :
+    val actorFactory = new TrackingActorFactory(implicitly)
     val locatorParams = createLocatorParams()
     runLocatorTest("standardDiscovery", locatorParams):
-      val handle = ServerDiscovery.discover(createDiscoveryParams(locatorParams))
+      val handle = ServerDiscovery.discover(createDiscoveryParams(locatorParams))(using actorFactory)
 
       runTestWithResource(handle):
         val discoveryResult = new AtomicReference[String]
         handle.futResult.foreach(discoveryResult.set)
 
         awaitCond(discoveryResult.get() == TestServerResponse)
+    actorFactory.expectTypedActorTerminated("serverDiscovery-backoff", typedTestKit)
 
   it should "retry requests that are not answered" in :
     val locatorParams = createLocatorParams(trackingHandler(new LinkedBlockingQueue, 3))
@@ -219,8 +229,7 @@ class ServerDiscoverySpec(testSystem: ActorSystem) extends TestKit(testSystem), 
         minBackoff = 25.millis,
         maxBackoff = 50.millis
       )
-      // Explicitly do not provide a custom name. This tests that actors are stopped correctly.
-      val handle = ServerDiscovery.discover(discoveryParams)
+      val handle = ServerDiscovery.discover(discoveryParams, "maxBackoff")
 
       runTestWithResource(handle):
         val startTime = nextRequestTime(requestQueue)
@@ -260,43 +269,56 @@ class ServerDiscoverySpec(testSystem: ActorSystem) extends TestKit(testSystem), 
         case Success(_) => fail("Unexpected success result on canceled discovery handle.")
         case Failure(e) => refCancelException.set(e)
 
-      awaitCond(refCancelException.get() != null && refCancelException.get().isInstanceOf[ServerDiscovery.DiscoveryCanceledException])
+      awaitCond(refCancelException.get() != null &&
+        refCancelException.get().isInstanceOf[ServerDiscovery.DiscoveryCanceledException])
 
-  "UdpRequestActor" should "close the socket when it terminates" in :
+  it should "close the UDP actors" in :
+    val actorFactory = new TrackingActorFactory(implicitly)
+    val Retries = 3
+    val locatorParams = createLocatorParams(trackingHandler(new LinkedBlockingQueue, Retries))
+    runLocatorTest("retriedLocator", locatorParams):
+      val discoveryParams = createDiscoveryParams(
+        locatorParams = locatorParams,
+        timeout = 10.millis,
+        minBackoff = 1.milli,
+        maxBackoff = 5.millis
+      )
+      val handle = ServerDiscovery.discover(discoveryParams, "retriedDiscovery")(using actorFactory)
+
+      runTestWithResource(handle):
+        val discoveryResult = new AtomicReference[String]
+        handle.futResult.foreach(discoveryResult.set)
+
+        awaitCond(discoveryResult.get() == TestServerResponse)
+
+    actorFactory.classicActors.size should be >= Retries
+    forEvery(actorFactory.classicActors.keys): key =>
+      actorFactory.expectClassicActorTerminated(key)
+
+  "UdpRequestActor" should "close the socket when it receives a Stop message" in :
     val probeUdpActor = TestProbe()
     val probeSocketActor = TestProbe()
     val discoveryParams = createDiscoveryParams(createLocatorParams())
-    val props = Props(new ServerDiscovery.UdpRequestActor(probeUdpActor.ref, discoveryParams, Promise()))
+    val props = Props(new ServerDiscovery.UdpRequestActor(probeUdpActor.ref, discoveryParams))
     val requestActor = system.actorOf(props)
 
+    requestActor ! ServerDiscovery.UdpSendRequest
     probeUdpActor.expectMsgType[Udp.Bind]
     probeSocketActor.send(requestActor, Udp.Bound(new InetSocketAddress(8765)))
     probeSocketActor.expectMsgType[Udp.Send]
-    system.stop(requestActor)
+    requestActor ! ServerDiscovery.UdpStop
 
     probeSocketActor.expectMsg(Udp.Unbind)
 
-  it should "close the socket when it restarts" in :
+  it should "handle a Stop message before the socket is bound" in :
     val probeUdpActor = TestProbe()
     val probeSocketActor = TestProbe()
     val discoveryParams = createDiscoveryParams(createLocatorParams(), timeout = 5.millis)
-    val props = Props(new ServerDiscovery.UdpRequestActor(probeUdpActor.ref, discoveryParams, Promise()))
+    val props = Props(new ServerDiscovery.UdpRequestActor(probeUdpActor.ref, discoveryParams))
     val requestActor = system.actorOf(props)
 
+    requestActor ! ServerDiscovery.UdpSendRequest
     probeUdpActor.expectMsgType[Udp.Bind]
-    probeSocketActor.send(requestActor, Udp.Bound(new InetSocketAddress(8765)))
-    probeSocketActor.expectMsgType[Udp.Send]
+    requestActor ! ServerDiscovery.UdpStop
 
-    probeSocketActor.expectMsg(Udp.Unbind)
-    probeUdpActor.expectMsgType[Udp.Bind]
-    probeSocketActor.send(requestActor, Udp.Bound(new InetSocketAddress(8764)))
-    probeSocketActor.expectMsgType[Udp.Send]
-
-  it should "handle a timeout before the socket has been opened" in :
-    val probeUdpActor = TestProbe()
-    val discoveryParams = createDiscoveryParams(createLocatorParams(), timeout = 5.millis)
-    val props = Props(new ServerDiscovery.UdpRequestActor(probeUdpActor.ref, discoveryParams, Promise()))
-    val requestActor = system.actorOf(props)
-    probeUdpActor.expectMsgType[Udp.Bind]
-
-    probeUdpActor.expectMsgType[Udp.Bind]
+    TrackingActorFactory.expectClassicActorTerminated(requestActor)
