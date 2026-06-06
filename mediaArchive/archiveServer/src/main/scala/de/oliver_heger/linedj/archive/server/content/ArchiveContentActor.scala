@@ -83,6 +83,7 @@ object ArchiveContentActor:
       *
       * @param fileActorFactory the factory to create the actor that manages
       *                         media files
+      *
       * @return the [[Behavior]] for the new actor instance
       */
     def apply(fileActorFactory: MediaFileActor.Factory = MediaFileActor.behavior): Behavior[ArchiveContentCommand]
@@ -120,12 +121,13 @@ object ArchiveContentActor:
         */
       def handle(mediaOverviews: List[ArchiveModel.MediumOverview],
                  media: Map[Checksums.MediumChecksum, ArchiveModel.MediumDetails],
-                 mediaContent: MediaContentMap): Behavior[CommandType] =
+                 mediaContent: MediaContentMap,
+                 updateTime: Long): Behavior[CommandType] =
         Behaviors.receiveMessage:
           case ArchiveCommands.UpdateArchiveContentCommand.AddMedium(medium) =>
             ctx.log.info("Added medium {}.", medium.overview)
             val (_, nextMediaContent) = contentActorFor(ctx, mediaContent, medium.id, artistIdManager, albumIdManager)
-            handle(medium.overview :: mediaOverviews, media + (medium.id -> medium), nextMediaContent)
+            handle(medium.overview :: mediaOverviews, media + (medium.id -> medium), nextMediaContent, now)
 
           case ArchiveCommands.UpdateArchiveContentCommand.AddMediaFile(mediumID, fileUri, metadata) =>
             val (actor, nextMediaContent) = contentActorFor(
@@ -137,7 +139,7 @@ object ArchiveContentActor:
             )
             actor ! metadata
             fileManager ! MediaFileActor.MediaFileCommand.AddFile(mediumID, fileUri, metadata)
-            handle(mediaOverviews, media, nextMediaContent)
+            handle(mediaOverviews, media, nextMediaContent, now)
 
           case ArchiveCommands.ReadArchiveContentCommand.GetMedia(replyTo) =>
             replyTo ! ArchiveCommands.GetMediaResponse(mediaOverviews)
@@ -167,6 +169,10 @@ object ArchiveContentActor:
                 )
             Behaviors.same
 
+          case ArchiveCommands.ReadArchiveContentCommand.GetUpdateTime(replyTo) =>
+            replyTo ! ArchiveCommands.ArchiveUpdateTime(updateTime)
+            Behaviors.same
+
           case req@ArchiveCommands.ReadMediumContentCommand.GetArtists(mediumID, replyTo) =>
             handleMediumRequest(req, mediumID, replyTo, mediaContent)
 
@@ -190,7 +196,7 @@ object ArchiveContentActor:
             c.replyTo ! ArchiveCommands.GetFileResponse(c.fileInfoResponse.fileID, result)
             Behaviors.same
 
-      handle(Nil, Map.empty, Map.empty)
+      handle(Nil, Map.empty, Map.empty, now)
 
   /**
     * Obtains the content actor for a specific medium from the given map. If it
@@ -243,4 +249,11 @@ object ArchiveContentActor:
       case None =>
         replyTo ! ArchiveCommands.GetMediumDataResponse(req, None)
     Behaviors.same
-    
+
+  /**
+    * Returns the current time which is used to set the timestamp of the last
+    * update of the archive's content.
+    *
+    * @return the current time
+    */
+  private def now: Long = System.nanoTime()

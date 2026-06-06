@@ -87,6 +87,14 @@ object ArchiveCommands:
       */
     case GetFileDownloadInfo(fileID: String,
                              replyTo: ActorRef[GetFileResponse[ArchiveModel.MediaFileDownloadInfo]])
+
+    /**
+      * A command to query the last update time for the archive's content. This
+      * can be used to check whether there have been recent changes.
+      *
+      * @param replyTo the actor to receive the response
+      */
+    case GetUpdateTime(replyTo: ActorRef[ArchiveUpdateTime])
   end ReadArchiveContentCommand
 
   /**
@@ -229,3 +237,15 @@ object ArchiveCommands:
     */
   final case class GetFileResponse[DATA](fileID: String,
                                          optResult: Option[DATA])
+
+  /**
+    * A class representing a timestamp when the content of the archive has been 
+    * updated. This can be used for instance, to check periodically whether 
+    * updated content needs to be loaded by a client. The value stored in this
+    * class is actually a timestamp, but clients should not rely on a specific
+    * interpretation; it should rather be used to find out whether the value
+    * has changed since the last request.
+    *
+    * @param timestamp a timestamp for the last update of the archive content
+    */
+  final case class ArchiveUpdateTime(timestamp: Long) extends AnyVal

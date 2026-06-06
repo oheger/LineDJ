@@ -662,3 +662,46 @@ class ArchiveContentActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpec
     val response = probeClient.expectMessageType[ArchiveCommands.GetFileResponse[ArchiveModel.MediaFileDownloadInfo]]
     response.fileID should be(song.checksum)
     response.optResult shouldBe empty
+
+  it should "return the same update time if there are no changes in the content" in :
+    val probe = testKit.createTestProbe[ArchiveCommands.ArchiveUpdateTime]()
+    val contentActor = testKit.spawn(ArchiveContentActor.behavior())
+
+    contentActor ! ArchiveCommands.ReadArchiveContentCommand.GetUpdateTime(probe.ref)
+    contentActor ! ArchiveCommands.ReadArchiveContentCommand.GetUpdateTime(probe.ref)
+
+    val response1 = probe.expectMessageType[ArchiveCommands.ArchiveUpdateTime]
+    val response2 = probe.expectMessageType[ArchiveCommands.ArchiveUpdateTime]
+    response1 should be(response2)
+
+  it should "return a changed update time if a medium was added" in :
+    val probe = testKit.createTestProbe[ArchiveCommands.ArchiveUpdateTime]()
+    val contentActor = testKit.spawn(ArchiveContentActor.behavior())
+    contentActor ! ArchiveCommands.ReadArchiveContentCommand.GetUpdateTime(probe.ref)
+
+    contentActor ! ArchiveCommands.UpdateArchiveContentCommand.AddMedium(createMedium(22))
+    contentActor ! ArchiveCommands.ReadArchiveContentCommand.GetUpdateTime(probe.ref)
+
+    val response1 = probe.expectMessageType[ArchiveCommands.ArchiveUpdateTime]
+    val response2 = probe.expectMessageType[ArchiveCommands.ArchiveUpdateTime]
+    response1 should not be response2
+
+  it should "return a changed update time if a file was added" in :
+    val testMedium = createMedium(11)
+    val song = createMetadata("someArtist", "someAlbum", "someTitle", 3)
+    val fileUri = MediaFileUri(s"${testMedium.title}/some/song.mp3")
+    val addFileCommand = ArchiveCommands.UpdateArchiveContentCommand.AddMediaFile(
+      mediumID = testMedium.id,
+      fileUri = fileUri,
+      metadata = song
+    )
+    val probe = testKit.createTestProbe[ArchiveCommands.ArchiveUpdateTime]()
+    val contentActor = testKit.spawn(ArchiveContentActor.behavior())
+    contentActor ! ArchiveCommands.ReadArchiveContentCommand.GetUpdateTime(probe.ref)
+
+    contentActor ! addFileCommand
+    contentActor ! ArchiveCommands.ReadArchiveContentCommand.GetUpdateTime(probe.ref)
+
+    val response1 = probe.expectMessageType[ArchiveCommands.ArchiveUpdateTime]
+    val response2 = probe.expectMessageType[ArchiveCommands.ArchiveUpdateTime]
+    response1 should not be response2
