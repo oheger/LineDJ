@@ -17,9 +17,13 @@
 package de.oliver_heger.linedj.shared.actors
 
 import de.oliver_heger.linedj.utils.LRUCache
+import org.apache.pekko.actor as classics
 import org.apache.pekko.actor.typed.scaladsl.AskPattern.*
-import org.apache.pekko.actor.typed.scaladsl.Behaviors
+import org.apache.pekko.actor.typed.scaladsl.adapter.*
+import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors}
 import org.apache.pekko.actor.typed.{ActorRef, Behavior, Scheduler}
+import org.apache.pekko.stream.BoundedSourceQueue
+import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
 import org.apache.pekko.util.Timeout
 
 import scala.concurrent.duration.DurationInt
@@ -35,6 +39,11 @@ import scala.util.{Failure, Success, Try}
   * function to retrieve its value asynchronously. If this is successful, the
   * value is stored, so that it is directly available for later queries.
   *
+  * It is possible to limit the parallelism when fetching data via the resolver
+  * function. In this mode, the actor makes sure that only the configured
+  * number of calls of the function can happen in parallel, even when the actor
+  * gets queried from multiple clients.
+  *
   * The data in the cache is hold in a dedicated storage abstraction which just
   * provides simple get and put functionality. Here custom implementations
   * can be passed in to support different caching logic (for instance LRU
@@ -43,6 +52,15 @@ import scala.util.{Failure, Success, Try}
   * object.
   */
 object CachingActor:
+  /**
+    * The size of the buffer to be used for the request queue of the actor
+    * enforcing limited parallelism. This is a big value to make sure that for
+    * typical use cases, no capacity limit is reached. Note that the limit is
+    * for all requests, which are typically multi-key requests (and such a 
+    * request counts as 1).
+    */
+  private val QueueBufferSize = 500
+
   /**
     * Definition of a function to resolve (fetch or compute) a value for a
     * given key. When the caching actor is asked for a key which it cannot
@@ -94,14 +112,16 @@ object CachingActor:
       * Returns the [[Behavior]] of a new instance of the caching actor which is
       * configured with the given parameters.
       *
-      * @param resolver the function to resolve unknown keys
-      * @param store    the object to store the data of the cache
+      * @param resolver      the function to resolve unknown keys
+      * @param store         the object to store the data of the cache
+      * @param parallelLimit an optional limit for parallelism
       * @tparam K the type of the keys
       * @tparam V the type of the values
       * @return the [[Behavior]] of the new instance
       */
     def apply[K, V](resolver: KeyResolverFunc[K, V],
-                    store: Store[K, V] = mapStore[K, V]): Behavior[CacheCommand[K, V]]
+                    store: Store[K, V] = mapStore[K, V],
+                    parallelLimit: Option[Int] = None): Behavior[CacheCommand[K, V]]
   end Factory
 
   /**
@@ -170,8 +190,11 @@ object CachingActor:
     * A default [[Factory]] for creating new actor instances.
     */
   final val newInstance: Factory = new Factory:
-    override def apply[K, V](resolver: KeyResolverFunc[K, V], store: Store[K, V]): Behavior[CacheCommand[K, V]] =
-      handleCacheCommand(resolver, store, Map.empty).narrow
+    override def apply[K, V](resolver: KeyResolverFunc[K, V],
+                             store: Store[K, V],
+                             parallelLimit: Option[Int]): Behavior[CacheCommand[K, V]] =
+      parallelLimit.fold(handleCacheCommand(resolver, store, Map.empty).narrow): limit =>
+        limitedParallelismBehavior(resolver, store, limit)
 
   /**
     * Returns a new [[Store]] implementation based on a [[Map]]. This store 
@@ -335,3 +358,109 @@ object CachingActor:
 
       case (_, CacheCommand.Stop()) =>
         Behaviors.stopped
+
+  /**
+    * Returns the behavior of an actor that implements caching, but with 
+    * limited parallelism when it comes to accessing the resolver function.
+    * This actor uses a normal caching actor under the hood, but requests to
+    * query keys are run through a stream with enforced limited parallelism.
+    *
+    * @param resolver      the resolver function
+    * @param store         the store storing the cached information
+    * @param parallelLimit the limit for parallelism
+    * @tparam K the type of the keys
+    * @tparam V the type of the values
+    * @return the behavior of the actor
+    */
+  private def limitedParallelismBehavior[K, V](resolver: KeyResolverFunc[K, V],
+                                               store: Store[K, V] = mapStore[K, V],
+                                               parallelLimit: Int): Behavior[CacheCommand[K, V]] =
+    Behaviors.setup: context =>
+      val cacheActor = context.spawnAnonymous(newInstance(resolver, store))
+      val cacheQueue = limitedParallelismRequestQueue(context, parallelLimit, cacheActor)
+
+      Behaviors.receiveMessage:
+        case CacheCommand.Get(key, replyTo) =>
+          cacheQueue.offer((replyTo, List(key)))
+          Behaviors.same
+
+        case CacheCommand.GetMultiple(keys, replyTo) =>
+          val uniqueKeys = keys.toSet
+          val multiResponseActor = context.spawnAnonymous(
+            handleMultiGetCommand(uniqueKeys.size, replyTo, Map.empty, Map.empty)
+          )
+          cacheQueue.offer((multiResponseActor, uniqueKeys))
+          Behaviors.same
+
+        case CacheCommand.Stop() =>
+          cacheQueue.complete()
+          Behaviors.stopped
+
+  /**
+    * The command handler function of an actor that collects all results of a 
+    * multi-get request with limited parallelism. After all responses have been
+    * received, the actor sends a result message to the client and stops 
+    * itself.
+    *
+    * @param keyCount the number of queried keys
+    * @param replyTo  the actor to send the response to
+    * @param resolved the successful results collected so far
+    * @param failures the failure results collected so far
+    * @tparam K the type of the keys
+    * @tparam V the type of the values
+    * @return the behavior of the result collector actor
+    */
+  private def handleMultiGetCommand[K, V](keyCount: Int,
+                                          replyTo: ActorRef[MultiCacheResponse[K, V]],
+                                          resolved: Map[K, V],
+                                          failures: Map[K, Throwable]): Behavior[CacheResponse[K, V]] =
+    Behaviors.receiveMessage:
+      case CacheResponse(key, triedValue) =>
+        val (nextResolved, nextFailures) = triedValue match
+          case Success(value) =>
+            (resolved + (key -> value), failures)
+          case Failure(exception) =>
+            (resolved, failures + (key -> exception))
+        if nextResolved.size + nextFailures.size == keyCount then
+          replyTo ! MultiCacheResponse(nextResolved, nextFailures)
+          Behaviors.stopped
+        else
+          handleMultiGetCommand(keyCount, replyTo, nextResolved, nextFailures)
+
+  /**
+    * Returns a queue for sending requests to the underlying cache actor that
+    * is backed by a stream enforcing limited parallelism.
+    *
+    * @param context       the actor context
+    * @param parallelLimit the limit for parallelism
+    * @param cache         the underlying cache actor
+    * @tparam K the type of the keys
+    * @tparam V the type of the values
+    * @return the queue to query the cache actor
+    */
+  private def limitedParallelismRequestQueue[K, V](context: ActorContext[CacheCommand[K, V]],
+                                                   parallelLimit: Int,
+                                                   cache: ActorRef[CacheCommand[K, V]]):
+  BoundedSourceQueue[(ActorRef[CacheResponse[K, V]], Iterable[K])] =
+    // Use a huge timeout, so that timeouts are handled by callers.
+    given Timeout = Timeout(30.days)
+
+    given Scheduler = context.system.scheduler
+
+    given ExecutionContext = context.executionContext
+
+    given classics.ActorSystem = context.system.toClassic
+
+    val sink = Sink.foreach[(ActorRef[CacheResponse[K, V]], CacheResponse[K, V])]:
+      case (actor, response) => actor ! response
+
+    Source.queue[(ActorRef[CacheResponse[K, V]], Iterable[K])](QueueBufferSize)
+      .mapConcat:
+        case (ref, keys) =>
+          keys.map(k => (ref, k))
+      .mapAsyncUnordered(parallelLimit):
+        case (ref, key) =>
+          cache.ask[CacheResponse[K, V]](r => CacheCommand.Get(key, r)).map: response =>
+            ref -> response
+      .toMat(sink)(Keep.left)
+      .run()

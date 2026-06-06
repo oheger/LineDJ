@@ -22,6 +22,7 @@ import org.apache.pekko.actor.typed.Scheduler
 import org.scalatest.Inspectors.forEvery
 import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.time.SpanSugar.convertIntToGrainOfTime
 
 import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import java.util.concurrent.{BlockingQueue, LinkedBlockingQueue, TimeUnit}
@@ -208,6 +209,52 @@ class CachingActorSpec extends ScalaTestWithActorTestKit, AsyncFlatSpecLike, Mat
           resolver.passValue("value2.2")
           resolver.nextInput should be(2)
 
+  it should "respect the parallelism limit" in :
+    val Parallelism = 8
+    val resolver = new ResolverWithQueues
+    val probe = testKit.createTestProbe[CachingActor.MultiCacheResponse[Int, String]]()
+    val actor = testKit.spawn(CachingActor.newInstance(resolver.resolver, parallelLimit = Some(Parallelism)))
+    val queryKeys = 1 to 2 * Parallelism
+
+    actor ! CachingActor.CacheCommand.GetMultiple(queryKeys, probe.ref)
+
+    eventually(resolver.inputQueueSize should be(Parallelism))
+    probe.expectNoMessage(100.millis)
+    resolver.inputQueueSize should be(Parallelism)
+
+  it should "handle requests when a limit for parallelism is set" in :
+    val actor = testKit.spawn(CachingActor.newInstance(testResolverFunc, parallelLimit = Some(8)))
+
+    for
+      res1 <- actor.getMultiple(1 to 10)
+      res2 <- actor.get(42)
+      res3 <- actor.getMultiple(11 to 24)
+      res4 <- actor.getMultiple(List(1, 7, 7, -1, 30, 100))
+    yield
+      val expectedRes1 = (1 to 10).map(i => i -> valueFor(i)).toMap
+      val expectedRes3 = (11 to 24).map(i => i -> valueFor(i)).toMap
+      val expectedRes4 = Map(
+        1 -> valueFor(1),
+        7 -> valueFor(7),
+        30 -> valueFor(30),
+        100 -> valueFor(100)
+      )
+      res1.resolved should be(expectedRes1)
+      res3.resolved should be(expectedRes3)
+      res4.resolved should be(expectedRes4)
+      res2 should be(valueFor(42))
+      res4.failures should have size 1
+      res4.failures(-1) shouldBe a[IllegalArgumentException]
+
+  it should "handle a Stop command when parallelism is limited" in :
+    val probeWatch = testKit.createDeadLetterProbe()
+    val actor = testKit.spawn(CachingActor.newInstance(testResolverFunc, parallelLimit = Some(16)))
+
+    actor ! CachingActor.CacheCommand.Stop()
+
+    probeWatch.expectTerminated(actor)
+    succeed
+
   /**
     * A helper class that provides a resolver function that can be monitored
     * and controlled via two blocking queues: From one queue, the keys passed
@@ -235,6 +282,13 @@ class CachingActorSpec extends ScalaTestWithActorTestKit, AsyncFlatSpecLike, Mat
       * @return the next key passed to the resolver function
       */
     def nextInput: Int = readQueue(inputQueue)
+
+    /**
+      * Returns the current size of the input queue.
+      *
+      * @return the size of the input queue
+      */
+    def inputQueueSize: Int = inputQueue.size()
 
     /**
       * Provides the given value to be returned by the resolver function.
