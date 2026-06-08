@@ -25,7 +25,7 @@ import org.apache.pekko.actor.typed.scaladsl.AskPattern.Askable
 import org.apache.pekko.actor.typed.scaladsl.adapter.*
 import org.apache.pekko.actor.typed.{ActorRef, ActorSystem}
 import org.apache.pekko.http.scaladsl.marshalling.ToResponseMarshaller
-import org.apache.pekko.http.scaladsl.model.headers.{ContentDispositionTypes, `Content-Disposition`}
+import org.apache.pekko.http.scaladsl.model.headers.{ContentDispositionTypes, EntityTag, `Content-Disposition`}
 import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, HttpResponse, StatusCodes}
 import org.apache.pekko.http.scaladsl.server.Directives.*
 import org.apache.pekko.http.scaladsl.server.{Directives, Route}
@@ -76,12 +76,23 @@ object Routes extends ArchiveModel.ArchiveJsonSupport:
     import system.dispatcher
 
     /** The route to query all known media. */
-    val mediaRoute = get:
-      val futMediaOverview = contentActor.ask[ArchiveCommands.GetMediaResponse](
-        ArchiveCommands.ReadArchiveContentCommand.GetMedia(_)
+    val mediaRoute = pathEnd:
+      val futUpdateTime = contentActor.ask[ArchiveCommands.ArchiveUpdateTime](
+        ArchiveCommands.ReadArchiveContentCommand.GetUpdateTime(_)
       )
-      onSuccess(futMediaOverview): mediaResponse =>
-        complete(ArchiveModel.MediaOverview(mediaResponse.media))
+      onSuccess(futUpdateTime): updateTime =>
+        val etag = EntityTag(updateTime.timestamp.toString)
+        conditional(etag):
+          concat(
+            get:
+              val futMediaOverview = contentActor.ask[ArchiveCommands.GetMediaResponse](
+                ArchiveCommands.ReadArchiveContentCommand.GetMedia(_)
+              )
+              onSuccess(futMediaOverview): mediaResponse =>
+                complete(ArchiveModel.MediaOverview(mediaResponse.media)),
+            head:
+              complete(StatusCodes.OK)
+          )
 
     /**
       * Handles a request for data of a specific medium. The data is queried
@@ -246,8 +257,7 @@ object Routes extends ArchiveModel.ArchiveJsonSupport:
     val baseRoute = concat(
       pathPrefix("media"):
         concat(
-          pathEnd:
-            mediaRoute,
+          mediaRoute,
           pathPrefix(Segment): mediumID =>
             concat(
               pathEnd:

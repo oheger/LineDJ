@@ -29,8 +29,8 @@ import org.apache.pekko.Done
 import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import org.apache.pekko.actor.typed.{ActorRef, Behavior}
-import org.apache.pekko.http.scaladsl.model.StatusCodes
-import org.apache.pekko.http.scaladsl.model.headers.{ContentDispositionTypes, `Content-Disposition`}
+import org.apache.pekko.http.scaladsl.model.headers.*
+import org.apache.pekko.http.scaladsl.model.{HttpMethods, HttpRequest, StatusCodes}
 import org.apache.pekko.http.scaladsl.server.Directives.*
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
@@ -68,6 +68,12 @@ object RoutesSpec:
 
   /** The name of the test archive. */
   private val TestArchiveName = "VeryCoolMusic"
+
+  /** The test timestamp of the last update. */
+  private val TestUpdateTimestamp = ArchiveCommands.ArchiveUpdateTime(20260607143025L)
+
+  /** The header with the test ETag. */
+  private val TestETagHeader = ETag(TestUpdateTimestamp.timestamp.toString)
 
   /** A test download info object using the test properties. */
   private val TestDownloadInfo = ArchiveModel.MediaFileDownloadInfo(
@@ -203,6 +209,9 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with BeforeAndAfterE
       ArchiveModel.MediumOverview(Checksums.MediumChecksum("c3"), "testMedium3")
     )
     val contentBehavior = Behaviors.receiveMessagePartial[ArchiveContentActor.ArchiveContentCommand]:
+      case ArchiveCommands.ReadArchiveContentCommand.GetUpdateTime(replyTo) =>
+        replyTo ! TestUpdateTimestamp
+        Behaviors.same
       case ArchiveCommands.ReadArchiveContentCommand.GetMedia(replyTo) =>
         replyTo ! ArchiveCommands.GetMediaResponse(mediaOverview)
         Behaviors.same
@@ -219,6 +228,9 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with BeforeAndAfterE
       archiveConfig = ()
     )
     val contentBehavior = Behaviors.receivePartial[ArchiveContentActor.ArchiveContentCommand]:
+      case (_, ArchiveCommands.ReadArchiveContentCommand.GetUpdateTime(replyTo)) =>
+        replyTo ! TestUpdateTimestamp
+        Behaviors.same
       case (context, ArchiveCommands.ReadArchiveContentCommand.GetMedia(replyTo)) =>
         context.scheduleOnce(500.millis, replyTo, ArchiveCommands.GetMediaResponse(Nil))
         Behaviors.same
@@ -226,6 +238,82 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with BeforeAndAfterE
     val contentActor = testKit.spawn(contentBehavior)
     Get("/api/archive/media") ~> testRoute(contentActor, config) ~> check:
       status should be(StatusCodes.InternalServerError)
+
+  it should "return an ETag header for the last update of the media data" in :
+    val mediaOverview = List(
+      ArchiveModel.MediumOverview(Checksums.MediumChecksum("c1"), "testMedium1")
+    )
+    val contentBehavior = Behaviors.receiveMessagePartial[ArchiveContentActor.ArchiveContentCommand]:
+      case ArchiveCommands.ReadArchiveContentCommand.GetUpdateTime(replyTo) =>
+        replyTo ! TestUpdateTimestamp
+        Behaviors.same
+      case ArchiveCommands.ReadArchiveContentCommand.GetMedia(replyTo) =>
+        replyTo ! ArchiveCommands.GetMediaResponse(mediaOverview)
+        Behaviors.same
+
+    val contentActor = testKit.spawn(contentBehavior)
+    Get("/api/archive/media") ~> testRoute(contentActor) ~> check:
+      header[ETag].value should be(TestETagHeader)
+
+  it should "support HEAD requests for media data containing an E-Tag header" in :
+    val contentBehavior = Behaviors.receiveMessagePartial[ArchiveContentActor.ArchiveContentCommand]:
+      case ArchiveCommands.ReadArchiveContentCommand.GetUpdateTime(replyTo) =>
+        replyTo ! TestUpdateTimestamp
+        Behaviors.same
+
+    val contentActor = testKit.spawn(contentBehavior)
+    Head("/api/archive/media") ~> testRoute(contentActor) ~> check:
+      status should be(StatusCodes.OK)
+      header[ETag].value should be(TestETagHeader)
+
+  it should "handle a non-matching If-None-Match header in HEAD requests to media" in :
+    val contentBehavior = Behaviors.receiveMessagePartial[ArchiveContentActor.ArchiveContentCommand]:
+      case ArchiveCommands.ReadArchiveContentCommand.GetUpdateTime(replyTo) =>
+        replyTo ! TestUpdateTimestamp
+        Behaviors.same
+
+    val contentActor = testKit.spawn(contentBehavior)
+    val noneMatchHeader = `If-None-Match`(EntityTag("non-matchin-header-value"))
+    val request = HttpRequest(
+      uri = "/api/archive/media",
+      method = HttpMethods.HEAD,
+      headers = Seq(noneMatchHeader)
+    )
+    request ~> testRoute(contentActor) ~> check:
+      status should be(StatusCodes.OK)
+      header[ETag].value should be(TestETagHeader)
+
+  it should "handle a matching If-None-Match header in HEAD requests to media" in :
+    val contentBehavior = Behaviors.receiveMessagePartial[ArchiveContentActor.ArchiveContentCommand]:
+      case ArchiveCommands.ReadArchiveContentCommand.GetUpdateTime(replyTo) =>
+        replyTo ! TestUpdateTimestamp
+        Behaviors.same
+
+    val contentActor = testKit.spawn(contentBehavior)
+    val noneMatchHeader = `If-None-Match`(TestETagHeader.etag)
+    val request = HttpRequest(
+      uri = "/api/archive/media",
+      method = HttpMethods.HEAD,
+      headers = Seq(noneMatchHeader)
+    )
+    request ~> testRoute(contentActor) ~> check:
+      status should be(StatusCodes.NotModified)
+
+  it should "handle a matching If-None-Match header in GET requests to media" in :
+    val contentBehavior = Behaviors.receiveMessagePartial[ArchiveContentActor.ArchiveContentCommand]:
+      case ArchiveCommands.ReadArchiveContentCommand.GetUpdateTime(replyTo) =>
+        replyTo ! TestUpdateTimestamp
+        Behaviors.same
+
+    val contentActor = testKit.spawn(contentBehavior)
+    val noneMatchHeader = `If-None-Match`(TestETagHeader.etag)
+    val request = HttpRequest(
+      uri = "/api/archive/media",
+      headers = Seq(noneMatchHeader)
+    )
+    request ~> testRoute(contentActor) ~> check:
+      status should be(StatusCodes.NotModified)
+      responseEntity.isKnownEmpty shouldBe true
 
   it should "define a route to query the details of a medium" in :
     val medium = ArchiveModel.MediumDetails(
