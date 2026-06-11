@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.shared.actors
 
+import org.apache.pekko.actor.Cancellable
 import org.apache.pekko.actor.typed.Behavior
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
 
@@ -87,9 +88,11 @@ object BackoffActor:
     * @param minBackoff      the minimum backoff; this is the smallest delay
     *                        between two invocations of the task function; this
     *                        is also the first delay after resetting the actor
+    *
     * @param maxBackoff      the maximum backoff; the delay between two 
     *                        invocations of the task function never gets bigger
     *                        than this value
+    *
     * @param incrementFactor the factor to increase the delay
     * @param failureResult   the result to assume if the task function returns
     *                        a failed [[Future]]
@@ -104,7 +107,18 @@ object BackoffActor:
     * A trait to represent a handle to a backoff actor. Such a handle can be
     * used to cancel task execution from the outside.
     */
-  trait BackoffHandle extends AutoCloseable
+  trait BackoffHandle extends AutoCloseable:
+    /**
+      * Resets the delay between invocations of the task function to the
+      * configured minimum backoff. The task function is invoked immediately
+      * if it is not currently running (and the next scheduled execution is
+      * canceled). If it is currently running, the actor waits for its
+      * completion. In any case, the next invocation happens after the minimum
+      * backoff delay. Note that this function only has an effect if the actor
+      * has not stopped. So, using this function is only safe if the task
+      * function never returns a _Cancel_ result.
+      */
+    def resetDelay(): Unit
 
   /**
     * A trait to create a new backoff actor instance.
@@ -136,7 +150,12 @@ object BackoffActor:
         backoffActor ! BackoffCommand.Stop
 
       backoffActor ! BackoffCommand.ExecuteTask
-      () => stopPromise.trySuccess(())
+      new BackoffHandle:
+        override def resetDelay(): Unit =
+          backoffActor ! BackoffCommand.Reset
+
+        override def close(): Unit =
+          stopPromise.trySuccess(())
 
   /**
     * An (internal) enumeration defining the commands supported by the backoff 
@@ -164,6 +183,12 @@ object BackoffActor:
       */
     case ProcessTaskResult(result: TaskResult)
 
+    /**
+      * Resets the delay to the configured minimum backoff. If the task
+      * function is currently not active, it is invoked immediately.
+      */
+    case Reset
+
   /**
     * Creates the behavior for a backoff actor based on the given parameters.
     * The passed in [[Promise]] is used to sync the termination of the actor;
@@ -180,12 +205,13 @@ object BackoffActor:
     Behaviors.setup: context =>
       def handleBackoffCommand(currentDelay: FiniteDuration,
                                taskInProgress: Boolean,
-                               stopped: Boolean): Behavior[BackoffCommand] =
+                               stopped: Boolean,
+                               optSchedule: Option[Cancellable]): Behavior[BackoffCommand] =
         Behaviors.receiveMessage:
           case BackoffCommand.ExecuteTask =>
             context.pipeToSelf(params.taskFunc()): result =>
               BackoffCommand.ProcessTaskResult(result.getOrElse(params.failureResult))
-            handleBackoffCommand(currentDelay, taskInProgress = true, stopped)
+            handleBackoffCommand(currentDelay, taskInProgress = true, stopped, None)
 
           case BackoffCommand.ProcessTaskResult(_) if stopped =>
             stop()
@@ -202,13 +228,19 @@ object BackoffActor:
                 None
             optNextDelay.map: delay =>
               context.log.debug("[{}]: Next execution after {}.", name, delay)
-              context.scheduleOnce(delay, context.self, BackoffCommand.ExecuteTask)
-              handleBackoffCommand(delay, taskInProgress = false, stopped)
-            .getOrElse(handleBackoffCommand(currentDelay, taskInProgress = false, stopped))
+              val cancellable = context.scheduleOnce(delay, context.self, BackoffCommand.ExecuteTask)
+              handleBackoffCommand(delay, taskInProgress = false, stopped, Some(cancellable))
+            .getOrElse(handleBackoffCommand(currentDelay, taskInProgress = false, stopped, None))
+
+          case BackoffCommand.Reset =>
+            optSchedule.foreach(_.cancel())
+            if !taskInProgress then
+              context.self ! BackoffCommand.ExecuteTask
+            handleBackoffCommand(0.seconds, taskInProgress, stopped, None)
 
           case BackoffCommand.Stop if taskInProgress =>
-            context.log.info("Received Stop command while task is active. Waiting for completion.")
-            handleBackoffCommand(currentDelay, taskInProgress, stopped = true)
+            context.log.info("[{}]: Received Stop command while task is active. Waiting for completion.", name)
+            handleBackoffCommand(currentDelay, taskInProgress, stopped = true, optSchedule)
 
           case BackoffCommand.Stop =>
             stop()
@@ -217,7 +249,7 @@ object BackoffActor:
         context.log.info("[{}]: Stopping actor.", name)
         Behaviors.stopped
 
-      handleBackoffCommand(0.seconds, taskInProgress = false, stopped = false)
+      handleBackoffCommand(0.seconds, taskInProgress = false, stopped = false, optSchedule = None)
 
   /**
     * Computes the next delay based on the current delay and the backoff 

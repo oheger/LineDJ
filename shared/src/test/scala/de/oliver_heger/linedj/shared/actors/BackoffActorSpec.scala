@@ -131,13 +131,16 @@ class BackoffActorSpec(testSystem: ActorSystem) extends TestKit(testSystem), Any
     *
     * @param queue           the queue to obtain the invocation times
     * @param incrementFactor the increment factor
+    * @param delayMs         the minimum delay in millis
     */
-  private def checkDelaySequence(queue: LinkedBlockingQueue[Instant], incrementFactor: Double): Unit =
+  private def checkDelaySequence(queue: LinkedBlockingQueue[Instant],
+                                 incrementFactor: Double,
+                                 delayMs: Long = 25): Unit =
     val startTime = nextCallTime(queue)
     (1 to 4).foldLeft(startTime): (lastTime, index) =>
       val callTime = nextCallTime(queue)
       val delay = Duration.between(lastTime, callTime)
-      val expectedDelay = Duration.ofMillis(25 * math.pow(incrementFactor, index - 1).toLong)
+      val expectedDelay = Duration.ofMillis(delayMs * math.pow(incrementFactor, index - 1).toLong)
       withClue(s"Checking expected delay $expectedDelay in iteration $index."):
         checkDelay(expectedDelay, delay)
       callTime
@@ -314,3 +317,53 @@ class BackoffActorSpec(testSystem: ActorSystem) extends TestKit(testSystem), Any
     actorFactory.expectTypedActorTerminated(ActorName, typedTestKit)
     // Can only test that no exception is thrown; testing for dead letters is unreliable.
     handle.close()
+
+  it should "allow resetting the delay" in :
+    val MinBackoffMs = 50
+    val queue = new LinkedBlockingQueue[Instant]
+    val params = BackoffActor.BackoffParameters(
+      taskFunc = limitedTrackingTaskFunc(queue, 16),
+      minBackoff = MinBackoffMs.millis,
+      maxBackoff = 1.second
+    )
+    val handle = BackoffActor.newInstance(params, "resetDelay")
+    nextCallTime(queue)
+    nextCallTime(queue)
+
+    // Wait a bit to make sure that the task function has completed, and the next schedule is active.
+    queue.poll(10, TimeUnit.MILLISECONDS) should be(null)
+    handle.resetDelay()
+    // Checking the sequence also makes sure that the schedule that was active before the reset got canceled.
+    checkDelaySequence(queue, params.incrementFactor, MinBackoffMs)
+
+  it should "allow resetting the delay while the task function is executed" in :
+    val MinBackoffMs = 50
+    import system.dispatcher
+    val triggerQueue = new LinkedBlockingQueue[BackoffActor.TaskResult]
+    val callTimeQueue = new LinkedBlockingQueue[Instant]
+
+    def completeTask(result: BackoffActor.TaskResult = BackoffActor.TaskResult.Backoff): Unit =
+      triggerQueue.offer(result)
+
+    val taskFunc: BackoffActor.TaskFunc = () =>
+      callTimeQueue.offer(Instant.now())
+      Future:
+        triggerQueue.poll()
+    val params = BackoffActor.BackoffParameters(
+      taskFunc = taskFunc,
+      minBackoff = MinBackoffMs.millis,
+      maxBackoff = 1.second
+    )
+    val handle = BackoffActor.newInstance(params, "resetDelayInTaskFunc")
+    (1 to 3).foreach: _ =>
+      nextCallTime(callTimeQueue)
+      completeTask()
+
+    val startTime = nextCallTime(callTimeQueue)
+    handle.resetDelay()
+    completeTask()
+    val endTime = nextCallTime(callTimeQueue)
+
+    completeTask(BackoffActor.TaskResult.Cancel)
+    val delay = Duration.between(startTime, endTime)
+    checkDelay(Duration.ofMillis(MinBackoffMs), delay)
