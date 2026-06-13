@@ -37,6 +37,12 @@ private object ArchiveClientConfig:
   private final val DiscoveryConfigSection = "discovery"
 
   /**
+    * The key of the subsection in the archive configuration that contains the
+    * properties for monitoring changes in the archive's content.
+    */
+  private final val ContentMonitoringSection = "monitor.content"
+
+  /**
     * The name of the mandatory configuration property for the multicast
     * address to use for the archive discovery operation.
     */
@@ -62,15 +68,21 @@ private object ArchiveClientConfig:
 
   /**
     * The name of the optional configuration property defining the minimum
-    * backoff when retrying requests during the archive discovery operation.
+    * backoff for a repeated operation.
     */
-  private final val PropDiscoveryMinBackoff = "minBackoff"
+  private final val PropMinBackoff = "minBackoff"
 
   /**
     * The name of the optional configuration property defining the maximum
-    * backoff when retrying requests during the archive discovery operation.
+    * backoff for a repeated operation.
     */
-  private final val PropDiscoveryMaxBackoff = "maxBackoff"
+  private final val PropMaxBackoff = "maxBackoff"
+
+  /**
+    * The name of the optional configuration property defining the increment
+    * factor for a repeated operation.
+    */
+  private final val PropIncFactor = "factor"
 
   /**
     * The name of the optional configuration property defining a timeout for
@@ -83,6 +95,16 @@ private object ArchiveClientConfig:
     * used if no explicit timeout is set in the client configuration.
     */
   final val DefaultArchiveTimeout = 30.seconds
+
+  /**
+    * A [[BackoffConfig]] defining default values for properties. These are
+    * used for missing values in the platform configuration.
+    */
+  final val DefaultBackoffConfig = BackoffConfig(
+    minBackoff = 5.seconds,
+    maxBackoff = 3.minutes,
+    factor = 1.25
+  )
 
   /**
     * Tries to create an [[ArchiveClientConfig]] from the properties of the
@@ -108,16 +130,17 @@ private object ArchiveClientConfig:
           timeout = extractDurationProperty(discoveryConfig, PropDiscoveryTimeout, ServerDiscovery.DefaultTimeout),
           minBackoff = extractDurationProperty(
             discoveryConfig,
-            PropDiscoveryMinBackoff,
+            PropMinBackoff,
             ServerDiscovery.DefaultMinBackoff
           ),
           maxBackoff = extractDurationProperty(
             discoveryConfig,
-            PropDiscoveryMaxBackoff,
+            PropMaxBackoff,
             ServerDiscovery.DefaultMaxBackoff
           )
         ),
-        archiveTimeout = extractDurationProperty(clientConfig, PropArchiveTimeout, DefaultArchiveTimeout)
+        archiveTimeout = extractDurationProperty(clientConfig, PropArchiveTimeout, DefaultArchiveTimeout),
+        optContentMonitorBackoff = extractBackoffConfig(clientConfig, ContentMonitoringSection)
       )
 
   /**
@@ -145,6 +168,23 @@ private object ArchiveClientConfig:
       None
 
   /**
+    * Extracts a [[BackoffConfig]] at the given path if this path exists. The
+    * existence of the path determines whether a defined or undefined option is
+    * returned. For missing properties, this function sets default values.
+    *
+    * @param config the configuration
+    * @param path   the subpath for the backoff configuration to extract
+    * @return an [[Option]] with the extracted configuration
+    */
+  private def extractBackoffConfig(config: ImmutableHierarchicalConfiguration, path: String): Option[BackoffConfig] =
+    subSection(config, path).map: backoffConfig =>
+      BackoffConfig(
+        minBackoff = extractDurationProperty(backoffConfig, PropMinBackoff, DefaultBackoffConfig.minBackoff),
+        maxBackoff = extractDurationProperty(backoffConfig, PropMaxBackoff, DefaultBackoffConfig.maxBackoff),
+        factor = backoffConfig.getDouble(PropIncFactor, DefaultBackoffConfig.factor)
+      )
+
+  /**
     * Extracts an optional duration property from the given configuration.
     *
     * @param config  the configuration
@@ -159,12 +199,40 @@ private object ArchiveClientConfig:
 end ArchiveClientConfig
 
 /**
-  * A data class to store all the configuration settings supported by the 
+  * A data class holding the configuration settings for a repeated action with
+  * an increasing delay. Such configurations are needed to monitor certain
+  * properties of the archive.
+  *
+  * @param minBackoff the minimum backoff
+  * @param maxBackoff the maximum backoff
+  * @param factor     the increment factor between two actions
+  */
+private case class BackoffConfig(minBackoff: FiniteDuration,
+                                 maxBackoff: FiniteDuration,
+                                 factor: Double)
+
+/**
+  * A data class to store all the configuration settings supported by the
   * archive client component. The properties reflect the part of the platform
   * configuration consumed by this component.
   *
-  * @param discoveryParams the parameters for the discovery operation
-  * @param archiveTimeout  the timeout for requests to the archive
+  * The archive client can monitor some properties of the archive server to
+  * react on certain status changes. This is done by polling the corresponding
+  * properties repeatedly with a backoff delay. (Typically, there are bulk
+  * changes when the server is updated; after such an update, it is stable
+  * again, so that the rate of checks can be decreased.) The configuration of
+  * such polling actions is specified using a [[BackoffConfig]]. They are
+  * optional. If the platform configuration does not contain the corresponding
+  * key for an action, it is disabled. If the key is available, the
+  * configuration class reads the properties in this section and uses default
+  * values for missing ones. So, an available section key enables this
+  * mechanism even if the section is empty.
+  *
+  * @param discoveryParams          the parameters for the discovery operation
+  * @param archiveTimeout           the timeout for requests to the archive
+  * @param optContentMonitorBackoff the optional config for monitoring changes
+  *                                 in the archive's content
   */
 private case class ArchiveClientConfig(discoveryParams: ServerDiscovery.DiscoveryParams,
-                                       archiveTimeout: FiniteDuration)
+                                       archiveTimeout: FiniteDuration,
+                                       optContentMonitorBackoff: Option[BackoffConfig])

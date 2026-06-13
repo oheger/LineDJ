@@ -19,8 +19,7 @@ package de.oliver_heger.linedj.platform.archiveclient
 import com.github.cloudfiles.core.http.factory.HttpRequestSenderFactoryImpl
 import de.oliver_heger.linedj.platform.startup.ConfigService
 import de.oliver_heger.linedj.server.discovery.ServerDiscovery
-import org.apache.commons.configuration2.builder.fluent.Configurations
-import org.apache.commons.configuration2.{BaseHierarchicalConfiguration, ImmutableHierarchicalConfiguration, XMLConfiguration}
+import org.apache.commons.configuration2.{BaseHierarchicalConfiguration, ImmutableHierarchicalConfiguration}
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.testkit.TestKit
 import org.apache.pekko.util.Timeout
@@ -39,9 +38,6 @@ import scala.concurrent.Promise
 import scala.concurrent.duration.DurationInt
 
 object ArchiveClientComponentSpec:
-  /** The name of the test default configuration file. */
-  private val TestConfigFile = "test-archive-platform-config.xml"
-
   /** The URI returned for the archive by the test discovery. */
   private val ArchiveUri = "https://archive.example.com/test"
 
@@ -50,31 +46,6 @@ object ArchiveClientComponentSpec:
     * config.
     */
   private val ArchiveTimeout = Timeout(38.seconds)
-
-  /**
-    * Stores the default test configuration. Based on this object, modified
-    * configurations can be created.
-    */
-  private val defaultConfig = loadDefaultConfig()
-
-  /**
-    * Loads the test configuration file with standard settings for the archive
-    * discovery operation.
-    *
-    * @return the test configuration
-    */
-  private def loadDefaultConfig(): XMLConfiguration =
-    val configs = new Configurations
-    configs.xml(TestConfigFile)
-
-  /**
-    * Returns a mutable copy of the default test configuration. It can be 
-    * modified for specific test cases.
-    *
-    * @return the copy of the default test configuration
-    */
-  private def testConfig: BaseHierarchicalConfiguration =
-    new BaseHierarchicalConfiguration(defaultConfig)
 end ArchiveClientComponentSpec
 
 /**
@@ -119,10 +90,10 @@ class ArchiveClientComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
     params.maxBackoff should be(5.minutes)
 
   it should "start discovery with default parameters for undefined optional settings" in :
-    val config = testConfig
-    config.clearProperty("platform.mediaArchive.discovery.timeout")
-    config.clearProperty("platform.mediaArchive.discovery.minBackoff")
-    config.clearProperty("platform.mediaArchive.discovery.maxBackoff")
+    val config = ArchiveClientConfigTestHelper.testConfig: c =>
+      c.clearProperty("platform.mediaArchive.discovery.timeout")
+      c.clearProperty("platform.mediaArchive.discovery.minBackoff")
+      c.clearProperty("platform.mediaArchive.discovery.maxBackoff")
     val helper = new ComponentTestHelper
 
     val params = helper.initConfiguration(config)
@@ -150,8 +121,8 @@ class ArchiveClientComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
     val properties = List("multicastAddress", "port", "requestCode")
 
     forEvery(properties): property =>
-      val config = testConfig
-      config.clearProperty(s"platform.mediaArchive.discovery.$property")
+      val config = ArchiveClientConfigTestHelper.testConfig: c =>
+        c.clearProperty(s"platform.mediaArchive.discovery.$property")
       val helper = new ComponentTestHelper
 
       helper.initConfiguration(config)
@@ -167,8 +138,8 @@ class ArchiveClientComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
       .verifyArchiveServiceRegistration()
 
   it should "set a default timeout for the archive service if not specified in the client config" in :
-    val config = testConfig
-    config.clearProperty("platform.mediaArchive.requestTimeout")
+    val config = ArchiveClientConfigTestHelper.testConfig: c =>
+      c.clearProperty("platform.mediaArchive.requestTimeout")
     val helper = new ComponentTestHelper
 
     helper.initConfiguration(config)
@@ -256,8 +227,8 @@ class ArchiveClientComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
       * @param platformConfig the configuration to be used
       * @return this test helper
       */
-    final def initConfiguration(platformConfig: ImmutableHierarchicalConfiguration = defaultConfig):
-    ComponentTestHelper =
+    final def initConfiguration(platformConfig: ImmutableHierarchicalConfiguration = 
+                                ArchiveClientConfigTestHelper.defaultTestConfig): ComponentTestHelper =
       val configService = new ConfigService:
         override def config: ImmutableHierarchicalConfiguration = platformConfig
 

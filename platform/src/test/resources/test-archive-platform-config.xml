@@ -32,6 +32,13 @@
                 <maxBackoff>5min</maxBackoff>
             </discovery>
             <requestTimeout>38s</requestTimeout>
+            <monitor>
+                <content>
+                    <minBackoff>7sec</minBackoff>
+                    <maxBackoff>7min</maxBackoff>
+                    <factor>1.75</factor>
+                </content>
+            </monitor>
         </mediaArchive>
     </platform>
 </configuration>
