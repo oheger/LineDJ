@@ -172,7 +172,7 @@ class ArchiveClientComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
     val helper = new ComponentTestHelper
 
     helper.initConfiguration(config)
-      .initArchiveFactory(ArchiveClientComponent.DefaultArchiveTimeout)
+      .initArchiveFactory(ArchiveClientConfig.DefaultArchiveTimeout)
       .activate()
       .succeedDiscovery()
       .verifyArchiveServiceRegistration()
