@@ -18,7 +18,7 @@ These components are agnostic about the archive itself, e.g., where it is hosted
 
 [#archive_server_rest_api]
 == REST API
-The `Route` created by the base `Controller` implementation provides a number of REST endpoints to browse the media files available in the archive. All these endpoints start with the common path `/api/archive` and use the GET method. They return JSON data based on model objects defined in the xref:src/main/scala/de/oliver_heger/linedj/archive/server/model/ArchiveModel.scala[ArchiveModel] object. Table <<tab_endpoints>> lists the most relevant endpoints.
+The `Route` created by the base `Controller` implementation provides a number of REST endpoints to browse the media files available in the archive. All these endpoints start with the common path `/api/archive` and use the GET method. They return JSON data based on model objects defined in the xref:../archiveServerModel/src/main/scala/de/oliver_heger/linedj/archive/server/model/ArchiveModel.scala[ArchiveModel] object. Table <<tab_endpoints>> lists the most relevant endpoints.
 
 .Endpoints of the Archive Server module
 [#tab_endpoints]
@@ -54,6 +54,10 @@ The `Route` created by the base `Controller` implementation provides a number of
 
 The endpoint supports an optional query parameter `stripMedatada`. If it is specified with a value of *true*, the content that is returned does not contain ID3v2 metadata. This can be useful if only the audio information is needed for playback.
 |====
+
+The `/media` endpoint provides an easy means to check for changes in the content of the archive: The response contains an https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/ETag[ETag header] with a code corresponding to the latest update of the data in the archive. Clients can use this code in requests by specifying the https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/If-None-Match[If-None-Match header]. If there have been changes in the data, the endpoint returns the updated media information together with a new `ETag` header. Otherwise, it returns a response without a body with response status 304 Not Modified. Updated `ETag` headers are set in the responses as well.
+
+For periodic checks for changes in the archive's data, clients can also do `HEAD` requests against the `/media` endpoint with a corresponding `If-None-Match` header. Based on the response status code - 304 if there are no changes, 200 otherwise - the client can determine whether it still has the most up-to-date media data.
 
 [#sec_config]
 == Configuration
