@@ -16,7 +16,6 @@
 
 package de.oliver_heger.linedj.platform.archiveclient
 
-import com.github.cloudfiles.core.http.factory.HttpRequestSenderFactoryImpl
 import de.oliver_heger.linedj.platform.archiveclient.ArchiveClientComponent.{ArchiveServiceRegistrationData, log}
 import de.oliver_heger.linedj.platform.startup.ConfigService
 import de.oliver_heger.linedj.server.discovery.ServerDiscovery
@@ -158,7 +157,7 @@ class ArchiveClientComponent(discoveryFactory: ServerDiscovery.Factory,
 
     discoveryHandle.futResult foreach : archiveUri =>
       log.info("Discovered archive server at '{}'.", archiveUri)
-      val archiveService = archiveServiceFactory(archiveUri,
-        HttpRequestSenderFactoryImpl)(using actorSystem, clientConfig.archiveTimeout)
+      val archiveService = archiveServiceFactory(archiveUri, clientConfig.optContentMonitorBackoff)
+        (using actorSystem, clientConfig.archiveTimeout)
       val registration = bundleContext.registerService(classOf[ArchiveService], archiveService, null)
       archiveRegistration.set(ArchiveServiceRegistrationData(registration, archiveService))

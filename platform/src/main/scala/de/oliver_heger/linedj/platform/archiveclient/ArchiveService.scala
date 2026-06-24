@@ -43,6 +43,21 @@ trait ArchiveService:
   def sendRequest(request: HttpRequest): Future[HttpResponse]
 
   /**
+    * Adds a listener that receives notifications when a change in the content
+    * of the managed archive is detected.
+    *
+    * @param listener the listener to be added
+    */
+  def addChangeListener(listener: ArchiveMonitor.ArchiveChangeListener): Unit
+
+  /**
+    * Removes the specified listener.
+    *
+    * @param listener the listener to remove
+    */
+  def removeChangeListener(listener: ArchiveMonitor.ArchiveChangeListener): Unit
+
+  /**
     * A convenience function to send a GET request to the archive server which
     * is expected to return serialized JSON data of a specific type. The 
     * function automatically performs the de-serialization. Failure responses

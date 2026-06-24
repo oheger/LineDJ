@@ -19,6 +19,7 @@ package de.oliver_heger.linedj.platform.archiveclient
 import com.github.cloudfiles.core.http.HttpRequestSender
 import com.github.cloudfiles.core.http.MultiHostExtension.RequestActorFactory
 import com.github.cloudfiles.core.http.factory.{HttpRequestSenderConfig, HttpRequestSenderFactory, Spawner}
+import de.oliver_heger.linedj.shared.actors.{ActorFactory, BackoffActor}
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.actor.testkit.typed.scaladsl.{ActorTestKit, TestProbe}
 import org.apache.pekko.actor.typed.ActorRef
@@ -26,9 +27,11 @@ import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport.*
 import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, HttpMethods, HttpRequest, HttpResponse, StatusCodes, Uri}
 import org.apache.pekko.testkit.TestKit
 import org.apache.pekko.util.Timeout
+import org.mockito.Mockito.*
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
+import org.scalatestplus.mockito.MockitoSugar
 import spray.json.*
 
 import java.util.concurrent.TimeoutException
@@ -38,6 +41,13 @@ import scala.concurrent.duration.DurationInt
 object ArchiveServiceSpec extends DefaultJsonProtocol:
   /** The URI of the test archive server. */
   private val ArchiveUri = Uri("https://archive.example.com/test")
+
+  /** Test backoff configuration to monitor the archive for changes. */
+  private val MonitorBackoff = BackoffConfig(
+    minBackoff = 30.seconds,
+    maxBackoff = 30.minutes,
+    factor = 1.75
+  )
 
   /** The timeout for sending requests to the archive. */
   given Timeout = Timeout(30.seconds)
@@ -57,7 +67,7 @@ end ArchiveServiceSpec
   * Test class for [[ArchiveService]].
   */
 class ArchiveServiceSpec(testSystem: ActorSystem) extends TestKit(testSystem), AsyncFlatSpecLike, BeforeAndAfterAll,
-  Matchers:
+  Matchers, MockitoSugar:
   def this() = this(ActorSystem("ArchiveServiceSpec"))
 
   /** The test kit for typed actors. */
@@ -86,6 +96,12 @@ class ArchiveServiceSpec(testSystem: ActorSystem) extends TestKit(testSystem), A
         Future.successful(response)
 
       override protected def actorSystem: ActorSystem = system
+
+      override def addChangeListener(listener: ArchiveMonitor.ArchiveChangeListener): Unit =
+        throw new UnsupportedOperationException("Unexpected call.")
+
+      override def removeChangeListener(listener: ArchiveMonitor.ArchiveChangeListener): Unit =
+        throw new UnsupportedOperationException("Unexpected call.")
 
   "queryData" should "handle a request correctly" in :
     val uri = "https://test.example.com/data/request"
@@ -131,7 +147,7 @@ class ArchiveServiceSpec(testSystem: ActorSystem) extends TestKit(testSystem), A
 
   it should "apply the configured timeout" in :
     val shortTimeout = Timeout(10.millis)
-    val helper = new ServiceTestHelper(using shortTimeout)
+    val helper = new ServiceTestHelper()(using shortTimeout)
 
     val futResponse = helper.archiveService.sendRequest(HttpRequest(uri = "/test/timeout"))
 
@@ -145,20 +161,66 @@ class ArchiveServiceSpec(testSystem: ActorSystem) extends TestKit(testSystem), A
     helper.expectSenderMessage(HttpRequestSender.Stop)
     succeed
 
+  it should "forward a new change listener to the monitor actor" in :
+    val listener = mock[ArchiveMonitor.ArchiveChangeListener]
+    val helper = new ServiceTestHelper
+
+    helper.archiveService.addChangeListener(listener)
+
+    helper.expectMonitorCommand(ArchiveMonitor.ArchiveListenerCommand.AddChangeListener(listener))
+    succeed
+
+  it should "forward a listener to remove to the monitor actor" in :
+    val listener = mock[ArchiveMonitor.ArchiveChangeListener]
+    val helper = new ServiceTestHelper
+
+    helper.archiveService.removeChangeListener(listener)
+
+    helper.expectMonitorCommand(ArchiveMonitor.ArchiveListenerCommand.RemoveChangeListener(listener))
+    succeed
+
+  it should "not create a monitor actor if no backoff config is provided" in :
+    val listener = mock[ArchiveMonitor.ArchiveChangeListener]
+    val helper = new ServiceTestHelper(optMonitorBackoff = None)
+
+    helper.archiveService.addChangeListener(listener)
+    helper.archiveService.removeChangeListener(listener)
+    helper.archiveService.close()
+
+    verifyNoInteractions(listener)
+    succeed
+
+  it should "stop the monitor actor when it is closed" in :
+    val helper = new ServiceTestHelper
+
+    helper.archiveService.close()
+
+    helper.expectMonitorCommand(ArchiveMonitor.ArchiveListenerCommand.Stop)
+    succeed
+
   /**
     * A test helper class that manages an instance under test and some required
     * dependencies.
     *
-    * @param timeout the timeout when sending requests
+    * @param optMonitorBackoff the backoff to monitor the archive
+    * @param timeout           the timeout when sending requests
     */
-  private class ServiceTestHelper(using timeout: Timeout):
+  private class ServiceTestHelper(optMonitorBackoff: Option[BackoffConfig] = Some(MonitorBackoff))
+                                 (using timeout: Timeout):
     /** The probe for the request sender actor. */
     private val senderProbe: TestProbe[HttpRequestSender.HttpCommand] =
       typedTestKit.createTestProbe[HttpRequestSender.HttpCommand]()
 
+    /** The probe for the monitoring actor. */
+    private val monitorProbe = typedTestKit.createTestProbe[ArchiveMonitor.ArchiveListenerCommand]()
+
     /** The service to be tested. */
-    val archiveService: ArchiveServiceImpl =
-      ArchiveServiceImpl.newInstance(ArchiveUri.toString, createStubSenderFactory())
+    val archiveService: ArchiveServiceImpl = ArchiveServiceImpl.newInstance(
+      ArchiveUri.toString,
+      optMonitorBackoff,
+      createStubSenderFactory(),
+      createStubMonitorFactory()
+    )
 
     /**
       * Expects that the given message was sent to the sender actor.
@@ -198,6 +260,16 @@ class ArchiveServiceSpec(testSystem: ActorSystem) extends TestKit(testSystem), A
       this
 
     /**
+      * Expects that a command was sent to the monitor actor.
+      *
+      * @param command the expected command
+      * @return this test helper
+      */
+    def expectMonitorCommand(command: ArchiveMonitor.ArchiveListenerCommand): ServiceTestHelper =
+      monitorProbe.expectMessage(command)
+      this
+
+    /**
       * Returns a factory for the request sender that checks the passed in
       * parameters and returns a reference to the managed test probe.
       *
@@ -224,3 +296,23 @@ class ArchiveServiceSpec(testSystem: ActorSystem) extends TestKit(testSystem), A
                                            requestSender: ActorRef[HttpRequestSender.HttpCommand],
                                            config: HttpRequestSenderConfig): ActorRef[HttpRequestSender.HttpCommand] =
           throw new UnsupportedOperationException("Unexpected call.")
+
+    /**
+      * Returns a stub factory for the archive monitor actor that checks the
+      * passed in parameters and returns the managed test probe.
+      *
+      * @return the factory for the monitor actor
+      */
+    private def createStubMonitorFactory(): ArchiveMonitor.Factory =
+      new ArchiveMonitor.Factory {
+        override def apply(params: ArchiveMonitor.ArchiveMonitorParams, actorName: String)
+                          (using actorFactory: ActorFactory): ActorRef[ArchiveMonitor.ArchiveListenerCommand] = {
+          actorFactory.actorSystem should be(system)
+          params.archiveSender should be(senderProbe.ref)
+          params.backoffFactory should be(BackoffActor.newInstance)
+          params.requestTimeout should be(timeout)
+          params.backoffConfig should be(optMonitorBackoff.get)
+          actorName should be(ArchiveServiceImpl.MonitorName)
+          monitorProbe.ref
+        }
+      }

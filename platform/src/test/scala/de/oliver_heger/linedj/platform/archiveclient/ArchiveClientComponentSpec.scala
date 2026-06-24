@@ -16,7 +16,6 @@
 
 package de.oliver_heger.linedj.platform.archiveclient
 
-import com.github.cloudfiles.core.http.factory.HttpRequestSenderFactoryImpl
 import de.oliver_heger.linedj.platform.startup.ConfigService
 import de.oliver_heger.linedj.server.discovery.ServerDiscovery
 import org.apache.commons.configuration2.{BaseHierarchicalConfiguration, ImmutableHierarchicalConfiguration}
@@ -46,6 +45,13 @@ object ArchiveClientComponentSpec:
     * config.
     */
   private val ArchiveTimeout = Timeout(38.seconds)
+  
+  /** The default archive monitor backoff config. */
+  private val ArchiveMonitorBackoff = BackoffConfig(
+    minBackoff = 7.seconds,
+    maxBackoff = 7.minutes,
+    factor = 1.75
+  )
 end ArchiveClientComponentSpec
 
 /**
@@ -143,7 +149,18 @@ class ArchiveClientComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
     val helper = new ComponentTestHelper
 
     helper.initConfiguration(config)
-      .initArchiveFactory(ArchiveClientConfig.DefaultArchiveTimeout)
+      .initArchiveFactory(archiveTimeout = ArchiveClientConfig.DefaultArchiveTimeout)
+      .activate()
+      .succeedDiscovery()
+      .verifyArchiveServiceRegistration()
+    
+  it should "create an archive service without a content monitor actor" in:
+    val config = ArchiveClientConfigTestHelper.testConfig: c =>
+      c.clearTree("platform.mediaArchive.monitor")
+    val helper = new ComponentTestHelper
+    
+    helper.initConfiguration(config)
+      .initArchiveFactory(optBackoffConf = None)
       .activate()
       .succeedDiscovery()
       .verifyArchiveServiceRegistration()
@@ -209,13 +226,19 @@ class ArchiveClientComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
       * Prepares the mock for the archive factory to expect an invocation.
       * The function only needs to be called if a non-standard timeout is
       * desired.
-      *
+      * @param optBackoffConf the optional archive monitor backoff config
       * @param archiveTimeout the archive timeout
       * @return this test helper
       */
-    final def initArchiveFactory(archiveTimeout: Timeout = ArchiveTimeout): ComponentTestHelper =
+    final def initArchiveFactory(optBackoffConf: Option[BackoffConfig] = Some(ArchiveMonitorBackoff),
+                                 archiveTimeout: Timeout = ArchiveTimeout): ComponentTestHelper =
       reset(archiveServiceFactory)
-      when(archiveServiceFactory.apply(argEq(ArchiveUri), argEq(HttpRequestSenderFactoryImpl))
+      when(archiveServiceFactory.apply(
+          argEq(ArchiveUri),
+          argEq(optBackoffConf),
+          any(),
+          any()
+        )
         (using argEq(system), argEq(archiveTimeout))).thenReturn(archiveService)
       this
 
