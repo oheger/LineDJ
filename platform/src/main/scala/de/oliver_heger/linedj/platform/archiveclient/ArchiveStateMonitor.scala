@@ -87,6 +87,14 @@ object ArchiveStateMonitor:
     case RemoveChangeListener(listener: ArchiveChangeListener[STATE])
 
     /**
+      * Command to notify this actor that there might be changes in the
+      * monitored archive. This can be used by clients to give the actor a hint
+      * that it might be useful to check the archive again with a shorter
+      * interval.
+      */
+    case ChangesExpected()
+
+    /**
       * Command to stop this actor instance.
       */
     case Stop()
@@ -252,6 +260,10 @@ object ArchiveStateMonitor:
             else
               optBackoffHandle
             handleArchiveMonitorCommand(nextListeners, nextHandle, optData)
+
+          case ArchiveListenerCommand.ChangesExpected() =>
+            optBackoffHandle.foreach(_.resetDelay())
+            Behaviors.same
 
           case ArchiveListenerCommand.Stop() =>
             context.log.info("[{}] Stopping ArchiveMonitor actor.", actorName)

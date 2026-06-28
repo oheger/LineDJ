@@ -317,6 +317,14 @@ class ArchiveStateMonitorSpec(testSystem: ActorSystem) extends TestKit(testSyste
       helper.registerListener(listener2)
       listener2.expectState(ResponseText)
 
+  it should "handle a ChangesExpected command" in :
+    val listener = new TestArchiveChangeLister
+    val helper = new MonitorTestHelper("expectChanges")
+
+    helper.registerListener(listener)
+      .sendCommand(ArchiveStateMonitor.ArchiveListenerCommand.ChangesExpected())
+      .verifyBackoffHandleReset()
+
   /**
     * A test helper class managing a test actor instance and its dependencies.
     *
@@ -432,8 +440,7 @@ class ArchiveStateMonitorSpec(testSystem: ActorSystem) extends TestKit(testSyste
       * @return this test helper
       */
     def registerListener(listener: ArchiveStateMonitor.ArchiveChangeListener[String]): MonitorTestHelper =
-      monitorActor ! ArchiveStateMonitor.ArchiveListenerCommand.AddChangeListener(listener)
-      this
+      sendCommand(ArchiveStateMonitor.ArchiveListenerCommand.AddChangeListener(listener))
 
     /**
       * Removes the given change listener from the test actor instance.
@@ -442,8 +449,7 @@ class ArchiveStateMonitorSpec(testSystem: ActorSystem) extends TestKit(testSyste
       * @return this test helper
       */
     def removeListener(listener: ArchiveStateMonitor.ArchiveChangeListener[String]): MonitorTestHelper =
-      monitorActor ! ArchiveStateMonitor.ArchiveListenerCommand.RemoveChangeListener(listener)
-      this
+      sendCommand(ArchiveStateMonitor.ArchiveListenerCommand.RemoveChangeListener(listener))
 
     /**
       * Verifies that the backoff handle has been closed.
@@ -464,16 +470,35 @@ class ArchiveStateMonitorSpec(testSystem: ActorSystem) extends TestKit(testSyste
       succeed
 
     /**
+      * Verifies that the delay of the backoff handle has been reset.
+      *
+      * @return the result of the check
+      */
+    def verifyBackoffHandleReset(): Future[Assertion] = Future:
+      verify(backoffHandle, timeout(3000)).resetDelay()
+      succeed
+
+    /**
       * Tests whether the monitor actor terminates on receiving a stop command.
       *
       * @return a [[Future]] with the test result
       */
     def checkStopMonitorActor(): Future[Assertion] =
-      monitorActor ! ArchiveStateMonitor.ArchiveListenerCommand.Stop()
+      sendCommand(ArchiveStateMonitor.ArchiveListenerCommand.Stop())
 
       val watchProbe = typedTestKit.createDeadLetterProbe()
       watchProbe.expectTerminated(monitorActor)
       succeed
+
+    /**
+      * Sends a command to the actor to be tested.
+      *
+      * @param cmd the command to send
+      * @return this test helper
+      */
+    def sendCommand(cmd: ArchiveStateMonitor.ArchiveListenerCommand[String]): MonitorTestHelper =
+      monitorActor ! cmd
+      this
 
     /**
       * Returns the task function that was passed to the latest backoff actor
