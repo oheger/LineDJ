@@ -147,14 +147,15 @@ object ArchiveStateMonitor:
 
   /**
     * Type alias for a function this actor calls asynchronously to extract the
-    * updated data from a response received from the archive. If this function 
-    * returns a defined [[Option]], the actor stores the updated data and calls 
-    * the registered listeners with the given state
+    * updated data from a response received from the archive. The function gets
+    * passed the current data, too, if available. If this function returns a
+    * defined [[Option]], the actor stores the updated data and calls the
+    * registered listeners with the given state.
     *
     * @tparam DATA  the updated data to store
     * @tparam STATE the state for notifying change listeners
     */
-  type EvaluateFunc[DATA, STATE] = HttpResponse => Future[Option[(DATA, STATE)]]
+  type EvaluateFunc[DATA, STATE] = (HttpResponse, Option[DATA]) => Future[Option[(DATA, STATE)]]
 
   /**
     * A data class that collects all the parameters to configure an archive 
@@ -277,7 +278,7 @@ object ArchiveStateMonitor:
                 params.archiveSender,
                 request
               )
-              eval <- params.evaluateFunc(result.response)
+              eval <- params.evaluateFunc(result.response, optData.map(_._1))
             yield eval
             futEval.foreach: result => // In case of a failed future, this will cause a timeout.
               context.self ! ArchiveCheckCommand.HandleEvalResult(result, replyTo)

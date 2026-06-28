@@ -89,14 +89,15 @@ object ArchiveStateMonitorSpec:
     */
   private def evaluateResponse(using mat: Materializer,
                                ec: ExecutionContext): ArchiveStateMonitor.EvaluateFunc[TestMonitorData, String] =
-    response =>
+    (response, optCurrentData) =>
       if response.status == StatusCodes.NotModified then
         Future.successful(None)
       else
         response.entity.dataBytes.runFold(ByteString.empty)(_ ++ _) map : entity =>
           val tag = response.header[ETag].map(_.etag.tag).getOrElse("")
           val data = TestMonitorData(entity.utf8String, tag)
-          Some((data, data.data))
+          Some((data, data.data)).filterNot: nextData =>
+            optCurrentData.contains(nextData._1)
 
   /**
     * Creates the expected request to the test archive with an optional header
@@ -324,6 +325,21 @@ class ArchiveStateMonitorSpec(testSystem: ActorSystem) extends TestKit(testSyste
     helper.registerListener(listener)
       .sendCommand(ArchiveStateMonitor.ArchiveListenerCommand.ChangesExpected())
       .verifyBackoffHandleReset()
+
+  it should "pass the correct current data to the evaluate function" in :
+    val ResponseText = "Unchanged data"
+    val listener = new TestArchiveChangeLister
+    val response = archiveResponse(Some(ResponseText))
+    val helper = new MonitorTestHelper("passCurrentData")
+
+    for
+      _ <- helper.registerListener(listener)
+        .expectBackoffActorCreation()
+        .handleArchiveRequest(archiveRequest(None), response, BackoffActor.TaskResult.Reset)
+      _ <- listener.expectState(ResponseText)
+      _ <- helper.handleArchiveRequest(archiveRequest(), response, BackoffActor.TaskResult.Backoff)
+      res <- listener.expectNoInvocation()
+    yield res
 
   /**
     * A test helper class managing a test actor instance and its dependencies.
