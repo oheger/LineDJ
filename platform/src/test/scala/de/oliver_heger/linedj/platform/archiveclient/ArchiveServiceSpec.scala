@@ -19,18 +19,20 @@ package de.oliver_heger.linedj.platform.archiveclient
 import com.github.cloudfiles.core.http.HttpRequestSender
 import com.github.cloudfiles.core.http.MultiHostExtension.RequestActorFactory
 import com.github.cloudfiles.core.http.factory.{HttpRequestSenderConfig, HttpRequestSenderFactory, Spawner}
+import de.oliver_heger.linedj.archive.server.model.ArchiveModel
 import de.oliver_heger.linedj.shared.actors.{ActorFactory, BackoffActor}
+import de.oliver_heger.linedj.shared.archive.metadata.Checksums
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.actor.testkit.typed.scaladsl.{ActorTestKit, TestProbe}
 import org.apache.pekko.actor.typed.ActorRef
-import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport.*
-import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, HttpMethods, HttpRequest, HttpResponse, StatusCodes, Uri}
+import org.apache.pekko.http.scaladsl.model.headers.{ETag, EntityTag, `If-None-Match`}
+import org.apache.pekko.http.scaladsl.model.*
 import org.apache.pekko.testkit.TestKit
 import org.apache.pekko.util.Timeout
 import org.mockito.Mockito.*
-import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.{BeforeAndAfterAll, OptionValues}
 import org.scalatestplus.mockito.MockitoSugar
 import spray.json.*
 
@@ -67,7 +69,7 @@ end ArchiveServiceSpec
   * Test class for [[ArchiveService]].
   */
 class ArchiveServiceSpec(testSystem: ActorSystem) extends TestKit(testSystem), AsyncFlatSpecLike, BeforeAndAfterAll,
-  Matchers, MockitoSugar:
+  Matchers, MockitoSugar, OptionValues, ArchiveModel.ArchiveJsonSupport:
   def this() = this(ActorSystem("ArchiveServiceSpec"))
 
   /** The test kit for typed actors. */
@@ -78,8 +80,7 @@ class ArchiveServiceSpec(testSystem: ActorSystem) extends TestKit(testSystem), A
     TestKit.shutdownActorSystem(system)
     super.afterAll()
 
-  import ArchiveServiceSpec.*
-  import ArchiveServiceSpec.given
+  import ArchiveServiceSpec.{*, given}
 
   /**
     * Creates a stub service that expects a specific request to be sent. It
@@ -97,11 +98,8 @@ class ArchiveServiceSpec(testSystem: ActorSystem) extends TestKit(testSystem), A
 
       override protected def actorSystem: ActorSystem = system
 
-      override def addChangeListener(listener: ArchiveMonitor.ArchiveChangeListener): Unit =
-        throw new UnsupportedOperationException("Unexpected call.")
-
-      override def removeChangeListener(listener: ArchiveMonitor.ArchiveChangeListener): Unit =
-        throw new UnsupportedOperationException("Unexpected call.")
+      override protected def optMonitorActor:
+      Option[ActorRef[ArchiveStateMonitor.ArchiveListenerCommand[ArchiveModel.MediaOverview]]] = None
 
   "queryData" should "handle a request correctly" in :
     val uri = "https://test.example.com/data/request"
@@ -162,25 +160,25 @@ class ArchiveServiceSpec(testSystem: ActorSystem) extends TestKit(testSystem), A
     succeed
 
   it should "forward a new change listener to the monitor actor" in :
-    val listener = mock[ArchiveMonitor.ArchiveChangeListener]
+    val listener = mock[ArchiveStateMonitor.ArchiveChangeListener[ArchiveModel.MediaOverview]]
     val helper = new ServiceTestHelper
 
     helper.archiveService.addChangeListener(listener)
 
-    helper.expectMonitorCommand(ArchiveMonitor.ArchiveListenerCommand.AddChangeListener(listener))
+    helper.expectMonitorCommand(ArchiveStateMonitor.ArchiveListenerCommand.AddChangeListener(listener))
     succeed
 
   it should "forward a listener to remove to the monitor actor" in :
-    val listener = mock[ArchiveMonitor.ArchiveChangeListener]
+    val listener = mock[ArchiveStateMonitor.ArchiveChangeListener[ArchiveModel.MediaOverview]]
     val helper = new ServiceTestHelper
 
     helper.archiveService.removeChangeListener(listener)
 
-    helper.expectMonitorCommand(ArchiveMonitor.ArchiveListenerCommand.RemoveChangeListener(listener))
+    helper.expectMonitorCommand(ArchiveStateMonitor.ArchiveListenerCommand.RemoveChangeListener(listener))
     succeed
 
   it should "not create a monitor actor if no backoff config is provided" in :
-    val listener = mock[ArchiveMonitor.ArchiveChangeListener]
+    val listener = mock[ArchiveStateMonitor.ArchiveChangeListener[ArchiveModel.MediaOverview]]
     val helper = new ServiceTestHelper(optMonitorBackoff = None)
 
     helper.archiveService.addChangeListener(listener)
@@ -195,8 +193,70 @@ class ArchiveServiceSpec(testSystem: ActorSystem) extends TestKit(testSystem), A
 
     helper.archiveService.close()
 
-    helper.expectMonitorCommand(ArchiveMonitor.ArchiveListenerCommand.Stop)
+    helper.expectMonitorCommand(ArchiveStateMonitor.ArchiveListenerCommand.Stop())
     succeed
+
+  it should "use a request function that uses the passed in request" in :
+    val request = HttpRequest(uri = "/test/request")
+    val helper = new ServiceTestHelper
+
+    val archiveRequest = helper.requestFunc(Some(request))
+
+    archiveRequest should be(request)
+
+  it should "use a request function that creates a standard request if no data is available" in :
+    val expectedRequest = HttpRequest(uri = "/api/archive/media")
+    val helper = new ServiceTestHelper
+
+    val archiveRequest = helper.requestFunc(None)
+
+    archiveRequest should be(expectedRequest)
+
+  it should "use an evaluate function that returns updated data" in :
+    val media = List(
+      ArchiveModel.MediumOverview(Checksums.MediumChecksum("mid-1"), "TestMedium1"),
+      ArchiveModel.MediumOverview(Checksums.MediumChecksum("mid-2"), "TestMedium2"),
+      ArchiveModel.MediumOverview(Checksums.MediumChecksum("mid-3"), "TestMedium3")
+    )
+    val testMediaData = ArchiveModel.MediaOverview(media)
+    val TestTag = "0123456789"
+    val response = HttpResponse(
+      headers = Seq(ETag(EntityTag(TestTag))),
+      entity = HttpEntity(ContentTypes.`application/json`, testMediaData.toJson.prettyPrint)
+    )
+    val helper = new ServiceTestHelper
+
+    helper.evaluateFunc(response, None) map : data =>
+      val expectedRequest = HttpRequest(
+        uri = "/api/archive/media",
+        headers = Seq(`If-None-Match`(EntityTag(TestTag)))
+      )
+      val (request, state) = data.value
+      request should be(expectedRequest)
+      state should be(testMediaData)
+
+  it should "use an evaluate function that handles a 304 response" in :
+    val response = HttpResponse(status = StatusCodes.NotModified)
+    val helper = new ServiceTestHelper
+
+    helper.evaluateFunc(response, None) map : data =>
+      data shouldBe empty
+
+  it should "use an evaluate function that handles a 200 response without an ETag" in :
+    val media = List(
+      ArchiveModel.MediumOverview(Checksums.MediumChecksum("mid-1"), "TestMedium1")
+    )
+    val testMediaData = ArchiveModel.MediaOverview(media)
+    val response = HttpResponse(
+      entity = HttpEntity(ContentTypes.`application/json`, testMediaData.toJson.prettyPrint)
+    )
+    val helper = new ServiceTestHelper
+  
+    helper.evaluateFunc(response, None) map : data =>
+      val expectedRequest = HttpRequest(uri = "/api/archive/media")
+      val (request, state) = data.value
+      request should be(expectedRequest)
+      state should be(testMediaData)
 
   /**
     * A test helper class that manages an instance under test and some required
@@ -212,7 +272,15 @@ class ArchiveServiceSpec(testSystem: ActorSystem) extends TestKit(testSystem), A
       typedTestKit.createTestProbe[HttpRequestSender.HttpCommand]()
 
     /** The probe for the monitoring actor. */
-    private val monitorProbe = typedTestKit.createTestProbe[ArchiveMonitor.ArchiveListenerCommand]()
+    private val monitorProbe =
+      typedTestKit.createTestProbe[ArchiveStateMonitor.ArchiveListenerCommand[ArchiveModel.MediaOverview]]()
+
+    /** Stores the request function passed to the archive monitor. */
+    private var optRequestFunc: Option[ArchiveStateMonitor.RequestFunc[HttpRequest]] = None
+
+    /** Stores the evaluate function passed to the archive monitor. */
+    private var optEvaluateFunc:
+      Option[ArchiveStateMonitor.EvaluateFunc[HttpRequest, ArchiveModel.MediaOverview]] = None
 
     /** The service to be tested. */
     val archiveService: ArchiveServiceImpl = ArchiveServiceImpl.newInstance(
@@ -265,9 +333,27 @@ class ArchiveServiceSpec(testSystem: ActorSystem) extends TestKit(testSystem), A
       * @param command the expected command
       * @return this test helper
       */
-    def expectMonitorCommand(command: ArchiveMonitor.ArchiveListenerCommand): ServiceTestHelper =
+    def expectMonitorCommand(command: ArchiveStateMonitor.ArchiveListenerCommand[ArchiveModel.MediaOverview]):
+    ServiceTestHelper =
       monitorProbe.expectMessage(command)
       this
+
+    /**
+      * Returns the request function that was specified when the archive
+      * monitor was created.
+      *
+      * @return the request function
+      */
+    def requestFunc: ArchiveStateMonitor.RequestFunc[HttpRequest] = optRequestFunc.value
+
+    /**
+      * Returns the evaluate function that was specified when the archive
+      * monitor was created.
+      *
+      * @return the evaluate function
+      */
+    def evaluateFunc: ArchiveStateMonitor.EvaluateFunc[HttpRequest, ArchiveModel.MediaOverview] =
+      optEvaluateFunc.value
 
     /**
       * Returns a factory for the request sender that checks the passed in
@@ -303,16 +389,21 @@ class ArchiveServiceSpec(testSystem: ActorSystem) extends TestKit(testSystem), A
       *
       * @return the factory for the monitor actor
       */
-    private def createStubMonitorFactory(): ArchiveMonitor.Factory =
-      new ArchiveMonitor.Factory {
-        override def apply(params: ArchiveMonitor.ArchiveMonitorParams, actorName: String)
-                          (using actorFactory: ActorFactory): ActorRef[ArchiveMonitor.ArchiveListenerCommand] = {
+    private def createStubMonitorFactory(): ArchiveStateMonitor.Factory =
+      new ArchiveStateMonitor.Factory:
+        override def apply[DATA, STATE](params: ArchiveStateMonitor.Params[DATA, STATE],
+                                        actorName: String)
+                                       (using actorFactory: ActorFactory):
+        ActorRef[ArchiveStateMonitor.ArchiveListenerCommand[STATE]] =
           actorFactory.actorSystem should be(system)
           params.archiveSender should be(senderProbe.ref)
           params.backoffFactory should be(BackoffActor.newInstance)
           params.requestTimeout should be(timeout)
           params.backoffConfig should be(optMonitorBackoff.get)
           actorName should be(ArchiveServiceImpl.MonitorName)
-          monitorProbe.ref
-        }
-      }
+          optRequestFunc = Some(params.requestFunc.asInstanceOf[ArchiveStateMonitor.RequestFunc[HttpRequest]])
+          optEvaluateFunc = Some(
+            params.evaluateFunc
+              .asInstanceOf[ArchiveStateMonitor.EvaluateFunc[HttpRequest, ArchiveModel.MediaOverview]]
+            )
+          monitorProbe.ref.asInstanceOf[ActorRef[ArchiveStateMonitor.ArchiveListenerCommand[STATE]]]

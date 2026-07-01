@@ -18,21 +18,27 @@ package de.oliver_heger.linedj.platform.archiveclient
 
 import com.github.cloudfiles.core.http.HttpRequestSender
 import com.github.cloudfiles.core.http.factory.{HttpRequestSenderConfig, HttpRequestSenderFactory, HttpRequestSenderFactoryImpl, Spawner}
+import de.oliver_heger.linedj.archive.server.model.ArchiveModel
 import org.apache.logging.log4j.LogManager
 import org.apache.pekko.actor as classic
 import org.apache.pekko.actor.typed.scaladsl.adapter.*
 import org.apache.pekko.actor.typed.{ActorRef, ActorSystem}
-import org.apache.pekko.http.scaladsl.model.{HttpRequest, HttpResponse}
+import org.apache.pekko.http.scaladsl.model.headers.{ETag, `If-None-Match`}
+import org.apache.pekko.http.scaladsl.model.{HttpRequest, HttpResponse, StatusCodes}
+import org.apache.pekko.http.scaladsl.unmarshalling.Unmarshal
 import org.apache.pekko.util.Timeout
 
 import scala.concurrent.{ExecutionContext, Future}
 
-private object ArchiveServiceImpl:
+private object ArchiveServiceImpl extends ArchiveModel.ArchiveJsonSupport:
   /** The name that is used for the request sender actor. */
   final val SenderName = "archiveServerClient"
 
   /** The name of the archive monitor actor. */
   final val MonitorName = "archiveMonitor"
+
+  /** The request to query media information from the archive. */
+  private val MediaRequest = HttpRequest(uri = "/api/archive/media")
 
   /** The logger. */
   private val log = LogManager.getLogger(ArchiveServiceImpl.getClass)
@@ -56,7 +62,7 @@ private object ArchiveServiceImpl:
     def apply(uri: String,
               optContentMonitorBackoff: Option[BackoffConfig],
               senderFactory: HttpRequestSenderFactory = HttpRequestSenderFactoryImpl,
-              monitorFactory: ArchiveMonitor.Factory = ArchiveMonitor.newInstance)
+              monitorFactory: ArchiveStateMonitor.Factory = ArchiveStateMonitor.newInstance)
              (using system: classic.ActorSystem, timeout: Timeout): ArchiveServiceImpl
 
   /**
@@ -66,7 +72,7 @@ private object ArchiveServiceImpl:
     override def apply(uri: String,
                        optContentMonitorBackoff: Option[BackoffConfig],
                        senderFactory: HttpRequestSenderFactory,
-                       monitorFactory: ArchiveMonitor.Factory)
+                       monitorFactory: ArchiveStateMonitor.Factory)
                       (using system: classic.ActorSystem, timeout: Timeout): ArchiveServiceImpl =
       val senderConfig = HttpRequestSenderConfig(
         actorName = Some(SenderName)
@@ -74,14 +80,47 @@ private object ArchiveServiceImpl:
       val spawner: Spawner = system
       val sender = senderFactory.createRequestSender(spawner, uri, senderConfig)
       val optMonitor = optContentMonitorBackoff.map: backoff =>
-        val monitorParams = ArchiveMonitor.ArchiveMonitorParams(
+        val monitorParams = ArchiveStateMonitor.Params(
           archiveSender = sender,
           backoffConfig = backoff,
-          requestTimeout = timeout
+          requestTimeout = timeout,
+          requestFunc = createRequest,
+          evaluateFunc = evaluateResponse
         )
         monitorFactory(monitorParams, MonitorName)
 
       new ArchiveServiceImpl(sender, optMonitor, system)
+
+  /**
+    * The function to generate the request for the monitor actor. The managed
+    * data is already the request with a proper if-none-match header.
+    *
+    * @param optData the optional managed data
+    * @return the request to send to the archive
+    */
+  private def createRequest(optData: Option[HttpRequest]): HttpRequest =
+    optData.getOrElse(MediaRequest)
+
+  /**
+    * Returns the function to evaluate the response received from the archive
+    * server. The function checks whether new media data is available.
+    *
+    * @param system the implicit actor system
+    * @return the evaluate function
+    */
+  private def evaluateResponse(using system: classic.ActorSystem):
+  ArchiveStateMonitor.EvaluateFunc[HttpRequest, ArchiveModel.MediaOverview] =
+    given ExecutionContext = system.dispatcher
+
+    (response, optData) =>
+      if response.status != StatusCodes.NotModified then
+        Unmarshal(response).to[ArchiveModel.MediaOverview] map : media =>
+          val nextRequest = response.header[ETag].map: etag =>
+            MediaRequest.withHeaders(Seq(`If-None-Match`(etag.etag)))
+          .getOrElse(MediaRequest)
+          Some(nextRequest, media)
+      else
+        Future.successful(None)
 end ArchiveServiceImpl
 
 /**
@@ -91,12 +130,13 @@ end ArchiveServiceImpl
   * ''close()'' function which should be called when the service is no longer
   * needed.
   *
-  * @param requestSender     the actor for sending requests
-  * @param optArchiveMonitor the optional actor that monitors the archive
-  * @param actorSystem       the actor system
+  * @param requestSender   the actor for sending requests
+  * @param optMonitorActor the optional actor that monitors the archive
+  * @param actorSystem     the actor system
+  * @param timeout         a timeout for sending requests
   */
 private class ArchiveServiceImpl(requestSender: ActorRef[HttpRequestSender.HttpCommand],
-                                 optArchiveMonitor: Option[ActorRef[ArchiveMonitor.ArchiveListenerCommand]],
+                                 override val optMonitorActor: Option[ActorRef[ArchiveStateMonitor.ArchiveListenerCommand[ArchiveModel.MediaOverview]]],
                                  override val actorSystem: classic.ActorSystem)
                                 (using timeout: Timeout) extends ArchiveService, AutoCloseable:
   /** The implicit typed actor system. */
@@ -108,19 +148,6 @@ private class ArchiveServiceImpl(requestSender: ActorRef[HttpRequestSender.HttpC
   override def sendRequest(request: HttpRequest): Future[HttpResponse] =
     HttpRequestSender.sendRequestSuccess(requestSender, request).map(_.response)
 
-  override def addChangeListener(listener: ArchiveMonitor.ArchiveChangeListener): Unit =
-    sendMonitorCommand(ArchiveMonitor.ArchiveListenerCommand.AddChangeListener(listener))
-
-  override def removeChangeListener(listener: ArchiveMonitor.ArchiveChangeListener): Unit =
-    sendMonitorCommand(ArchiveMonitor.ArchiveListenerCommand.RemoveChangeListener(listener))
-
   override def close(): Unit =
     requestSender ! HttpRequestSender.Stop
-    sendMonitorCommand(ArchiveMonitor.ArchiveListenerCommand.Stop)
-
-  private def sendMonitorCommand(command: ArchiveMonitor.ArchiveListenerCommand): Unit =
-    optArchiveMonitor match
-      case Some(monitor) =>
-        monitor ! command
-      case None =>
-        ArchiveServiceImpl.log.info("Ignoring monitor command: {}. No monitor available.", command)
+    optMonitorActor.foreach(_ ! ArchiveStateMonitor.ArchiveListenerCommand.Stop())

@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.platform.archiveclient
 
+import de.oliver_heger.linedj.archive.server.model.ArchiveModel
 import de.oliver_heger.linedj.shared.actors.ActorFactory.executionContext
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.http.scaladsl.model.{HttpRequest, HttpResponse}
@@ -28,10 +29,10 @@ import scala.concurrent.Future
   * server hosting a media archive.
   *
   * This service can be used to send requests to an archive server. This is the
-  * basic functionality. In addition, there are some convenience functions for
-  * frequently used interactions.
+  * basic functionality. In addition, there is functionality to monitor changes
+  * in the media available in the archive.
   */
-trait ArchiveService:
+trait ArchiveService extends MonitorSupport[ArchiveModel.MediaOverview]:
   /**
     * Sends a request to the archive server wrapped by this service and returns
     * a [[Future]] with the response. A failure response returned by the server
@@ -41,21 +42,6 @@ trait ArchiveService:
     * @return a [[Future]] with the response
     */
   def sendRequest(request: HttpRequest): Future[HttpResponse]
-
-  /**
-    * Adds a listener that receives notifications when a change in the content
-    * of the managed archive is detected.
-    *
-    * @param listener the listener to be added
-    */
-  def addChangeListener(listener: ArchiveMonitor.ArchiveChangeListener): Unit
-
-  /**
-    * Removes the specified listener.
-    *
-    * @param listener the listener to remove
-    */
-  def removeChangeListener(listener: ArchiveMonitor.ArchiveChangeListener): Unit
 
   /**
     * A convenience function to send a GET request to the archive server which
@@ -83,3 +69,4 @@ trait ArchiveService:
     * @return the actor system
     */
   protected def actorSystem: ActorSystem 
+  
