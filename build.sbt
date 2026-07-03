@@ -514,7 +514,7 @@ lazy val platform = (project in file("platform"))
     OsgiKeys.privatePackage := Seq.empty,
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
-  ) dependsOn(shared, platformStartup, serverDiscovery, archiveServerModel)
+  ) dependsOn(shared, platformStartup, serverDiscovery, archiveServerModel, archiveServerCloudModel)
 
 /**
   * A project containing startup code for the LineDJ platform. This project
