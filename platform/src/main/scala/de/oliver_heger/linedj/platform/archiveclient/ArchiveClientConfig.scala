@@ -43,6 +43,12 @@ private object ArchiveClientConfig:
   private final val ContentMonitoringSection = "monitor.content"
 
   /**
+    * The key of the subsection in the archive configuration that contains the
+    * properties for monitoring changes in the cloud archive (login) status.
+    */
+  private final val ArchiveStatusMonitoringSection = "monitor.status"
+
+  /**
     * The name of the mandatory configuration property for the multicast
     * address to use for the archive discovery operation.
     */
@@ -140,7 +146,8 @@ private object ArchiveClientConfig:
           )
         ),
         archiveTimeout = extractDurationProperty(clientConfig, PropArchiveTimeout, DefaultArchiveTimeout),
-        optContentMonitorBackoff = extractBackoffConfig(clientConfig, ContentMonitoringSection)
+        optContentMonitorBackoff = extractBackoffConfig(clientConfig, ContentMonitoringSection),
+        optArchiveStatusMonitorBackoff = extractBackoffConfig(clientConfig, ArchiveStatusMonitoringSection)
       )
 
   /**
@@ -228,11 +235,16 @@ private case class BackoffConfig(minBackoff: FiniteDuration,
   * values for missing ones. So, an available section key enables this
   * mechanism even if the section is empty.
   *
-  * @param discoveryParams          the parameters for the discovery operation
-  * @param archiveTimeout           the timeout for requests to the archive
-  * @param optContentMonitorBackoff the optional config for monitoring changes
-  *                                 in the archive's content
+  * @param discoveryParams                the parameters for the discovery
+  *                                       operation
+  * @param archiveTimeout                 the timeout for requests to the
+  *                                       archive
+  * @param optContentMonitorBackoff       the optional config for monitoring
+  *                                       changes in the archive's content
+  * @param optArchiveStatusMonitorBackoff the optional config for monitoring
+  *                                       changes in the cloud archive status
   */
 private case class ArchiveClientConfig(discoveryParams: ServerDiscovery.DiscoveryParams,
                                        archiveTimeout: FiniteDuration,
-                                       optContentMonitorBackoff: Option[BackoffConfig])
+                                       optContentMonitorBackoff: Option[BackoffConfig],
+                                       optArchiveStatusMonitorBackoff: Option[BackoffConfig])

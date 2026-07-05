@@ -38,6 +38,11 @@
                     <maxBackoff>7min</maxBackoff>
                     <factor>1.75</factor>
                 </content>
+                <status>
+                    <minBackoff>11sec</minBackoff>
+                    <maxBackoff>5min</maxBackoff>
+                    <factor>2.1</factor>
+                </status>
             </monitor>
         </mediaArchive>
     </platform>

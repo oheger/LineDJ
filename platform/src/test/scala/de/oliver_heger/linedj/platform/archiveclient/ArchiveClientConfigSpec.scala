@@ -43,9 +43,15 @@ class ArchiveClientConfigSpec extends AnyFlatSpec, Matchers, OptionValues:
       maxBackoff = 7.minutes,
       factor = 1.75
     )
+    val expectedStatusBackoff = BackoffConfig(
+      minBackoff = 11.seconds,
+      maxBackoff = 5.minutes,
+      factor = 2.1
+    )
     config.discoveryParams should be(expectedDiscoveryParams)
     config.archiveTimeout should be(38.seconds)
     config.optContentMonitorBackoff.value should be(expectedContentBackoff)
+    config.optArchiveStatusMonitorBackoff.value should be(expectedStatusBackoff)
 
   it should "handle missing optional backoff configs" in :
     val platformConfig = ArchiveClientConfigTestHelper.testConfig: c =>
@@ -57,7 +63,7 @@ class ArchiveClientConfigSpec extends AnyFlatSpec, Matchers, OptionValues:
   it should "use default values for missing properties in backoff configs" in :
     val platformConfig = ArchiveClientConfigTestHelper.testConfig: c =>
       c.clearTree("platform.mediaArchive.monitor")
-      c.setProperty("platform.mediaArchive.monitor.content", "")
+      c.setProperty("platform.mediaArchive.monitor.status", "")
     val config = ArchiveClientConfig(platformConfig).value
 
-    config.optContentMonitorBackoff.value should be(ArchiveClientConfig.DefaultBackoffConfig)
+    config.optArchiveStatusMonitorBackoff.value should be(ArchiveClientConfig.DefaultBackoffConfig)
