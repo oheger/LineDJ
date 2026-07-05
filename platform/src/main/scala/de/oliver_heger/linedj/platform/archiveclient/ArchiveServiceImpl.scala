@@ -135,7 +135,7 @@ end ArchiveServiceImpl
   * @param actorSystem     the actor system
   * @param timeout         a timeout for sending requests
   */
-private class ArchiveServiceImpl(requestSender: ActorRef[HttpRequestSender.HttpCommand],
+private class ArchiveServiceImpl(override val requestSender: ActorRef[HttpRequestSender.HttpCommand],
                                  override val optMonitorActor: Option[ActorRef[ArchiveStateMonitor.ArchiveListenerCommand[ArchiveModel.MediaOverview]]],
                                  override val actorSystem: classic.ActorSystem)
                                 (using timeout: Timeout) extends ArchiveService, AutoCloseable:

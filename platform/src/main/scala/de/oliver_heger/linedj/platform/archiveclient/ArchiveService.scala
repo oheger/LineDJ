@@ -16,9 +16,11 @@
 
 package de.oliver_heger.linedj.platform.archiveclient
 
+import com.github.cloudfiles.core.http.HttpRequestSender
 import de.oliver_heger.linedj.archive.server.model.ArchiveModel
 import de.oliver_heger.linedj.shared.actors.ActorFactory.executionContext
 import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.actor.typed.ActorRef
 import org.apache.pekko.http.scaladsl.model.{HttpRequest, HttpResponse}
 import org.apache.pekko.http.scaladsl.unmarshalling.{Unmarshal, Unmarshaller}
 
@@ -33,6 +35,9 @@ import scala.concurrent.Future
   * in the media available in the archive.
   */
 trait ArchiveService extends MonitorSupport[ArchiveModel.MediaOverview]:
+  /** The actor for sending requests to the archive. */
+  private[archiveclient] def requestSender: ActorRef[HttpRequestSender.HttpCommand]
+  
   /**
     * Sends a request to the archive server wrapped by this service and returns
     * a [[Future]] with the response. A failure response returned by the server

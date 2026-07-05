@@ -101,6 +101,9 @@ class ArchiveServiceSpec(testSystem: ActorSystem) extends TestKit(testSystem), A
       override protected def optMonitorActor:
       Option[ActorRef[ArchiveStateMonitor.ArchiveListenerCommand[ArchiveModel.MediaOverview]]] = None
 
+      override private[archiveclient] def requestSender: ActorRef[HttpRequestSender.HttpCommand] =
+        throw new UnsupportedOperationException("Unexpected call.")
+
   "queryData" should "handle a request correctly" in :
     val uri = "https://test.example.com/data/request"
     val data = TestData("testName", status = true)

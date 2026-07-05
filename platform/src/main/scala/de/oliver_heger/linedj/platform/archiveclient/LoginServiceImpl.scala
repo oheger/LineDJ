@@ -22,11 +22,30 @@ import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.actor.typed.ActorRef
 import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, HttpMethods, HttpRequest}
 import org.apache.pekko.http.scaladsl.unmarshalling.Unmarshal
+import org.apache.pekko.util.Timeout
 import spray.json.enrichAny
 
 import scala.concurrent.{ExecutionContext, Future}
 
-private object LoginServiceImpl:
+private object LoginServiceImpl extends CloudArchiveModel.CloudArchiveJsonSupport:
+  /**
+    * Type alias for the DATA and STATE types for the monitor actor. For both
+    * types the current cloud archive state is used. The request function does
+    * not depend on any input; always the same request is sent.
+    */
+  private[archiveclient] type MonitorData = CloudArchiveModel.CloudArchiveStateResponse
+
+  /**
+    * The request to be sent by the monitor actor to query the archive status.
+    */
+  private val ArchiveStatusRequest = HttpRequest(uri = "/api/archive/archives/status")
+
+  /** The request function for the monitor actor. */
+  private val MonitorRequestFunc: ArchiveStateMonitor.RequestFunc[MonitorData] = _ => ArchiveStatusRequest
+
+  /** The name of the monitor actor. */
+  final val MonitorActorName = "archiveStateMonitor"
+
   /**
     * A factory trait for creating new instances of [[LoginServiceImpl]].
     */
@@ -35,18 +54,71 @@ private object LoginServiceImpl:
       * Creates a new [[LoginServiceImpl]] instance to interact with the 
       * archive server wrapped by the given [[ArchiveService]].
       *
-      * @param archiveService the service to access the archive
-      * @param system         the actor system
+      * @param archiveService    the service to access the archive
+      * @param optMonitorBackoff optional backoff config for a monitor actor
+      * @param monitorFactory    the factory to create a monitor actor
+      * @param system            the actor system
+      * @param timeout           the timeout for the monitor actor
       * @return the newly created instance
       */
-    def apply(archiveService: ArchiveService)
-             (using system: classic.ActorSystem): LoginServiceImpl
+    def apply(archiveService: ArchiveService,
+              optMonitorBackoff: Option[BackoffConfig],
+              monitorFactory: ArchiveStateMonitor.Factory = ArchiveStateMonitor.newInstance)
+             (using system: classic.ActorSystem, timeout: Timeout): LoginServiceImpl
 
   /** A default [[Factory]] instance to create new service instances. */
   final val newInstance: Factory =
     new Factory:
-      override def apply(archiveService: ArchiveService)(using system: ActorSystem): LoginServiceImpl =
-        new LoginServiceImpl(archiveService)
+      override def apply(archiveService: ArchiveService,
+                         optMonitorBackoff: Option[BackoffConfig],
+                         monitorFactory: ArchiveStateMonitor.Factory = ArchiveStateMonitor.newInstance)
+                        (using system: ActorSystem, timeout: Timeout): LoginServiceImpl =
+        new LoginServiceImpl(archiveService, createMonitorActor(archiveService, optMonitorBackoff, monitorFactory))
+
+  /**
+    * Returns the evaluate function for the monitor actor. The managed data is
+    * extracted from the response entity. It is only returned if it has changed
+    * from the last response.
+    *
+    * @param system the implicit actor system
+    * @return the function to evaluate the monitor response
+    */
+  private def evaluateResponse(using system: classic.ActorSystem):
+  ArchiveStateMonitor.EvaluateFunc[MonitorData, MonitorData] =
+    given ExecutionContext = system.dispatcher
+
+    (response, optData) =>
+      Unmarshal(response).to[MonitorData] map : state =>
+        if optData.contains(state) then
+          None
+        else
+          Some((state, state))
+
+  /**
+    * Creates the monitor actor if a corresponding backoff configuration is
+    * provided.
+    *
+    * @param archiveService    the archive service
+    * @param optMonitorBackoff the optional monitor backoff config
+    * @param monitorFactory    the monitor factory
+    * @param system            the actor system
+    * @param timeout           the timeout for monitor requests
+    * @return an [[Option]] with the monitor actor
+    */
+  private def createMonitorActor(archiveService: ArchiveService,
+                                 optMonitorBackoff: Option[BackoffConfig],
+                                 monitorFactory: ArchiveStateMonitor.Factory)
+                                (using system: ActorSystem, timeout: Timeout):
+  Option[ActorRef[ArchiveStateMonitor.ArchiveListenerCommand[MonitorData]]] =
+    optMonitorBackoff map : backoff =>
+      val params = ArchiveStateMonitor.Params(
+        archiveSender = archiveService.requestSender,
+        backoffConfig = backoff,
+        requestFunc = MonitorRequestFunc,
+        evaluateFunc = evaluateResponse,
+        requestTimeout = timeout
+      )
+      monitorFactory(params, MonitorActorName)
 end LoginServiceImpl
 
 /**
@@ -57,8 +129,10 @@ end LoginServiceImpl
   *
   * @param archiveService the service to interact with the archive server
   */
-private class LoginServiceImpl(archiveService: ArchiveService)
-                              (using system: classic.ActorSystem) extends LoginService,
+private class LoginServiceImpl(archiveService: ArchiveService,
+                               override val optMonitorActor: Option[ActorRef[
+                                 ArchiveStateMonitor.ArchiveListenerCommand[LoginServiceImpl.MonitorData]]])
+                              (using system: classic.ActorSystem) extends LoginService, AutoCloseable,
   CloudArchiveModel.CloudArchiveJsonSupport:
   /** The implicit execution context. */
   private given ExecutionContext = system.dispatcher
@@ -104,5 +178,8 @@ private class LoginServiceImpl(archiveService: ArchiveService)
     archiveService.sendRequest(request) flatMap : response =>
       Unmarshal(response).to[CloudArchiveModel.CredentialsInfo]
 
-  override protected def optMonitorActor:
-  Option[ActorRef[ArchiveStateMonitor.ArchiveListenerCommand[CloudArchiveModel.CloudArchiveStateResponse]]] = None
+  /**
+    * @inheritdoc This implementation closes the monitor actor if it exists.
+    */
+  override def close(): Unit =
+    optMonitorActor.foreach(_ ! ArchiveStateMonitor.ArchiveListenerCommand.Stop())
