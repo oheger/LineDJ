@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.platform.archiveclient
 
+import de.oliver_heger.linedj.archive.server.cloud.model.CloudArchiveModel
 import de.oliver_heger.linedj.platform.startup.ConfigService
 import de.oliver_heger.linedj.server.discovery.ServerDiscovery
 import org.apache.commons.configuration2.{BaseHierarchicalConfiguration, ImmutableHierarchicalConfiguration}
@@ -33,8 +34,8 @@ import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
-import scala.concurrent.Promise
 import scala.concurrent.duration.DurationInt
+import scala.concurrent.{Future, Promise}
 
 object ArchiveClientComponentSpec:
   /** The URI returned for the archive by the test discovery. */
@@ -45,12 +46,19 @@ object ArchiveClientComponentSpec:
     * config.
     */
   private val ArchiveTimeout = Timeout(38.seconds)
-  
+
   /** The default archive monitor backoff config. */
   private val ArchiveMonitorBackoff = BackoffConfig(
     minBackoff = 7.seconds,
     maxBackoff = 7.minutes,
     factor = 1.75
+  )
+
+  /** The default login status monitor backoff config. */
+  private val StatusMonitorBackoff = BackoffConfig(
+    minBackoff = 11.seconds,
+    maxBackoff = 5.minutes,
+    factor = 2.1
   )
 end ArchiveClientComponentSpec
 
@@ -58,7 +66,7 @@ end ArchiveClientComponentSpec
   * Test class for [[ArchiveClientComponent]].
   */
 class ArchiveClientComponentSpec(testSystem: ActorSystem) extends TestKit(testSystem), AnyFlatSpecLike,
-  BeforeAndAfterAll, Matchers, MockitoSugar:
+  BeforeAndAfterAll, Matchers, MockitoSugar, CloudArchiveModel.CloudArchiveJsonSupport:
   def this() = this(ActorSystem("ArchiveClientComponentSpec"))
 
   override protected def afterAll(): Unit =
@@ -142,6 +150,15 @@ class ArchiveClientComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
     helper.activate()
       .succeedDiscovery()
       .verifyArchiveServiceRegistration()
+      .verifyNoLoginServiceCreation()
+
+  it should "create and register a login service if status information is available" in :
+    val helper = new ComponentTestHelper
+
+    helper.initLoginServiceAvailable(available = true)
+      .activate()
+      .succeedDiscovery()
+      .verifyLoginServiceRegistration()
 
   it should "set a default timeout for the archive service if not specified in the client config" in :
     val config = ArchiveClientConfigTestHelper.testConfig: c =>
@@ -150,15 +167,18 @@ class ArchiveClientComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
 
     helper.initConfiguration(config)
       .initArchiveFactory(archiveTimeout = ArchiveClientConfig.DefaultArchiveTimeout)
+      .initLoginServiceFactory(monitorTimeout = ArchiveClientConfig.DefaultArchiveTimeout)
+      .initLoginServiceAvailable(available = true)
       .activate()
       .succeedDiscovery()
       .verifyArchiveServiceRegistration()
-    
-  it should "create an archive service without a content monitor actor" in:
+      .verifyLoginServiceRegistration()
+
+  it should "create an archive service without a content monitor actor" in :
     val config = ArchiveClientConfigTestHelper.testConfig: c =>
       c.clearTree("platform.mediaArchive.monitor")
     val helper = new ComponentTestHelper
-    
+
     helper.initConfiguration(config)
       .initArchiveFactory(optBackoffConf = None)
       .activate()
@@ -182,7 +202,39 @@ class ArchiveClientComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
       .verifyArchiveServiceRegistration()
       .deactivate()
       .verifyArchiveServiceClosed()
-  
+
+  it should "create a login service without a status monitor actor" in :
+    val config = ArchiveClientConfigTestHelper.testConfig: c =>
+      c.clearTree("platform.mediaArchive.monitor.status")
+    val helper = new ComponentTestHelper
+
+    helper.initConfiguration(config)
+      .initLoginServiceFactory(optBackoffConf = None)
+      .initLoginServiceAvailable(available = true)
+      .activate()
+      .succeedDiscovery()
+      .verifyLoginServiceRegistration()
+
+  it should "unregister a registered login service on deactivation" in :
+    val helper = new ComponentTestHelper
+
+    helper.initLoginServiceAvailable(available = true)
+      .activate()
+      .succeedDiscovery()
+      .verifyLoginServiceRegistration()
+      .deactivate()
+      .verifyLoginServiceUnregistration()
+
+  it should "close the login service on deactivation" in :
+    val helper = new ComponentTestHelper
+
+    helper.initLoginServiceAvailable(available = true)
+      .activate()
+      .succeedDiscovery()
+      .verifyLoginServiceRegistration()
+      .deactivate()
+      .verifyLoginServiceClosed()
+
   /**
     * A test helper class that manages a test component instance and its 
     * dependencies.
@@ -209,6 +261,15 @@ class ArchiveClientComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
     /** Mock for the registration of the archive service. */
     private val archiveServiceRegistration = mock[ServiceRegistration[ArchiveService]]
 
+    /** The mock for the login service. */
+    private val loginService = mock[LoginServiceImpl]
+
+    /** The mock for the login service factory. */
+    private val loginServiceFactory = mock[LoginServiceImpl.Factory]
+
+    /** Mock for the registration of the login service. */
+    private val loginServiceRegistration = mock[ServiceRegistration[LoginService]]
+
     /** The mock bundle context. */
     private val bundleContext = createBundleContext()
 
@@ -220,12 +281,15 @@ class ArchiveClientComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
 
     component.initActorSystem(system)
     initArchiveFactory()
+    initLoginServiceFactory()
+    initLoginServiceAvailable(available = false)
     initConfiguration()
 
     /**
       * Prepares the mock for the archive factory to expect an invocation.
       * The function only needs to be called if a non-standard timeout is
       * desired.
+      *
       * @param optBackoffConf the optional archive monitor backoff config
       * @param archiveTimeout the archive timeout
       * @return this test helper
@@ -243,6 +307,26 @@ class ArchiveClientComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
       this
 
     /**
+      * Prepares the mock for the login service factory to expect an invocation
+      * with the provided parameters. The function only needs to be called if
+      * an invocation with non-standard parameters is expected.
+      *
+      * @param optBackoffConf the optional status monitor backoff config
+      * @param monitorTimeout the timeout for the monitor
+      * @return this test helper
+      */
+    final def initLoginServiceFactory(optBackoffConf: Option[BackoffConfig] = Some(StatusMonitorBackoff),
+                                      monitorTimeout: Timeout = ArchiveTimeout): ComponentTestHelper =
+      reset(loginServiceFactory)
+      when(loginServiceFactory.apply(
+          argEq(archiveService),
+          argEq(optBackoffConf),
+          any()
+        )
+        (using argEq(system), argEq(monitorTimeout))).thenReturn(loginService)
+      this
+
+    /**
       * Invokes the test component to initialize the configuration service 
       * based on the given configuration. Using this function, a non-standard
       * configuration can be passed.
@@ -250,7 +334,7 @@ class ArchiveClientComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
       * @param platformConfig the configuration to be used
       * @return this test helper
       */
-    final def initConfiguration(platformConfig: ImmutableHierarchicalConfiguration = 
+    final def initConfiguration(platformConfig: ImmutableHierarchicalConfiguration =
                                 ArchiveClientConfigTestHelper.defaultTestConfig): ComponentTestHelper =
       val configService = new ConfigService:
         override def config: ImmutableHierarchicalConfiguration = platformConfig
@@ -324,8 +408,7 @@ class ArchiveClientComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
       * @return this test helper
       */
     def verifyArchiveServiceRegistration(): ComponentTestHelper =
-      verify(bundleContext, timeout(3000)).registerService(classOf[ArchiveService], archiveService, null)
-      this
+      verifyServiceRegistration(classOf[ArchiveService], archiveService)
 
     /**
       * Verifies that the archive service has been unregistered.
@@ -342,7 +425,88 @@ class ArchiveClientComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
       * @return this test helper
       */
     def verifyArchiveServiceClosed(): ComponentTestHelper =
-      verify(archiveService).close()
+      verifyServiceClosed(archiveService)
+
+    /**
+      * Prepares the mock for the archive service to expect a request for the
+      * archive login status. Depending on the given flag, the response is 
+      * either 404 or a success response.
+      *
+      * @param available flag whether the login service should be available
+      * @return this test helper
+      */
+    def initLoginServiceAvailable(available: Boolean): ComponentTestHelper =
+      val result = if available then
+        val statusData = CloudArchiveModel.CloudArchiveStateResponse(
+          waitingArchives = Set.empty,
+          loadedArchives = Set.empty,
+          failedArchives = Set.empty
+        )
+        Future.successful(statusData)
+      else
+        Future.failed(new IllegalStateException("Failed request."))
+
+      when(
+        archiveService.queryData[CloudArchiveModel.CloudArchiveStateResponse](argEq("/api/archive/archives/status"))
+          (using any())
+      )
+        .thenReturn(result)
+      this
+
+    /**
+      * Verifies that the login service was registered as OSGi service.
+      *
+      * @return this test helper
+      */
+    def verifyLoginServiceRegistration(): ComponentTestHelper =
+      verifyServiceRegistration(classOf[LoginService], loginService)
+
+    /**
+      * Verifies that the login service has been unregistered.
+      *
+      * @return this test helper
+      */
+    def verifyLoginServiceUnregistration(): ComponentTestHelper =
+      verify(loginServiceRegistration).unregister()
+      this
+
+    /**
+      * Verifies that no login service has been created.
+      *
+      * @return this test helper
+      */
+    def verifyNoLoginServiceCreation(): ComponentTestHelper =
+      verify(loginServiceFactory, never()).apply(any(), any(), any())(using any(), any())
+      this
+
+    /**
+      * Verifies that the login service has been closed.
+      *
+      * @return this test helper
+      */
+    def verifyLoginServiceClosed(): ComponentTestHelper =
+      verifyServiceClosed(loginService)
+
+    /**
+      * Verifies that the service of the given class has been registered.
+      *
+      * @param svcClass the service class
+      * @param svc      the service instance
+      * @tparam A the type of the service
+      * @return this test helper
+      */
+    private def verifyServiceRegistration[A](svcClass: Class[A], svc: A): ComponentTestHelper =
+      verify(bundleContext, timeout(3000)).registerService(svcClass, svc, null)
+      this
+
+    /**
+      * Verifies that the given service has been properly closed.
+      *
+      * @param service the service
+      * @return this test helper
+      */
+    private def verifyServiceClosed(service: AutoCloseable): ComponentTestHelper =
+      verify(service).close()
       this
 
     /**
@@ -379,6 +543,7 @@ class ArchiveClientComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
     private def createBundleContext(): BundleContext =
       val bc = mock[BundleContext]
       when(bc.registerService(classOf[ArchiveService], archiveService, null)).thenReturn(archiveServiceRegistration)
+      when(bc.registerService(classOf[LoginService], loginService, null)).thenReturn(loginServiceRegistration)
       bc
 
     /**
@@ -400,5 +565,6 @@ class ArchiveClientComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
     private def createComponent(): ArchiveClientComponent =
       new ArchiveClientComponent(
         discoveryFactory = discoveryFactory,
-        archiveServiceFactory = archiveServiceFactory
+        archiveServiceFactory = archiveServiceFactory,
+        loginServiceFactory = loginServiceFactory
       )

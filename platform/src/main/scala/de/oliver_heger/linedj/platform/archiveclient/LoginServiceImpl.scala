@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.platform.archiveclient
 
 import de.oliver_heger.linedj.archive.server.cloud.model.CloudArchiveModel
+import de.oliver_heger.linedj.platform.archiveclient.LoginServiceImpl.queryArchiveState
 import org.apache.pekko.actor as classic
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.actor.typed.ActorRef
@@ -74,6 +75,16 @@ private object LoginServiceImpl extends CloudArchiveModel.CloudArchiveJsonSuppor
                          monitorFactory: ArchiveStateMonitor.Factory = ArchiveStateMonitor.newInstance)
                         (using system: ActorSystem, timeout: Timeout): LoginServiceImpl =
         new LoginServiceImpl(archiveService, createMonitorActor(archiveService, optMonitorBackoff, monitorFactory))
+
+  /**
+    * Queries the current archive login state using the given archive service.
+    *
+    * @param archiveService the archive service
+    * @return a [[Future]] with the archive login state
+    */
+  private[archiveclient] def queryArchiveState(archiveService: ArchiveService):
+  Future[CloudArchiveModel.CloudArchiveStateResponse] =
+    archiveService.queryData("/api/archive/archives/status")
 
   /**
     * Returns the evaluate function for the monitor actor. The managed data is
@@ -156,7 +167,7 @@ private class LoginServiceImpl(archiveService: ArchiveService,
     * @return a [[Future]] with information about the cloud archive state
     */
   override def cloudArchiveState: Future[CloudArchiveModel.CloudArchiveStateResponse] =
-    archiveService.queryData("/api/archive/archives/status")
+    queryArchiveState(archiveService)
 
   /**
     * Allows setting credentials to unlock cloud archives. The provided map is

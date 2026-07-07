@@ -16,13 +16,14 @@
 
 package de.oliver_heger.linedj.platform.archiveclient
 
-import de.oliver_heger.linedj.platform.archiveclient.ArchiveClientComponent.{ArchiveServiceRegistrationData, log}
+import de.oliver_heger.linedj.platform.archiveclient.ArchiveClientComponent.{ServiceRegistrationData, log}
 import de.oliver_heger.linedj.platform.startup.ConfigService
 import de.oliver_heger.linedj.server.discovery.ServerDiscovery
 import de.oliver_heger.linedj.shared.actors.ActorFactory
 import org.apache.commons.configuration2.ImmutableHierarchicalConfiguration
 import org.apache.logging.log4j.LogManager
 import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.util.Timeout
 import org.osgi.framework.{BundleContext, ServiceRegistration}
 import org.osgi.service.component.ComponentContext
 
@@ -38,14 +39,31 @@ object ArchiveClientComponent:
   private val log = LogManager.getLogger(classOf[ArchiveClientComponent])
 
   /**
-    * A data class holding information about the registration of the archive
-    * service. This is used for cleanup when the component is deactivated.
+    * A data class holding information about the registration of a  service
+    * managed by this component. This is used for cleanup when the component is
+    * deactivated.
     *
     * @param serviceRegistration the OSGi service registration
-    * @param service             the archive service
+    * @param service             the reference to the service
+    * @tparam T the concrete type of the service
+    * @tparam R the base type of the registration
     */
-  private case class ArchiveServiceRegistrationData(serviceRegistration: ServiceRegistration[ArchiveService],
-                                                    service: ArchiveServiceImpl)
+  private case class ServiceRegistrationData[T <: AutoCloseable, R >: T](serviceRegistration: ServiceRegistration[R],
+                                                                         service: T)
+
+  /**
+    * Performs an unregistration of the service in the given reference if it is
+    * defined.
+    *
+    * @param ref the reference
+    * @tparam T the type of the service
+    * @tparam R the type of the registration
+    */
+  private def unregister[T <: AutoCloseable, R >: T](ref: AtomicReference[ServiceRegistrationData[T, R]]): Unit =
+    Option(ref.get()) foreach : registration =>
+      log.info("Unregistering service {}.", registration.service.getClass.getSimpleName)
+      registration.serviceRegistration.unregister()
+      registration.service.close()
 end ArchiveClientComponent
 
 /**
@@ -60,10 +78,12 @@ end ArchiveClientComponent
   * class registers services at the OSGi registry to interact with the archive.
   *
   * @param discoveryFactory      the factory to start a discovery operation
-  * @param archiveServiceFactory the factory to create archive service
+  * @param archiveServiceFactory the factory to create the archive service
+  * @param loginServiceFactory   the factory to create the login service
   */
 class ArchiveClientComponent(discoveryFactory: ServerDiscovery.Factory,
-                             archiveServiceFactory: ArchiveServiceImpl.Factory):
+                             archiveServiceFactory: ArchiveServiceImpl.Factory,
+                             loginServiceFactory: LoginServiceImpl.Factory):
   /** The actor system of the platform. */
   private var actorSystem: ActorSystem = uninitialized
 
@@ -79,12 +99,20 @@ class ArchiveClientComponent(discoveryFactory: ServerDiscovery.Factory,
     * that this data needs to be accessible from multiple threads; therefore,
     * it is hold by an atomic reference.
     */
-  private val archiveRegistration = new AtomicReference[ArchiveServiceRegistrationData]
+  private val archiveServiceRegistration =
+    new AtomicReference[ServiceRegistrationData[ArchiveServiceImpl, ArchiveService]]
+
+  /**
+    * Stores data about a registration of the login service. This is analogous
+    * to the registration data of the archive service.
+    */
+  private val loginServiceRegistration =
+    new AtomicReference[ServiceRegistrationData[LoginServiceImpl, LoginService]]
 
   /**
     * The default constructor needed by OSGi.
     */
-  def this() = this(ServerDiscovery.discover, ArchiveServiceImpl.newInstance)
+  def this() = this(ServerDiscovery.discover, ArchiveServiceImpl.newInstance, LoginServiceImpl.newInstance)
 
   import ArchiveClientComponent.*
 
@@ -118,10 +146,8 @@ class ArchiveClientComponent(discoveryFactory: ServerDiscovery.Factory,
   def deactivate(componentContext: ComponentContext): Unit =
     log.info("Deactivating {}.", getClass.getSimpleName)
     optDiscoveryHandle.foreach(_.close())
-    Option(archiveRegistration.get()) foreach : registration =>
-      log.info("Unregistering archive service.")
-      registration.serviceRegistration.unregister()
-      registration.service.close()
+    unregister(loginServiceRegistration)
+    unregister(archiveServiceRegistration)
 
   /**
     * Initializes the actor system of this component. This function is called
@@ -160,4 +186,34 @@ class ArchiveClientComponent(discoveryFactory: ServerDiscovery.Factory,
       val archiveService = archiveServiceFactory(archiveUri, clientConfig.optContentMonitorBackoff)
         (using actorSystem, clientConfig.archiveTimeout)
       val registration = bundleContext.registerService(classOf[ArchiveService], archiveService, null)
-      archiveRegistration.set(ArchiveServiceRegistrationData(registration, archiveService))
+      archiveServiceRegistration.set(ServiceRegistrationData(registration, archiveService))
+
+      createAndRegisterLoginService(archiveService, clientConfig, bundleContext)
+
+  /**
+    * Checks whether the archive server supports a login state for cloud
+    * archives. If so, the function creates and registers a [[LoginService]] in
+    * the OSGi registry.
+    *
+    * @param archiveService the archive service
+    * @param clientConfig   the archive client configuration
+    * @param bundleContext  the bundle context
+    * @param ec             the execution context
+    */
+  private def createAndRegisterLoginService(archiveService: ArchiveService,
+                                            clientConfig: ArchiveClientConfig,
+                                            bundleContext: BundleContext)
+                                           (using ec: ExecutionContext): Unit =
+    LoginServiceImpl.queryArchiveState(archiveService) foreach : _ =>
+      log.info("Archive server supports login information. Registering a LoginService.")
+
+      given ActorSystem = actorSystem
+
+      given Timeout = clientConfig.archiveTimeout
+
+      val loginService = loginServiceFactory(
+        archiveService,
+        clientConfig.optArchiveStatusMonitorBackoff
+      )
+      val registration = bundleContext.registerService(classOf[LoginService], loginService, null)
+      loginServiceRegistration.set(ServiceRegistrationData(registration, loginService))
