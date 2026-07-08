@@ -77,6 +77,10 @@ described later on.
 === Client for the media archive
 If configured, this module starts a discovery operation to locate an HTTP server with media files in the local network. When this operation yields a success result, the module registers a service instance of type xref:src/main/scala/de/oliver_heger/linedj/platform/archiveclient/ArchiveService.scala[ArchiveService] that allows interaction with the media archive. Applications can declare a dependency to this service and by that gain access to the media archive.
 
+If the archive server supports extended functionality related to cloud archives, the archive client adds another service to the OSGi registry: a xref:src/main/scala/de/oliver_heger/linedj/platform/archiveclient/LoginService.scala[LoginService]. This service allows querying the state of managed cloud archives and setting credentials for them. That way, cloud archives can be unlocked, so that their content becomes available.
+
+Both, the `ArchiveService` and the `LoginService` support registering listeners for relevant changes in the state of the associated archive server. This can be used for instance by UI applications to update their view when new data becomes available.
+
 === Central configuration
 
 The client application context offers a way to query or store central
@@ -306,6 +310,18 @@ The platform configuration file is expected to be an XML file containing a secti
                 <maxBackoff>5min</maxBackoff>
             </discovery>
             <requestTimeout>38s</requestTimeout>
+            <monitor>
+                <content>
+                    <minBackoff>2sec</minBackoff>
+                    <maxBackoff>2min</maxBackoff>
+                    <factor>2</factor>
+                </content>
+                <status>
+                    <minBackoff>5sec</minBackoff>
+                    <maxBackoff>3min</maxBackoff>
+                    <factor>2</factor>
+                </status>
+            </monitor>
         </mediaArchive>
     </platform>
 </configuration>
@@ -353,4 +369,19 @@ Table <<tab_platform_config>> lists the configuration options supported by the _
 | mediaArchive / requestTimeout
 | This property determines the timeout when sending requests to the media archive server. The archive client service considers requests that are not answered in this time as failed.
 | 30 sec
+
+| mediaArchive / monitor
+a| This section can be used to define monitor components that check for specific state changes on the archive server. If a change is detected, the components can trigger registered event listeners. There are multiple components available:
+
+* A _content_ monitor: This component detects changes in the set of media managed by the archive server. So, if new media become available, it triggers a change event.
+* A _state_ monitor: This monitor is only active if the archive server supports cloud archives that need to be unlocked before their content can be accessed. It triggers notifications if credentials for cloud archives have been provided. In many cases, this will also cause changes in the archive’s content, because new data can then be loaded from the unlocked archives.
+
+A monitor declaration consists of multiple properties defining the interval in which the archive server is polled for changes. Polling is done with an exponential backoff. The underlying assumption is that changes typically happen in a batch, and then the state remains constant for a while again. (For instance, when providing new credentials, data is loaded causing updates in the content of the archive.) The following properties can be set:
+
+* _minBackoff_: This is the initial and minimum delay between two checks against the archive server. If a check yields changes, the delay is reset to this minimum; otherwise, it is increased.
+* _maxBackoff_: This is the maximum delay between two checks.
+* _factor_: If a check yields no changes, the current delay is multiplied with this factor to compute the next delay. That way, delays become longer and longer until they reach the configured _maxBackoff_.
+
+Per default, monitoring is disabled. By just defining empty elements for _content_ or _state_, the corresponding components can be enabled with default values.
+| None
 |====
