@@ -18,6 +18,7 @@ package de.oliver_heger.linedj.player.server
 
 import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioPlayerConfig, RadioSourceConfig}
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
+import de.oliver_heger.linedj.player.server.ControllerSpec.TestConfigFile
 import de.oliver_heger.linedj.server.common.{ServerController, ServerLocator}
 import de.oliver_heger.linedj.shared.actors.ManagingActorFactory
 import de.oliver_heger.linedj.utils.SystemPropertyAccess
@@ -32,8 +33,13 @@ import org.scalatest.{Assertion, BeforeAndAfterAll, OptionValues}
 import org.scalatestplus.mockito.MockitoSugar
 
 import java.io.File
-import java.nio.file.Paths
+import java.nio.file.{Path, Paths}
 import scala.concurrent.Future
+
+object ControllerSpec:
+  /** The name of the test configuration file from resources. */
+  private val TestConfigFile = "test-server-config.xml"
+end ControllerSpec
 
 /**
   * Test class for [[Controller]].
@@ -106,28 +112,23 @@ class ControllerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with A
     * @return the test controller
     */
   private def createController(serviceFactory: ServiceFactory,
-                               configFileName: Option[String] = None): Controller =
+                               configFileName: Option[String] = Some(TestConfigFile)): Controller =
     new Controller(serviceFactory) with SystemPropertyAccess:
       override def getSystemProperty(key: String): Option[String] =
         key should be(Controller.PropConfigFileName)
         configFileName
 
-  "Controller" should "create a configuration from the default location" in :
-    val expectedConfig = PlayerServerConfig(PlayerServerConfig.DefaultConfigFileName, null, null)
+  "Controller" should "use the default configuration name" in :
+    val controller = createController(mock, configFileName = None)
+    
+    controller.configName should be(PlayerServerConfig.DefaultConfigFileName)
+
+  it should "create a configuration from an alternative location" in :
+    val expectedConfig = PlayerServerConfig(TestConfigFile, null, null)
     val serviceFactory = mock[ServiceFactory]
     doReturn(Future.successful(mock[RadioPlayer])).when(serviceFactory).createRadioPlayer(any())(using any())
 
     val controller = createController(serviceFactory)
-    controller.createContext(using createServices()) map : context =>
-      checkConfig(context.config, expectedConfig)
-
-  it should "create a configuration from an alternative location" in :
-    val alternativeConfigName = "test-server-config.xml"
-    val expectedConfig = PlayerServerConfig(alternativeConfigName, null, null)
-    val serviceFactory = mock[ServiceFactory]
-    doReturn(Future.successful(mock[RadioPlayer])).when(serviceFactory).createRadioPlayer(any())(using any())
-
-    val controller = createController(serviceFactory, Some(alternativeConfigName))
     controller.createContext(using createServices()) map : context =>
       checkConfig(context.config, expectedConfig)
 

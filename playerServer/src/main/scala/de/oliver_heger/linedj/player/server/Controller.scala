@@ -99,6 +99,16 @@ class Controller(serviceFactory: ServiceFactory) extends ServerController:
       Process(command).run()
 
   /**
+    * Returns the name of the configuration file loaded by this instance. The
+    * name is obtained from the [[PropConfigFileName]] system property. If it
+    * is unset, a default name is used.
+    *
+    * @return the name of the configuration file
+    */
+  private[server] def configName: String =
+    getSystemProperty(PropConfigFileName) getOrElse PlayerServerConfig.DefaultConfigFileName
+
+  /**
     * Loads the configuration of the server asynchronously using the name
     * defined by a system property.
     *
@@ -106,6 +116,6 @@ class Controller(serviceFactory: ServiceFactory) extends ServerController:
     * @return a [[Future]] with the server configuration
     */
   private def loadServerConfig(using services: ServerController.ServerServices): Future[PlayerServerConfig] = Future:
-    val configName = getSystemProperty(PropConfigFileName) getOrElse PlayerServerConfig.DefaultConfigFileName
-    log.info("Loading PlayerServerConfig from '{}'.", configName)
-    PlayerServerConfig(configName, null, services.managingActorFactory)
+    val configFileName = configName
+    log.info("Loading PlayerServerConfig from '{}'.", configFileName)
+    PlayerServerConfig(configFileName, null, services.managingActorFactory)
