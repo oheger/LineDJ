@@ -237,7 +237,6 @@ lazy val LineDJ = (project in file("."))
   playerEngineConfig,
   playerServer,
   playlistEditor,
-  playerEngineConfig,
   protocolOneDrive,
   protocolWebDav,
   radioPlayer,
