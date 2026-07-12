@@ -15,8 +15,8 @@
  */
 
 import OsgiImagePlugin.autoImport.module
-import com.typesafe.sbt.osgi.OsgiKeys
-import com.typesafe.sbt.osgi.SbtOsgi.*
+import com.github.sbt.osgi.OsgiKeys
+import com.github.sbt.osgi.SbtOsgi.*
 
 /**
   * An object with settings related to OSGi.

@@ -25,5 +25,5 @@ jobs:
         with:
           name: player-server-${{ matrix.os }}
           path: |
-            playerServer/target/graalvm-native-image/*
-            !playerServer/target/graalvm-native-image/*.txt
+            playerServer/target/out/jvm/*/playerServer/graalvm-native-image/*
+            !playerServer/target/out/jvm/*/playerServer/graalvm-native-image/*.txt

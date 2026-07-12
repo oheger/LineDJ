@@ -13,8 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-addSbtPlugin("com.github.sbt" % "sbt-osgi" % "0.9.11")
+addSbtPlugin("com.github.sbt" % "sbt-osgi" % "0.11.0-RC1")
 
-addSbtPlugin("com.eed3si9n" % "sbt-assembly" % "2.1.5")
+addSbtPlugin("com.eed3si9n" % "sbt-assembly" % "2.3.1")
 
-addSbtPlugin("com.github.sbt" % "sbt-native-packager" % "1.11.1")
+addSbtPlugin("com.github.sbt" % "sbt-native-packager" % "1.11.7")

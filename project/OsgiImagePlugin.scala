@@ -14,14 +14,13 @@
  * limitations under the License.
  */
 
-import com.typesafe.sbt.osgi.OsgiKeys
-import sbt.Keys._
+import com.github.sbt.osgi.OsgiKeys
+import sbt.*
+import sbt.Keys.{buildDependencies, streams, target, thisProjectRef, update}
 import sbt.internal.util.ManagedLogger
 import sbt.librarymanagement.{DependencyFilter, ModuleFilter}
-import sbt.{Def, _}
 
 import java.util.jar.{Attributes, JarFile}
-import scala.language.postfixOps
 
 /**
   * A project- internally plugin that supports the creation of OSGi images.
@@ -54,7 +53,7 @@ import scala.language.postfixOps
   *  - The root path in which all OSGi image templates are located is defined
   *    by the ''osgi.image.rootPath'' system property.
   */
-object OsgiImagePlugin extends AutoPlugin {
+object OsgiImagePlugin extends AutoPlugin:
   /** The system property that defines the root path of source OSGi images. */
   val PropImageRoot = "osgi.image.rootPath"
 
@@ -81,21 +80,20 @@ object OsgiImagePlugin extends AutoPlugin {
     * @param orgSpec  optional filter spec for organizations
     * @param nameSpec optional filter spec for names
     */
-  case class ModuleDesc(orgSpec: Option[String], nameSpec: Option[String]) {
-    def filter: ModuleFilter = {
-      (for {
+  case class ModuleDesc(orgSpec: Option[String], nameSpec: Option[String]):
+    def filter: ModuleFilter =
+      (for
         org <- orgSpec
         n <- nameSpec
-      } yield (org, n)) match {
+      yield (org, n)) match
         case Some((orgFilter, nameFilter)) => moduleFilter(organization = orgFilter, name = nameFilter)
         case None =>
           orgSpec.map(org => moduleFilter(org))
             .getOrElse(nameSpec.map(n => moduleFilter(name = n)).getOrElse(moduleFilter()))
-      }
-    }
-  }
+    end filter
+  end ModuleDesc
 
-  object autoImport {
+  object autoImport:
     /** Setting to exclude modules from 3rd party dependencies. */
     lazy val excludedModules = settingKey[Seq[ModuleDesc]]("Defines the modules to be excluded")
 
@@ -122,19 +120,21 @@ object OsgiImagePlugin extends AutoPlugin {
       */
     lazy val osgiImage = taskKey[Unit]("Generates an OSGi image for the current project")
 
-    lazy val baseOsgiImageSettings: Seq[Def.Setting[_]] = Seq(
+    lazy val baseOsgiImageSettings: Seq[Def.Setting[?]] = Seq(
       excludedModules := Nil,
       bundleDir := DefaultBundleDirectory,
       sourceImagePaths := Nil,
-      osgiImage := {
+      osgiImage := Def.uncached {
         val dependencies = update.value.matching(createDependenciesFilter(excludedModules.value))
         val projectFiles = runTaskOnAffectedProjects(OsgiKeys.bundle).value
           .filter(_.isDefined)
           .map(_.get)
+          .map(ref => toFile(ref))
         buildOsgiImage(dependencies, projectFiles, target.value, bundleDir.value, sourceImagePaths.value,
           streams.value.log)
       }
     )
+    end baseOsgiImageSettings
 
     /**
       * Convenience function to generate a ''ModuleDesc'' object.
@@ -143,21 +143,21 @@ object OsgiImagePlugin extends AutoPlugin {
       * @param name         the name filter of the module
       * @return the resulting ''ModuleDesc''
       */
-    def module(organization: String = "", name: String = ""): ModuleDesc = {
+    def module(organization: String = "", name: String = ""): ModuleDesc =
       def optString(s: String): Option[String] =
-        if (s.isEmpty) None else Some(s)
+        if s.isEmpty then None else Some(s)
 
       ModuleDesc(optString(organization), optString(name))
-    }
-  }
+    end module
+  end autoImport
 
-  import autoImport._
+  import autoImport.*
 
   override def trigger: PluginTrigger = noTrigger
 
   override def requires: Plugins = empty
 
-  override def projectSettings: Seq[Def.Setting[_]] = baseOsgiImageSettings
+  override def projectSettings: Seq[Def.Setting[?]] = baseOsgiImageSettings
 
   /**
     * Creates a filter for the 3rd party dependencies to be added to the
@@ -166,12 +166,12 @@ object OsgiImagePlugin extends AutoPlugin {
     * @param exclusions the sequence with modules to be excluded
     * @return the resulting dependencies filter
     */
-  private def createDependenciesFilter(exclusions: Seq[ModuleDesc]): DependencyFilter = {
+  private def createDependenciesFilter(exclusions: Seq[ModuleDesc]): DependencyFilter =
     val configs = configurationFilter("compile")
     val artifacts = artifactFilter(`type` = "jar" | "bundle")
     val modules = createModuleFilter(exclusions)
     configs && artifacts && modules
-  }
+  end createDependenciesFilter
 
   /**
     * Creates a filter based on the modules to be excluded.
@@ -181,6 +181,7 @@ object OsgiImagePlugin extends AutoPlugin {
     */
   private def createModuleFilter(exclusions: Seq[ModuleDesc]): ModuleFilter =
     exclusions.foldLeft(moduleFilter()) { (filter, module) => filter - module.filter }
+  end createModuleFilter
 
   /**
     * Creates a dynamic task that runs the given task on the projects the
@@ -192,12 +193,13 @@ object OsgiImagePlugin extends AutoPlugin {
     * @tparam T the result type of the task to execute
     * @return a task for obtaining bundle jars of dependent projects
     */
-  private def runTaskOnAffectedProjects[T](task: TaskKey[T]): Def.Initialize[Task[Seq[Option[T]]]] = Def.taskDyn {
-    val projectsDependencies = sbt.Keys.buildDependencies.value.classpathTransitive
-    val currentProjectDependencies = projectsDependencies.getOrElse(thisProjectRef.value, Nil)
-    val filter = ScopeFilter(inProjects(currentProjectDependencies: _*))
-    (task ?).all(filter)
-  }
+  private def runTaskOnAffectedProjects[T](task: TaskKey[T]): Def.Initialize[Task[Seq[Option[T]]]] =
+    Def.taskDyn:
+      val projectsDependencies = buildDependencies.value.classpathTransitive
+      val currentProjectDependencies = projectsDependencies.getOrElse(thisProjectRef.value, Nil)
+      val filter = ScopeFilter(inProjects(currentProjectDependencies*))
+      (task.?).all(filter)
+  end runTaskOnAffectedProjects
 
   /**
     * Checks whether a file is a valid OSGi bundle. Only such files are copied 
@@ -206,15 +208,26 @@ object OsgiImagePlugin extends AutoPlugin {
     * @param file the file to be examined
     * @return a flag whether this file is an OSGi bundle
     */
-  private def isBundle(file: File): Boolean = {
+  private def isBundle(file: File): Boolean =
     val jarFile = new JarFile(file)
-    try {
+    try
       val manifest = jarFile.getManifest
       manifest.getMainAttributes.containsKey(AttrBundleVersion)
-    } finally {
+    finally
       jarFile.close()
-    }
-  }
+  end isBundle
+
+  /**
+    * Converts a file reference to a ''File''. In sbt 2, file artifacts may be
+    * represented as virtual files. This method ensures that actual ''File''
+    * objects are used.
+    *
+    * @param ref the reference to convert
+    * @return the resulting ''File''
+    */
+  private def toFile(ref: Any): File = ref match
+    case f: File => f
+    case hvf: xsbti.VirtualFileRef => file(hvf.id())
 
   /**
     * The main method for creating an OSGi image. The method is passed 
@@ -229,13 +242,13 @@ object OsgiImagePlugin extends AutoPlugin {
     * @param log          the logger
     */
   private def buildOsgiImage(dependencies: Seq[File], projects: Seq[File], targetPath: File,
-                             bundlePath: String, sourcePaths: Seq[String], log: ManagedLogger): Unit = {
+                             bundlePath: String, sourcePaths: Seq[String], log: ManagedLogger): Unit =
     val imageDir = new File(targetPath, ImageTargetDirectory)
     log.info("Generating OSGi image under " + imageDir)
 
     createBundleDir(dependencies, projects, bundlePath, imageDir, log)
     copySourceImages(sourcePaths, imageDir, log)
-  }
+  end buildOsgiImage
 
   /**
     * Generates the directory containing all OSGi bundles.
@@ -247,18 +260,17 @@ object OsgiImagePlugin extends AutoPlugin {
     * @param log          the logger
     */
   private def createBundleDir(dependencies: Seq[File], projects: Seq[File], bundlePath: String,
-                              imageDir: File, log: ManagedLogger): Unit = {
+                              imageDir: File, log: ManagedLogger): Unit =
     val bundleDir = new File(imageDir, bundlePath)
     val (dependencyBundles, nonBundles) = dependencies.partition(isBundle)
     val bundleFiles = dependencyBundles ++ projects
     val bundleMapping = bundleFiles pair Path.flat(bundleDir)
     IO.copy(bundleMapping, CopyOptions(overwrite = true, preserveLastModified = true, preserveExecutable = false))
 
-    if (nonBundles.nonEmpty) {
+    if nonBundles.nonEmpty then
       log.warn("Found dependencies that are no bundles:")
       nonBundles.map(_.name).sorted.foreach(file => log.info("- " + file))
-    }
-  }
+  end createBundleDir
 
   /**
     * Copies all defined source OSGi images into the target image structure.
@@ -267,18 +279,17 @@ object OsgiImagePlugin extends AutoPlugin {
     * @param imageDir    the path where to generate the image
     * @param log         the logger
     */
-  private def copySourceImages(sourcePaths: Seq[String], imageDir: File, log: ManagedLogger): Unit = {
+  private def copySourceImages(sourcePaths: Seq[String], imageDir: File, log: ManagedLogger): Unit =
     lazy val imageRoot = file(System.getProperty(PropImageRoot, "."))
     lazy val copyOptions = CopyOptions(overwrite = true, preserveLastModified = true, preserveExecutable = true)
     sourcePaths foreach { sourcePath =>
       val sourceImage = new File(imageRoot, sourcePath)
-      if (sourceImage.isDirectory) {
+      if sourceImage.isDirectory then
         log.info("Copying source image: " + sourceImage)
         IO.copyDirectory(sourceImage, imageDir,
           copyOptions)
-      } else {
+      else
         log.info("Skipping source image as it does not exist: " + sourceImage)
-      }
     }
-  }
-}
+  end copySourceImages
+end OsgiImagePlugin

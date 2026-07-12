@@ -15,7 +15,7 @@
  */
 
 import OsgiImagePlugin.autoImport.*
-import com.typesafe.sbt.osgi.OsgiKeys
+import com.github.sbt.osgi.OsgiKeys
 
 /** Definition of versions for production dependencies. */
 lazy val VersionASM = "9.9.1"
@@ -54,6 +54,7 @@ lazy val VersionScalaTest = "3.2.20"
 lazy val VersionScalaTestMockito = "3.2.19.0"
 
 ThisBuild / scalacOptions ++= scala3Options
+ThisBuild / scalacOptions ~= { _.distinct }
 ThisBuild / version := "1.0-SNAPSHOT"
 ThisBuild / scalaVersion := VersionScala3
 
@@ -197,7 +198,7 @@ lazy val defaultSettings = Seq(
 )
 
 lazy val LineDJ = (project in file("."))
-  .settings(defaultSettings: _*)
+  .settings(defaultSettings*)
   .settings(
     name := "linedj-parent"
   ) aggregate(
