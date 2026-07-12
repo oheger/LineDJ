@@ -61,7 +61,7 @@ object RoutesSpec:
   private val TestMediaFileID = "test-file-id"
 
   /** The name of the test MP3 file that is used to test skipping ID3 data. */
-  private val TestMp3File = "/testID3v2Data.mp3"
+  private val TestMp3File = "testID3v2Data.mp3"
 
   /** The relative URI of the test MP3 file. */
   private val TestMp3Uri = MediaFileUri("/medium/artist/album/song.mp3")
@@ -183,10 +183,7 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with BeforeAndAfterE
     *
     * @return the path to the test MP3 file
     */
-  private def resolveTestMp3File: Path =
-    val fileUrl = getClass.getResource(TestMp3File)
-    fileUrl should not be null
-    Paths.get(fileUrl.toURI)
+  private def resolveTestMp3File: Path = resolveResourceFile(TestMp3File)
 
   /**
     * Returns a behavior for a stub content actor that expects and handles a

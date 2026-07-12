@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.extract.id3.stream
 
+import de.oliver_heger.linedj.FileTestHelper
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.scaladsl.{FileIO, Source}
 import org.apache.pekko.testkit.TestKit
@@ -31,11 +32,12 @@ import scala.concurrent.Future
   * Test class for [[FileInfoSink]].
   */
 class FileInfoSinkSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AsyncFlatSpecLike
-  with BeforeAndAfterAll with Matchers:
+  with BeforeAndAfterAll with Matchers with FileTestHelper:
   def this() = this(ActorSystem("FileInfoSinkSpec"))
 
   override protected def afterAll(): Unit =
     TestKit.shutdownActorSystem(system)
+    tearDownTestFile()
     super.afterAll()
 
   /**
@@ -46,8 +48,7 @@ class FileInfoSinkSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
     * @return the source for the content of this file
     */
   private def testFileSource(name: String): Source[ByteString, Any] =
-    val testFileUri = getClass.getResource(s"/$name").toURI
-    FileIO.fromPath(Paths.get(testFileUri))
+    FileIO.fromPath(resolveResourceFile(name))
 
   "A FileInfoSink" should "correctly calculate the file size" in :
     val source = testFileSource("test.mp3")

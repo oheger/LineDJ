@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.archive.metadata
 
+import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
 import org.apache.pekko.actor.ActorSystem
@@ -26,29 +27,29 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Assertion, BeforeAndAfterAll, OptionValues}
 import org.scalatestplus.mockito.MockitoSugar
 
-import java.nio.file.Paths
 import scala.concurrent.Future
 
 object ExtractorFunctionProviderImplSpec:
   /** The name of the test file. */
-  private val TestFileName = "/testMP3id3v24.mp3"
-
-  /** The path to the test file. */
-  private val TestFilePath = Paths.get(classOf[ExtractorFunctionProviderImplSpec].getResource(TestFileName).toURI)
+  private val TestFileName = "testMP3id3v24.mp3"
 end ExtractorFunctionProviderImplSpec
 
 /**
   * Test class for [[ExtractorFunctionProviderImpl]].
   */
 class ExtractorFunctionProviderImplSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AsyncFlatSpecLike
-  with BeforeAndAfterAll with Matchers with OptionValues with MockitoSugar:
+  with BeforeAndAfterAll with Matchers with OptionValues with MockitoSugar with FileTestHelper:
   def this() = this(ActorSystem("ExtractorFunctionProviderImplSpec"))
 
   override protected def afterAll(): Unit =
+    tearDownTestFile()
     TestKit.shutdownActorSystem(system)
     super.afterAll()
 
   import ExtractorFunctionProviderImplSpec.*
+
+  /** The path to the test file. */
+  private lazy val TestFilePath = resolveResourceFile(TestFileName)
 
   /**
     * Creates a config for the media archive that returns test values.

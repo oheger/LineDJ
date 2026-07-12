@@ -18,12 +18,12 @@ package de.oliver_heger.linedj.extract.id3.model
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.extract.metadata.MetadataProvider
 import org.apache.pekko.util.ByteString
-import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.{BeforeAndAfterEach, OptionValues}
 import org.scalatestplus.mockito.MockitoSugar
 
-import java.nio.file.{Files, Paths}
+import java.nio.file.Files
 
 object ID3v1ExtractorSpec:
   /**
@@ -43,9 +43,14 @@ object ID3v1ExtractorSpec:
 /**
   * Test class for ''ID3v1Extractor''.
   */
-class ID3v1ExtractorSpec extends AnyFlatSpec with Matchers with OptionValues with MockitoSugar:
+class ID3v1ExtractorSpec extends AnyFlatSpec with BeforeAndAfterEach with Matchers with OptionValues with MockitoSugar
+  with FileTestHelper:
 
   import ID3v1ExtractorSpec.*
+
+  override protected def afterEach(): Unit =
+    tearDownTestFile()  
+    super.afterEach()
 
   "An ID3v1Extractor" should "reject an empty frame" in:
     ID3v1Extractor.providerFor(ByteString.empty) shouldBe empty
@@ -71,8 +76,7 @@ class ID3v1ExtractorSpec extends AnyFlatSpec with Matchers with OptionValues wit
     * @return the ID3v1 frame from the end of the file
     */
   private def extractID3FrameFromFile(fileName: String): ByteString =
-    val uri = getClass.getResource("/" + fileName)
-    val path = Paths get uri.toURI
+    val path = resolveResourceFile(fileName) 
     val content = Files readAllBytes path
     ByteString(content.takeRight(128))
 

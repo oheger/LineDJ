@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.extract.id3.stream
 
+import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.extract.id3.model.Mp3Metadata
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.scaladsl.{FileIO, Source}
@@ -25,18 +26,18 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
-import java.nio.file.Paths
 import scala.concurrent.Future
 
 /**
   * Test class for [[Mp3DataExtractorSink]].
   */
 class Mp3DataExtractorSinkSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AsyncFlatSpecLike
-  with BeforeAndAfterAll with Matchers:
+  with BeforeAndAfterAll with Matchers with FileTestHelper:
   def this() = this(ActorSystem("Mp3DataExtractorSinkSpec"))
 
   override protected def afterAll(): Unit =
     TestKit.shutdownActorSystem(system)
+    tearDownTestFile()
     super.afterAll()
 
   /**
@@ -50,7 +51,6 @@ class Mp3DataExtractorSinkSpec(testSystem: ActorSystem) extends TestKit(testSyst
     source.runWith(sink)
 
   "A Mp3DataExtractorSink" should "extract metadata from an MP3 file" in :
-    val testFileUri = getClass.getResource("/test.mp3").toURI
     val expectedMetadata = Mp3Metadata(
       version = 2,
       layer = 1,
@@ -59,7 +59,7 @@ class Mp3DataExtractorSinkSpec(testSystem: ActorSystem) extends TestKit(testSyst
       maximumBitRate = 24000,
       duration = 10800
     )
-    val source = FileIO.fromPath(Paths.get(testFileUri))
+    val source = FileIO.fromPath(resolveResourceFile("test.mp3"))
 
     runStream(source) map { metadata =>
       metadata should be(expectedMetadata)

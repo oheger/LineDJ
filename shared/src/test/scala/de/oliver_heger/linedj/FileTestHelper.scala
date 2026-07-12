@@ -19,9 +19,10 @@ package de.oliver_heger.linedj
 import java.io.IOException
 import java.nio.charset.StandardCharsets
 import java.nio.file.attribute.BasicFileAttributes
-import java.nio.file.{FileVisitResult, Files, Path, Paths, SimpleFileVisitor}
+import java.nio.file.{FileVisitResult, Files, Path, Paths, SimpleFileVisitor, StandardCopyOption}
 
 import scala.io.Source
+import scala.util.Using
 
 object FileTestHelper:
   /** A string with defined test data. */
@@ -205,10 +206,18 @@ trait FileTestHelper:
     * @return a ''Path'' pointing to this file
     */
   def resolveResourceFile(name: String): Path =
-    val path = Paths.get(getClass.getResource("/" + name).toURI)
-    if !Files.exists(path) then
+    val resource = getClass.getResource("/" + name)
+    if resource == null then
       throw new IOException(s"Cannot resolve '$name' from test resources!")
-    path
+    resource.getProtocol match
+      case "file" => Paths.get(resource.toURI)
+      case "jar" =>
+        val tempName = resource.getPath.substring(resource.getPath.lastIndexOf('/') + 1)
+        val tempPath = testDirectory.resolve(tempName)
+        Using.resource(resource.openStream()): stream =>
+          Files.copy(stream, tempPath, StandardCopyOption.REPLACE_EXISTING)
+        tempPath
+      case other => throw new IOException(s"Unsupported resource protocol: $other")
 
   /**
     * Reads the content of the resource file specified and returns it as

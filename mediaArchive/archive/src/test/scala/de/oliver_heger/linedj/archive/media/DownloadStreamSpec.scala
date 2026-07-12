@@ -57,7 +57,7 @@ class DownloadStreamSpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
 
   "A media file download" should "be possible via a stream" in:
     val ChunkSize = 2048
-    val testPath = Paths get getClass.getResource("/test.mp3").toURI
+    val testPath = resolveResourceFile("test.mp3")
     val target = createPathInDirectory("copy.mp3")
     implicit val ec: ExecutionContextExecutor = system.dispatcher
     val downloadActor = system.actorOf(Props(classOf[MediaFileDownloadActor], testPath,

@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.playlist.persistence
 
+import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.playlist.persistence.PersistentPlaylistModel.PlaylistItemData
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import org.apache.pekko.actor.ActorSystem
@@ -25,21 +26,20 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
-import java.nio.file.Paths
-
 /**
   * Test class for [[PersistentPlaylistParser]].
   */
 class PersistentPlaylistParserSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AsyncFlatSpecLike
-  with BeforeAndAfterAll with Matchers:
+  with BeforeAndAfterAll with Matchers with FileTestHelper:
   def this() = this(ActorSystem("PersistentPlaylistParserSpec"))
 
   override protected def afterAll(): Unit =
     TestKit.shutdownActorSystem(system)
+    tearDownTestFile()
     super.afterAll()
 
   "PersistentPlaylistParser" should "parse a playlist file" in :
-    val playlistPath = Paths.get(getClass.getResource("/playlist.json").toURI)
+    val playlistPath = resolveResourceFile("playlist.json")
     val source = FileIO.fromPath(playlistPath)
     val sink = Sink.fold[List[PlaylistItemData], PlaylistItemData](List.empty) { (lst, item) =>
       item :: lst

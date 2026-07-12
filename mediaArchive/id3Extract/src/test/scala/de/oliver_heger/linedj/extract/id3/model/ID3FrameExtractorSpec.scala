@@ -19,11 +19,12 @@ package de.oliver_heger.linedj.extract.id3.model
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.extract.metadata.MetadataVersion
 import org.apache.pekko.util.ByteString
+import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import java.io.{ByteArrayOutputStream, OutputStream}
-import java.nio.file.{Files, Paths}
+import java.nio.file.Files
 
 object ID3FrameExtractorSpec:
 
@@ -66,7 +67,10 @@ object ID3FrameExtractorSpec:
 /**
   * Test class for ''ID3FrameExtract''.
   */
-class ID3FrameExtractorSpec extends AnyFlatSpec with Matchers:
+class ID3FrameExtractorSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers with FileTestHelper:
+  override protected def afterAll(): Unit =
+    tearDownTestFile()
+    super.afterAll()
 
   import ID3FrameExtractorSpec.*
 
@@ -88,9 +92,8 @@ class ID3FrameExtractorSpec extends AnyFlatSpec with Matchers:
     * @param name the resource name of the file to be read
     * @return the content of the file
     */
-  private def readResourceFile(name: String): ByteString =
-    val fileURI = getClass.getResource("/" + name).toURI
-    val path = Paths get fileURI
+  private def readTestFile(name: String): ByteString =
+    val path = resolveResourceFile(name)
     ByteString(Files readAllBytes path)
 
   /**
@@ -101,7 +104,7 @@ class ID3FrameExtractorSpec extends AnyFlatSpec with Matchers:
     * @return the ''ID3FrameExtractor''
     */
   private def extractorFromResourceFile(name: String): ID3FrameExtractor =
-    val content = readResourceFile(name)
+    val content = readTestFile(name)
     val headerExtractor = new ID3HeaderExtractor
     val optHeader = headerExtractor extractID3Header content
     optHeader shouldBe defined

@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.extract.id3.stream
 
+import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.extract.id3.model.Mp3Metadata
 import de.oliver_heger.linedj.extract.metadata.{MetadataProvider, MetadataVersion}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
@@ -25,29 +26,19 @@ import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Assertion, BeforeAndAfterAll, OptionValues}
 
-import java.nio.file.{Path, Paths}
 import scala.concurrent.Future
 
 /**
   * Test class for [[ID3ExtractorStream]].
   */
 class ID3ExtractorStreamSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AsyncFlatSpecLike
-  with BeforeAndAfterAll with Matchers with OptionValues:
+  with BeforeAndAfterAll with Matchers with OptionValues with FileTestHelper:
   def this() = this(ActorSystem("ID3ExtractorStreamSpec"))
 
   override protected def afterAll(): Unit =
     TestKit.shutdownActorSystem(system)
+    tearDownTestFile()
     super.afterAll()
-
-  /**
-    * Returns the path to the test file with the given (resource) name.
-    *
-    * @param name the name of the test file
-    * @return the [[Path]] to this file
-    */
-  private def testFilePath(name: String): Path =
-    val testFileUri = getClass.getResource(s"/$name").toURI
-    Paths.get(testFileUri)
 
   /**
     * Invokes the function to obtain metadata for the test file with the given
@@ -57,7 +48,7 @@ class ID3ExtractorStreamSpec(testSystem: ActorSystem) extends TestKit(testSystem
     * @return a [[Future]] with the resulting metadata
     */
   private def extractMetadataForTestFile(name: String): Future[MediaMetadata] =
-    ID3ExtractorStream.extractMetadata(testFilePath(name))
+    ID3ExtractorStream.extractMetadata(resolveResourceFile(name))
 
   /**
     * Extracts metadata for the given test file and checks it against the given
@@ -154,7 +145,7 @@ class ID3ExtractorStreamSpec(testSystem: ActorSystem) extends TestKit(testSystem
     metadata.album should be(v1Metadata.album)
 
   it should "enforce the tag size limit" in :
-    val path = testFilePath("testMP3id3v24.mp3")
+    val path = resolveResourceFile("testMP3id3v24.mp3")
     ID3ExtractorStream.extractMetadata(path, tagSizeLimit = 11) map { metadata =>
       metadata.title shouldBe empty
       metadata.trackNumber.value should be(11)

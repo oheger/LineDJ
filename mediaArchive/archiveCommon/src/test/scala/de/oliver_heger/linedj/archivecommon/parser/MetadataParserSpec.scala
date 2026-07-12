@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.archivecommon.parser
 
+import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
 import de.oliver_heger.linedj.shared.archive.union.MetadataProcessingSuccess
@@ -29,7 +30,6 @@ import org.scalatest.Inspectors.forEvery
 import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
-import java.nio.file.Paths
 import scala.concurrent.Future
 
 object MetadataParserSpec:
@@ -53,11 +53,12 @@ end MetadataParserSpec
   * Test class for ''MetaDataParser''.
   */
 class MetadataParserSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AsyncFlatSpecLike
-  with BeforeAndAfterAll with Matchers:
+  with BeforeAndAfterAll with Matchers with FileTestHelper:
   def this() = this(ActorSystem("MetaDataParserSpec"))
 
   override protected def afterAll(): Unit =
     TestKit.shutdownActorSystem(system)
+    tearDownTestFile()
     super.afterAll()
 
   import MetadataParserSpec.*
@@ -71,7 +72,7 @@ class MetadataParserSpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
     * @return a [[Source]] with the content of this file
     */
   private def testFileSource(name: String): Source[ByteString, Future[IOResult]] =
-    val filePath = Paths.get(getClass.getResource("/" + name).toURI)
+    val filePath = resolveResourceFile(name)
     FileIO.fromPath(filePath)
 
   /**

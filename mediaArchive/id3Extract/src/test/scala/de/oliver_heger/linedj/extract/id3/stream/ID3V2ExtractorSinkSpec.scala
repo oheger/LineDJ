@@ -27,12 +27,29 @@ import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Assertion, BeforeAndAfterAll, OptionValues}
 
-import java.nio.file.Paths
 import scala.concurrent.Future
 
 object ID3V2ExtractorSinkSpec:
   /** The name of the test file. */
-  private val TestFile = "/testID3v2Data.bin"
+  private val TestFile = "testID3v2Data.bin"
+end ID3V2ExtractorSinkSpec
+
+/**
+  * Test class for [[ID3v2ExtractorSink]].
+  */
+class ID3V2ExtractorSinkSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AsyncFlatSpecLike
+  with BeforeAndAfterAll with Matchers with OptionValues with FileTestHelper:
+  def this() = this(ActorSystem("ID3v2ExtractorStageSpec"))
+
+  override protected def afterAll(): Unit =
+    TestKit.shutdownActorSystem(system)
+    tearDownTestFile()
+    super.afterAll()
+
+  import ID3V2ExtractorSinkSpec.*
+
+  /** Stores the path to the test file. */
+  private lazy val testPath = resolveResourceFile(TestFile)
 
   /**
     * Returns a [[Source]] for the test file that uses the given chunk size.
@@ -41,23 +58,7 @@ object ID3V2ExtractorSinkSpec:
     * @return the [[Source]] for reading the test file
     */
   private def testFileSource(chunkSize: Int = 8192): Source[ByteString, Any] =
-    val fileURI = getClass.getResource(TestFile).toURI
-    val path = Paths.get(fileURI)
-    FileIO.fromPath(path, chunkSize)
-end ID3V2ExtractorSinkSpec
-
-/**
-  * Test class for [[ID3v2ExtractorSink]].
-  */
-class ID3V2ExtractorSinkSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AsyncFlatSpecLike
-  with BeforeAndAfterAll with Matchers with OptionValues:
-  def this() = this(ActorSystem("ID3v2ExtractorStageSpec"))
-
-  override protected def afterAll(): Unit =
-    TestKit.shutdownActorSystem(system)
-    super.afterAll()
-
-  import ID3V2ExtractorSinkSpec.*
+    FileIO.fromPath(testPath, chunkSize)
 
   /**
     * Runs a stream from the given source via the extractor sink and returns

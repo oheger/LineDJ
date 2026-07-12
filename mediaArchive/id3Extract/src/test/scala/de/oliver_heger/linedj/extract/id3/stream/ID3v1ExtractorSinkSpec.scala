@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.extract.id3.stream
 
+import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.extract.metadata.MetadataProvider
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.scaladsl.{FileIO, Source}
@@ -32,11 +33,12 @@ import scala.concurrent.Future
   * Test class for [[ID3v1ExtractorSink]].
   */
 class ID3v1ExtractorSinkSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AsyncFlatSpecLike
-  with BeforeAndAfterAll with Matchers with OptionValues:
+  with BeforeAndAfterAll with Matchers with OptionValues with FileTestHelper:
   def this() = this(ActorSystem("ID3v1ExtractorSinkSpec"))
 
   override protected def afterAll(): Unit =
     TestKit.shutdownActorSystem(system)
+    tearDownTestFile()
     super.afterAll()
 
   /**
@@ -59,9 +61,8 @@ class ID3v1ExtractorSinkSpec(testSystem: ActorSystem) extends TestKit(testSystem
     * @return the result produced by the test sink
     */
   private def processFile(testFileName: String, chunkSize: Int = 1024): Future[Option[MetadataProvider]] =
-    val testFilePath = Option(getClass.getResource(s"/$testFileName"))
-      .map(url => Paths.get(url.toURI))
-    val source = FileIO.fromPath(testFilePath.value, chunkSize)
+    val testFilePath = resolveResourceFile(testFileName)
+    val source = FileIO.fromPath(testFilePath, chunkSize)
     runStream(source)
 
   "ID3v1ExtractorSink" should "handle a file without ID3v1 data" in :

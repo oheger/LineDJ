@@ -52,6 +52,7 @@ class PersistentMetadataReaderActorSpec(testSystem: ActorSystem) extends TestKit
 
   override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
+    tearDownTestFile()
 
   /**
     * Tests whether a valid metadata file can be read using a specific chunk
@@ -60,7 +61,7 @@ class PersistentMetadataReaderActorSpec(testSystem: ActorSystem) extends TestKit
     * @param chunkSize the chunk size
     */
   private def checkReadFile(chunkSize: Int): Unit =
-    val path = Paths.get(getClass.getResource(MetadataTestFile).toURI)
+    val path = resolveResourceFile(MetadataTestFile.stripPrefix("/"))
     val helper = new PersistentMetadataReaderTestHelper(chunkSize)
 
     val metadata = helper.readFile(path).expectMetadata(SongCount)

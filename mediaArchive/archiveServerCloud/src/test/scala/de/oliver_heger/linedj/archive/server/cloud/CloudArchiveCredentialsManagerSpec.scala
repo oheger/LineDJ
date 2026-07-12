@@ -98,8 +98,7 @@ class CloudArchiveCredentialsManagerSpec(testSystem: ActorSystem) extends TestKi
     */
   private def copyCryptTestFile(): Path =
     val fileName = CryptFileName + ".credentials.crypt"
-    val url = getClass.getResource("/" + fileName)
-    val sourcePath = Paths.get(url.toURI)
+    val sourcePath = resolveResourceFile(fileName)
     val targetPath = createPathInDirectory(fileName)
     Files.copy(sourcePath, targetPath)
 

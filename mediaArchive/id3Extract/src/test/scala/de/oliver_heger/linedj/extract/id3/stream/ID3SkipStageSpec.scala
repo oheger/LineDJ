@@ -25,12 +25,11 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
-import java.nio.file.Paths
 import scala.concurrent.Future
 
 object ID3SkipStageSpec:
   /** The name of the test file. */
-  private val TestFile = "/testID3v2Data.bin"
+  private val TestFile = "testID3v2Data.bin"
 
   /** The actual data content of the test file. */
   private val TestData = "Lorem ipsum dolor sit amet, consetetur sadipscing " +
@@ -43,11 +42,12 @@ end ID3SkipStageSpec
   * Test class for [[ID3SkipStage]].
   */
 class ID3SkipStageSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AsyncFlatSpecLike
-  with BeforeAndAfterAll with Matchers:
+  with BeforeAndAfterAll with Matchers with FileTestHelper:
   def this() = this(ActorSystem("ID3SkipStageSpec"))
 
   override protected def afterAll(): Unit =
     TestKit.shutdownActorSystem(system)
+    tearDownTestFile()
     super.afterAll()
 
   import ID3SkipStageSpec.*
@@ -65,8 +65,7 @@ class ID3SkipStageSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
     source.via(skipStage).runWith(sink)
 
   "An ID3SkipStage" should "pass only non-ID3 frames downstream" in :
-    val testFileUri = getClass.getResource(TestFile).toURI
-    val source = FileIO.fromPath(Paths.get(testFileUri))
+    val source = FileIO.fromPath(resolveResourceFile(TestFile))
 
     runStream(source) map { result =>
       result.utf8String should be(TestData)

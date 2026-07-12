@@ -116,13 +116,12 @@ class MediumInfoParserActorSpec(testSystem: ActorSystem) extends TestKit(testSys
     createDataFile(generateContent(ByteString(initialJson), 1).utf8String)
 
   "A MediumInfoParserActor" should "handle a successful parse operation" in :
-    val testInfoUri = getClass.getResource("/testMediumInfo.json")
     val expectedDescription = MediumDescription(
       name = "testMedium",
       description = "This is a test medium used for testing",
       orderMode = "artists"
     )
-    val file = Paths.get(testInfoUri.toURI)
+    val file = resolveResourceFile("testMediumInfo.json")
 
     val actor = parserActor()
     val parseRequest = ParseMediumInfo(file, TestMediumID, SeqNo)
