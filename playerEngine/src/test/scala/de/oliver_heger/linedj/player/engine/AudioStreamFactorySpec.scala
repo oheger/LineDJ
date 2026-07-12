@@ -23,6 +23,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
+import java.io.BufferedInputStream
 import javax.sound.sampled.AudioFormat
 import scala.util.{Failure, Success, Using}
 
@@ -38,7 +39,7 @@ class AudioStreamFactorySpec extends AnyFlatSpec with Matchers with TryValues wi
     * @param creator the audio stream creator to test
     */
   private def checkAudioStreamCreator(creator: AudioStreamFactory.AudioStreamCreator): Unit =
-    Using(creator(getClass.getResourceAsStream("/test.wav"))) { audioStream =>
+    Using(creator(new BufferedInputStream(getClass.getResourceAsStream("/test.wav")))) { audioStream =>
       val format = audioStream.getFormat
 
       format.getChannels should be(2)

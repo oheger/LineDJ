@@ -33,6 +33,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Assertion, BeforeAndAfterAll, OptionValues, Succeeded, TryValues}
 import org.scalatestplus.mockito.MockitoSugar
 
+import java.io.BufferedInputStream
 import javax.sound.sampled.{AudioFormat, AudioSystem, SourceDataLine}
 import scala.concurrent.Future
 import scala.concurrent.duration.*
@@ -104,9 +105,11 @@ class LineWriterStageSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     dispatcherAttr.value.dispatcher should be(DispatcherName)
 
   it should "provide a default line creator function" in :
-    val format = Using(AudioSystem.getAudioInputStream(getClass.getResourceAsStream("/test.wav"))) { stream =>
+    val format = Using(AudioSystem.getAudioInputStream(
+      new BufferedInputStream(getClass.getResourceAsStream("/test.wav")))
+    ): stream =>
       stream.getFormat
-    }.success.value
+    .success.value
     Using(LineWriterStage.DefaultLineCreatorFunc(AudioEncodingStage.AudioStreamHeader(format))) { _ => }.success
     Succeeded
 
