@@ -220,7 +220,9 @@ class CachingActorSpec extends ScalaTestWithActorTestKit, AsyncFlatSpecLike, Mat
 
     eventually(resolver.inputQueueSize should be(Parallelism))
     probe.expectNoMessage(100.millis)
-    resolver.inputQueueSize should be(Parallelism)
+    val finalQueueSize = resolver.inputQueueSize
+    queryKeys.foreach(k => resolver.passValue("value" + k)) // Let the futures complete.
+    finalQueueSize should be(Parallelism)
 
   it should "handle requests when a limit for parallelism is set" in :
     val actor = testKit.spawn(CachingActor.newInstance(testResolverFunc, parallelLimit = Some(8)))
@@ -274,7 +276,7 @@ class CachingActorSpec extends ScalaTestWithActorTestKit, AsyncFlatSpecLike, Mat
     val resolver: CachingActor.KeyResolverFunc[Int, String] = key =>
       inputQueue.offer(key)
       Future:
-        outputQueue.poll()
+        outputQueue.take()
 
     /**
       * Returns the next key that was passed to the resolver function.

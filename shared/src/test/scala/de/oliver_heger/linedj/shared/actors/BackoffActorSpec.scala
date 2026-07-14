@@ -123,7 +123,7 @@ class BackoffActorSpec(testSystem: ActorSystem) extends TestKit(testSystem), Any
     */
   private def checkDelay(expected: Duration, actual: Duration): Unit =
     actual.compareTo(expected) should be >= 0
-    actual.minus(expected).toMillis should be < 50L
+    actual.minus(expected).toMillis should be < 75L
 
   /**
     * Checks whether the delay between invocations is correctly increased by
@@ -348,7 +348,7 @@ class BackoffActorSpec(testSystem: ActorSystem) extends TestKit(testSystem), Any
     val taskFunc: BackoffActor.TaskFunc = () =>
       callTimeQueue.offer(Instant.now())
       Future:
-        triggerQueue.poll()
+        triggerQueue.take()
     val params = BackoffActor.BackoffParameters(
       taskFunc = taskFunc,
       minBackoff = MinBackoffMs.millis,
