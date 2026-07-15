@@ -401,7 +401,8 @@ lazy val archiveServerModel = (project in file("mediaArchive/archiveServerModel"
   .settings(defaultSettings)
   .settings(OSGi.osgiSettings)
   .settings(
-    name := "linedj-archive-server-model"
+    name := "linedj-archive-server-model",
+    OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archive.server.model"),
   ) dependsOn shared
 
 /**
@@ -444,6 +445,7 @@ lazy val archiveServerCloudModel = (project in file("mediaArchive/archiveServerC
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-archive-server-cloud-model",
+    OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archive.server.cloud.model"),
   ) dependsOn shared
 
 /**
