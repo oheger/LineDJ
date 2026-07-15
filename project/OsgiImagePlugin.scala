@@ -16,7 +16,7 @@
 
 import com.github.sbt.osgi.OsgiKeys
 import sbt.*
-import sbt.Keys.{buildDependencies, streams, target, thisProjectRef, update}
+import sbt.Keys.{buildDependencies, fileConverter, streams, target, thisProjectRef, update}
 import sbt.internal.util.ManagedLogger
 import sbt.librarymanagement.{DependencyFilter, ModuleFilter}
 
@@ -126,10 +126,11 @@ object OsgiImagePlugin extends AutoPlugin:
       sourceImagePaths := Nil,
       osgiImage := Def.uncached {
         val dependencies = update.value.matching(createDependenciesFilter(excludedModules.value))
+        val converter = fileConverter.value
         val projectFiles = runTaskOnAffectedProjects(OsgiKeys.bundle).value
           .filter(_.isDefined)
           .map(_.get)
-          .map(ref => toFile(ref))
+          .map(ref => toFile(ref, converter))
         buildOsgiImage(dependencies, projectFiles, target.value, bundleDir.value, sourceImagePaths.value,
           streams.value.log)
       }
@@ -219,15 +220,16 @@ object OsgiImagePlugin extends AutoPlugin:
 
   /**
     * Converts a file reference to a ''File''. In sbt 2, file artifacts may be
-    * represented as virtual files. This method ensures that actual ''File''
-    * objects are used.
+    * represented as virtual files. This method uses the ''FileConverter'' to
+    * resolve virtual file paths to actual ''File'' objects.
     *
-    * @param ref the reference to convert
+    * @param ref       the reference to convert
+    * @param converter the file converter for resolving virtual paths
     * @return the resulting ''File''
     */
-  private def toFile(ref: Any): File = ref match
+  private def toFile(ref: Any, converter: xsbti.FileConverter): File = ref match
     case f: File => f
-    case hvf: xsbti.VirtualFileRef => file(hvf.id())
+    case vf: xsbti.VirtualFileRef => converter.toPath(vf).toFile
 
   /**
     * The main method for creating an OSGi image. The method is passed 
