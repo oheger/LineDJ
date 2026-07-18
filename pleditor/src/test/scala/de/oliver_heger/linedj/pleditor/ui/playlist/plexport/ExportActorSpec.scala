@@ -311,8 +311,8 @@ class ExportActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     val (ops, _) = ExportActor.initializeExportData(data, TestScanResult)
     val removeOps = ops takeWhile (_.operationType == ExportActor.OperationType.Remove)
     removeOps should have size (ops.size - 1)
-    val files = TestScanResult.filter(_.isInstanceOf[Model.File[Path]])
-    val folders = TestScanResult.filter(_.isInstanceOf[Model.Folder[Path]])
+    val files = TestScanResult.filter(_.isInstanceOf[Model.File[?]])
+    val folders = TestScanResult.filter(_.isInstanceOf[Model.Folder[?]])
     val expPaths = files.map(_.id) ++ folders.map(_.id)
     extractPaths(removeOps) should contain theSameElementsInOrderAs expPaths
     val copyOp = ops.last
@@ -322,7 +322,7 @@ class ExportActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
   it should "handle a ScanResult with an empty sequence of directories" in :
     val data = ExportActor.ExportData(songs(1), ExportPath, clearTarget = true, overrideFiles = false)
 
-    val files = TestScanResult.filter(_.isInstanceOf[Model.File[Path]])
+    val files = TestScanResult.filter(_.isInstanceOf[Model.File[?]])
     val (ops, _) = ExportActor.initializeExportData(data, files)
     val removeOps = ops takeWhile (_.operationType == ExportActor.OperationType.Remove)
     removeOps should have size files.size
@@ -347,9 +347,9 @@ class ExportActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     elements.foreach { elem =>
       val elemPath = testDirectory.resolve(elem.id)
       elem match
-        case folder: Model.Folder[Path] =>
+        case folder: Model.Folder[?] =>
           Files.createDirectory(elemPath)
-        case file: Model.File[Path] =>
+        case file: Model.File[?] =>
           writeFileContent(elemPath, FileTestHelper.TestData.take(file.size.toInt))
     }
     testDirectory.resolve(ExportPath)

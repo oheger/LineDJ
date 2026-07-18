@@ -49,7 +49,7 @@ object PersistentMetadataFileScanner:
     */
   private def filterMetadataFiles(elements: List[Model.Element[Path]]): List[Model.Element[Path]] =
     elements.filter {
-      case f: Model.File[Path] if LocalFsUtils.extractExtension(f.id) == MetadataFileExtension => true
+      case f: Model.File[?] if LocalFsUtils.extractExtension(f.id) == MetadataFileExtension => true
       case _ => false
     }
 end PersistentMetadataFileScanner

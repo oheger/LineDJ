@@ -183,10 +183,10 @@ class RemoveTempFilesActor(blockingDispatcherName: String) extends Actor with Ac
     */
   private def processElement(elem: Model.Element[Path]): Option[Model.Folder[Path]] =
     elem match
-      case file: Model.File[Path] =>
+      case file: Model.File[Path] @unchecked =>
         deleteElement(file)
         None
-      case folder: Model.Folder[Path] =>
+      case folder: Model.Folder[Path] @unchecked =>
         Some(folder)
 
   /**

@@ -195,7 +195,7 @@ class MediaScannerActor(archiveName: String,
 
     Walk.dfsSource(walkConfig)
       .filter {
-        case _: Model.File[Path] => true
+        case _: Model.File[Path] @unchecked => true
         case _ => false
       }
       .map(_.id)
@@ -266,6 +266,6 @@ class MediaScannerActor(archiveName: String,
 
     elements =>
       elements.filter {
-        case f: Model.File[Path] => fileFilter(f)
+        case f: Model.File[Path] @unchecked => fileFilter(f)
         case _ => true
       }

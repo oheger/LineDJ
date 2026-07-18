@@ -107,7 +107,7 @@ object LocalFsUtils:
 
     def filterFiles(elements: List[Model.Element[Path]]): List[Model.Element[Path]] =
       elements.filter:
-        case f: Model.File[Path] if extensions.isEmpty || matchesExtension(f.id) => true
+        case f: Model.File[?] if extensions.isEmpty || matchesExtension(f.id) => true
         case _ => false
 
     val localFs = LocalFsUtils.createLocalFs(path, system, blockingDispatcherName)

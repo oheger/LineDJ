@@ -245,7 +245,7 @@ object ExportActor:
     if data.clearTarget || data.overrideFiles then songsWithPath
     else
       val existingPaths = targetContent.map {
-        case file: Model.File[Path] => Some((file.id, file.size))
+        case file: Model.File[?] => Some((file.id, file.size))
         case _ => None
       }.filter(_.isDefined).map(_.get).toMap
       songsWithPath.filterNot(s => existingPaths.contains(s._2) && existingPaths(s._2) == s._1.metaData.size)
@@ -258,7 +258,7 @@ object ExportActor:
     */
   private def createRemoveOperations(targetContent: Seq[Model.Element[Path]]): ListBuffer[ExportOperation] =
     println("Generating export operations for elements: " + targetContent)
-    val (files, folders) = targetContent.partition(_.isInstanceOf[Model.File[Path]])
+    val (files, folders) = targetContent.partition(_.isInstanceOf[Model.File[?]])
     val buffer = ListBuffer.empty[ExportOperation]
     buffer ++= files.map(f => RemoveOperation(f.id))
     buffer ++= folders.map(f => RemoveOperation(f.id))
