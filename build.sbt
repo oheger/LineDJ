@@ -285,7 +285,7 @@ lazy val metadataExtract = (project in file("mediaArchive/metadataExtract"))
     name := "linedj-extract",
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.extract.metadata.*"),
     OsgiKeys.privatePackage := Seq.empty
-  ) dependsOn shared
+  ).dependsOn(shared)
 
 /**
   * A project with classes that can extract metadata from mp3 audio files.
@@ -300,7 +300,7 @@ lazy val id3Extract = (project in file("mediaArchive/id3Extract"))
     name := "linedj-archive-id3extract",
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.extract.id3.*"),
     OsgiKeys.privatePackage := Seq.empty
-  ) dependsOn(shared % "compile->compile;test->test", metadataExtract)
+  ).dependsOn(shared % "compile->compile;test->test", metadataExtract)
 
 /**
   * A utility project providing common functionality needed by multiple
@@ -316,7 +316,7 @@ lazy val archiveCommon = (project in file("mediaArchive/archiveCommon"))
     libraryDependencies ++= logDependencies,
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archivecommon.*"),
     OsgiKeys.privatePackage := Seq.empty
-  ) dependsOn (shared % "compile->compile;test->test")
+  ).dependsOn(shared % "compile->compile;test->test")
 
 /**
   * The media archive project. This contains code to scan a local folder
@@ -331,7 +331,7 @@ lazy val archive = (project in file("mediaArchive/archive"))
     name := "linedj-archive",
     libraryDependencies ++= logDependencies,
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archive.*")
-  ) dependsOn(shared % "compile->compile;test->test", archiveCommon, metadataExtract, id3Extract)
+  ).dependsOn(shared % "compile->compile;test->test", archiveCommon, metadataExtract, id3Extract)
 
 /**
   * The media archive project. This contains code to manage the library with
@@ -346,7 +346,7 @@ lazy val archiveUnion = (project in file("mediaArchive/archiveUnion"))
     libraryDependencies ++= logDependencies,
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archiveunion.*"),
     OsgiKeys.privatePackage := Seq.empty
-  ) dependsOn (shared % "compile->compile;test->test")
+  ).dependsOn(shared % "compile->compile;test->test")
 
 /**
   * A project providing functionality to easily integrate file systems of the
@@ -366,7 +366,7 @@ lazy val cloudAccess = (project in file("mediaArchive/cloudAccess"))
     libraryDependencies += ("org.apache.pekko" %% "pekko-actor-testkit-typed" % VersionPekko % Test),
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archive.cloud.*"),
     OsgiKeys.privatePackage := Seq.empty
-  ) dependsOn(shared % "compile->compile;test->test")
+  ).dependsOn(shared % "compile->compile;test->test")
 
 /**
   * The HTTP archive project. Via this project media files can be managed that
@@ -389,7 +389,7 @@ lazy val archiveHttp = (project in file("mediaArchive/archiveHttp"))
       "de.oliver_heger.linedj.archivehttp.config", "de.oliver_heger.linedj.archivehttp.temp",
       "de.oliver_heger.linedj.archivehttp.io.*", "de.oliver_heger.linedj.archivehttp.http"),
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archivehttp.impl.*")
-  ) dependsOn(shared % "compile->compile;test->test", archiveCommon, id3Extract, cloudAccess)
+  ).dependsOn(shared % "compile->compile;test->test", archiveCommon, id3Extract, cloudAccess)
 
 /**
   * The archive server model project. It exposes data model classes
@@ -403,7 +403,7 @@ lazy val archiveServerModel = (project in file("mediaArchive/archiveServerModel"
   .settings(
     name := "linedj-archive-server-model",
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archive.server.model"),
-  ) dependsOn shared
+  ).dependsOn(shared)
 
 /**
   * The archive server project. This project provides basic functionality for
@@ -418,7 +418,7 @@ lazy val archiveServer = (project in file("mediaArchive/archiveServer"))
     libraryDependencies ++= pekkoHttpDependencies,
     libraryDependencies += beanUtilsDependency,
     libraryDependencies += commonsConfig2Dependency,
-  ) dependsOn(shared % "compile->compile;test->test", archive, serverCommon, archiveServerModel)
+  ).dependsOn(shared % "compile->compile;test->test", archive, serverCommon, archiveServerModel)
 
 /**
   * The archive server local project. This is an HTTP server application that
@@ -433,7 +433,7 @@ lazy val archiveServerLocal = (project in file("mediaArchive/archiveServerLocal"
     libraryDependencies += beanUtilsDependency,
     libraryDependencies += commonsConfig2Dependency,
     Compile / mainClass := Some("de.oliver_heger.linedj.archive.server.local.Server"),
-  ) dependsOn(shared % "compile->compile;test->test", archiveUnion, archiveServer)
+  ).dependsOn(shared % "compile->compile;test->test", archiveUnion, archiveServer)
 
 /**
   * The archive server cloud model project. It exposes data model classes to be
@@ -446,7 +446,7 @@ lazy val archiveServerCloudModel = (project in file("mediaArchive/archiveServerC
   .settings(
     name := "linedj-archive-server-cloud-model",
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archive.server.cloud.model"),
-  ) dependsOn shared
+  ).dependsOn(shared)
 
 /**
   * The archive server cloud project. This is an HTTP server application that
@@ -460,7 +460,7 @@ lazy val archiveServerCloud = (project in file("mediaArchive/archiveServerCloud"
     libraryDependencies ++= pekkoHttpDependencies,
     libraryDependencies += commonsConfig2Dependency,
     Compile / mainClass := Some("de.oliver_heger.linedj.archive.server.cloud.Server"),
-  ) dependsOn(shared % "compile->compile;test->test", cloudAccess, archiveServer, archiveServerCloudModel,
+  ).dependsOn(shared % "compile->compile;test->test", cloudAccess, archiveServer, archiveServerCloudModel,
       protocolOneDrive, protocolWebDav)
 
 /**
@@ -478,7 +478,7 @@ lazy val protocolWebDav = (project in file("mediaArchive/protocolWebDav"))
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archive.protocol.webdav.*"),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/webdavprotocol_component.xml")
-  ) dependsOn(shared, cloudAccess)
+  ).dependsOn(shared, cloudAccess)
 
 /**
   * The OneDrive protocol project. This is a module adding support for OneDrive
@@ -495,7 +495,7 @@ lazy val protocolOneDrive = (project in file("mediaArchive/protocolOneDrive"))
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archive.protocol.onedrive.*"),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/onedriveprotocol_component.xml")
-  ) dependsOn(shared, cloudAccess)
+  ).dependsOn(shared, cloudAccess)
 
 /**
   * Project for the client platform. This project contains code shared by
@@ -516,7 +516,7 @@ lazy val platform = (project in file("platform"))
     OsgiKeys.privatePackage := Seq.empty,
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
-  ) dependsOn(shared, platformStartup, serverDiscovery, archiveServerModel, archiveServerCloudModel)
+  ).dependsOn(shared, platformStartup, serverDiscovery, archiveServerModel, archiveServerCloudModel)
 
 /**
   * A project containing startup code for the LineDJ platform. This project
@@ -546,7 +546,7 @@ lazy val platformStartup = (project in file("platformStartup"))
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.platform.startup"),
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.platform.startup.impl"),
     OsgiKeys.bundleActivator := Some("de.oliver_heger.linedj.platform.startup.impl.Activator")
-  ) dependsOn shared
+  ).dependsOn(shared)
 
 /**
   * A project which is responsible for starting up the media archive in an
@@ -565,7 +565,7 @@ lazy val archiveStartup = (project in file("mediaArchive/archiveStartup"))
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archivestart.*"),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
-  ) dependsOn(platform, archiveUnion)
+  ).dependsOn(platform, archiveUnion)
 
 /**
   * A project which is responsible for starting up the local media archive in
@@ -584,7 +584,7 @@ lazy val archiveLocalStartup = (project in file("mediaArchive/archiveLocalStartu
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archivelocalstart.*"),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
-  ) dependsOn(platform % "compile->compile;test->test", archive, archiveAdmin, archiveUnion)
+  ).dependsOn(platform % "compile->compile;test->test", archive, archiveAdmin, archiveUnion)
 
 /**
   * A project which is responsible for starting up an HTTP media archive in
@@ -607,7 +607,7 @@ lazy val archiveHttpStartup = (project in file("mediaArchive/archiveHttpStartup"
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archivehttpstart.spi"),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
-  ) dependsOn(
+  ).dependsOn(
   shared % "compile->compile;test->test",
   platform % "compile->compile;test->test",
   archiveHttp,
@@ -633,7 +633,7 @@ lazy val archiveAdmin = (project in file("mediaArchive/archiveAdmin"))
     ),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
-  ) dependsOn(platform % "compile->compile;test->test", archive)
+  ).dependsOn(platform % "compile->compile;test->test", archive)
 
 /**
   * Project for the media browser client application. This application allows
@@ -659,7 +659,7 @@ lazy val mediaBrowser = (project in file("browser"))
     ),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/browserapp_component.xml")
-  ) dependsOn(shared % "compile->compile;test->test", platform % "compile->compile;test->test", audioPlatform)
+  ).dependsOn(shared % "compile->compile;test->test", platform % "compile->compile;test->test", audioPlatform)
 
 /**
   * Project for the playlist editor client application. This application
@@ -687,7 +687,7 @@ lazy val playlistEditor = (project in file("pleditor"))
     ),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
-  ) dependsOn(shared % "compile->compile;test->test", platform % "compile->compile;test->test", audioPlatform)
+  ).dependsOn(shared % "compile->compile;test->test", platform % "compile->compile;test->test", audioPlatform)
 
 /**
   * Project for the playlist medium reorder component. This is an
@@ -705,7 +705,7 @@ lazy val reorderMedium = (project in file("reorder/reorderMedium"))
     ),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
-  ) dependsOn playlistEditor
+  ).dependsOn(playlistEditor)
 
 /**
   * Project for the playlist album reorder component. This is an
@@ -723,7 +723,7 @@ lazy val reorderAlbum = (project in file("reorder/reorderAlbum"))
     ),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
-  ) dependsOn playlistEditor
+  ).dependsOn(playlistEditor)
 
 /**
   * Project for the playlist artist reorder component. This is an
@@ -741,7 +741,7 @@ lazy val reorderArtist = (project in file("reorder/reorderArtist"))
     ),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
-  ) dependsOn playlistEditor
+  ).dependsOn(playlistEditor)
 
 /**
   * Project for the playlist random songs reorder component. This is an
@@ -760,7 +760,7 @@ lazy val reorderRandomSongs = (project in file("reorder/reorderRandomSongs"))
     ),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
-  ) dependsOn playlistEditor
+  ).dependsOn(playlistEditor)
 
 /**
   * Project for the playlist random artist reorder component. This is an
@@ -779,7 +779,7 @@ lazy val reorderRandomArtists = (project in file("reorder/reorderRandomArtists")
     ),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
-  ) dependsOn playlistEditor
+  ).dependsOn(playlistEditor)
 
 /**
   * Project for the playlist random album reorder component. This is an
@@ -799,7 +799,7 @@ lazy val reorderRandomAlbums = (project in file("reorder/reorderRandomAlbums"))
     ),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
-  ) dependsOn playlistEditor
+  ).dependsOn(playlistEditor)
 
 /**
   * Project for the player engine.
@@ -814,7 +814,7 @@ lazy val playerEngine = (project in file("playerEngine"))
     OsgiKeys.exportPackage := Seq(
       "de.oliver_heger.linedj.player.engine.*"),
     OsgiKeys.privatePackage := Seq()
-  ) dependsOn (shared % "compile->compile;test->test")
+  ).dependsOn(shared % "compile->compile;test->test")
 
 /**
   * Project for the player configuration. This project provides standard functionality for parsing configuration
@@ -830,7 +830,7 @@ lazy val playerEngineConfig = (project in file("playerEngineConfig"))
     libraryDependencies ++= testDependencies,
     OsgiKeys.exportPackage := Seq(
       "de.oliver_heger.linedj.player.engine.client.config.*")
-  ) dependsOn (playerEngine, shared % "compile->compile;test->test")
+  ).dependsOn(playerEngine, shared % "compile->compile;test->test")
 
 /**
   * Project for the radio player engine.
@@ -846,7 +846,7 @@ lazy val radioPlayerEngine = (project in file("radioPlayerEngine"))
     OsgiKeys.exportPackage := Seq(
       "de.oliver_heger.linedj.player.engine.radio.*"),
     OsgiKeys.privatePackage := Seq()
-  ) dependsOn (shared % "compile->compile;test->test", playerEngine % "compile->compile;test->test")
+  ).dependsOn(shared % "compile->compile;test->test", playerEngine % "compile->compile;test->test")
 
 /**
   * Project for the radio player configuration. This project provides standard functionality for parsing configuration
@@ -862,7 +862,7 @@ lazy val radioPlayerEngineConfig = (project in file("radioPlayerEngineConfig"))
     libraryDependencies += collectionsDependency % Test,
     OsgiKeys.exportPackage := Seq(
       "de.oliver_heger.linedj.player.engine.radio.client.config.*")
-  ) dependsOn (radioPlayerEngine, playerEngineConfig)
+  ).dependsOn(radioPlayerEngine, playerEngineConfig)
 
 /**
   * Project for the mp3 playback context factory. This is a separate OSGi
@@ -887,7 +887,7 @@ lazy val mp3PlaybackContextFactory = (project in file("mp3PbCtxFactory"))
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/mp3PbCtxFactory_component.xml,OSGI-INF/mp3AudioStreamFactory_component.xml",
         "SPI-Consumer" -> "javax.sound.sampled.AudioSystem#getAudioInputStream")
-  ) dependsOn playerEngine
+  ).dependsOn(playerEngine)
 
 /**
   * Project for the radio player. This project implements a UI for an
@@ -911,7 +911,7 @@ lazy val radioPlayer = (project in file("radioPlayer"))
     ),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
-  ) dependsOn(platform % "compile->compile;test->test", audioPlatform, radioPlayerEngine, radioPlayerEngineConfig)
+  ).dependsOn(platform % "compile->compile;test->test", audioPlatform, radioPlayerEngine, radioPlayerEngineConfig)
 
 /**
   * Project for the remote media interface. This project establishes a
@@ -930,7 +930,7 @@ lazy val mediaIfcActors = (project in file("mediaIfc/mediaIfcActors"))
     OsgiKeys.privatePackage := Seq(
       "de.oliver_heger.linedj.platform.mediaifc.actors.impl.*"
     )
-  ) dependsOn platform
+  ).dependsOn(platform)
 
 /**
   * Project for the remote media interface. This project establishes a
@@ -948,7 +948,7 @@ lazy val mediaIfcRemote = (project in file("mediaIfc/mediaIfcRemote"))
     ),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
-  ) dependsOn mediaIfcActors
+  ).dependsOn(mediaIfcActors)
 
 /**
   * Project for the embedded media interface. This project accesses the
@@ -966,7 +966,7 @@ lazy val mediaIfcEmbedded = (project in file("mediaIfc/mediaIfcEmbedded"))
     ),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
-  ) dependsOn mediaIfcActors
+  ).dependsOn(mediaIfcActors)
 
 /**
   * Project for the disabled media interface. This project provides an empty
@@ -986,7 +986,7 @@ lazy val mediaIfcDisabled = (project in file("mediaIfc/mediaIfcDisabled"))
     ),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
-  ) dependsOn platform
+  ).dependsOn(platform)
 
 /**
   * Project for the ''one for all'' shutdown handler. This project provides
@@ -1005,7 +1005,7 @@ lazy val appShutdownOneForAll = (project in file("appShutdownOneForAll"))
     ),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
-  ) dependsOn platform
+  ).dependsOn(platform)
 
 /**
   * Project for the ''window hiding'' application manager. This project
@@ -1031,7 +1031,7 @@ lazy val appWindowHiding = (project in file("appWindowHiding"))
     ),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
-  ) dependsOn (platform % "compile->compile;test->test")
+  ).dependsOn(platform % "compile->compile;test->test")
 
 lazy val trayWindowList = (project in file("trayWindowList"))
   .enablePlugins(SbtOsgi)
@@ -1045,7 +1045,7 @@ lazy val trayWindowList = (project in file("trayWindowList"))
     ),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
-  ) dependsOn(platform % "compile->compile;test->test", appWindowHiding)
+  ).dependsOn(platform % "compile->compile;test->test", appWindowHiding)
 
 /**
   * Project for the audio platform. This project provides basic services for
@@ -1067,7 +1067,7 @@ lazy val audioPlatform = (project in file("audioPlatform"))
     ),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
-  ) dependsOn(shared % "compile->compile;test->test", platform % "compile->compile;test->test", playerEngine,
+  ).dependsOn(shared % "compile->compile;test->test", platform % "compile->compile;test->test", playerEngine,
       playerEngineConfig)
 
 /**
@@ -1087,7 +1087,7 @@ lazy val persistentPlaylistHandler = (project in file("persistentPLHandler"))
     ),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
-  ) dependsOn(shared % "compile->compile;test->test", platform % "compile->compile;test->test", audioPlatform)
+  ).dependsOn(shared % "compile->compile;test->test", platform % "compile->compile;test->test", audioPlatform)
 
 /**
   * Project for the audio player UI. This project implements a UI for an
@@ -1113,7 +1113,7 @@ lazy val audioPlayerUI = (project in file("audioPlayerUI"))
     ),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
-  ) dependsOn(platform % "compile->compile;test->test", audioPlatform)
+  ).dependsOn(platform % "compile->compile;test->test", audioPlatform)
 
 /**
   * A project that implements a simple audio player that can be controlled via
@@ -1135,7 +1135,7 @@ lazy val audioPlayerShell = (project in file("audioPlayerShell"))
         val oldStrategy = (ThisBuild / assemblyMergeStrategy).value
         oldStrategy(x)
     }
-  ) dependsOn(
+  ).dependsOn(
     playerEngine, mp3PlaybackContextFactory, log4jConfFragment, archiveServerModel, archiveServerCloudModel,
     serverDiscovery
   )
@@ -1153,7 +1153,7 @@ lazy val serverCommon = (project in file("serverCommon"))
     libraryDependencies ++= pekkoHttpDependencies,
     libraryDependencies += beanUtilsDependency,
     libraryDependencies += commonsConfig2Dependency,
-  ) dependsOn shared
+  ).dependsOn(shared)
 
 /**
   * A project implementing a discovery client for servers based on the server
@@ -1168,7 +1168,7 @@ lazy val serverDiscovery = (project in file("serverDiscovery"))
     libraryDependencies ++= logDependencies,
     libraryDependencies ++= pekkoHttpDependencies,
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.server.discovery"),
-  ) dependsOn (shared % "compile->compile;test->test", serverCommon % "test->compile;test->test")
+  ).dependsOn(shared % "compile->compile;test->test", serverCommon % "test->compile;test->test")
 
 /**
   * Project for the player server. This project exposes player functionality
@@ -1190,7 +1190,7 @@ lazy val playerServer = (project in file("playerServer"))
       "--verbose",
       "-march=compatibility"
     )
-  ) dependsOn(serverCommon, radioPlayerEngine, playerEngineConfig, radioPlayerEngineConfig, mp3PlaybackContextFactory)
+  ).dependsOn(serverCommon, radioPlayerEngine, playerEngineConfig, radioPlayerEngineConfig, mp3PlaybackContextFactory)
 
 /**
   * Project for a fragment bundle to make log4j-provider.properties available
@@ -1240,7 +1240,7 @@ lazy val archiveOsgiImage = (project in file("images/archive"))
     libraryDependencies ++= remotingDependencies,
     libraryDependencies ++= osgiLogDependencies,
     dependencyOverrides ++= asmOverrides
-  ) dependsOn(archiveUnion, archiveStartup, archiveLocalStartup, archiveAdmin, appShutdownOneForAll,
+  ).dependsOn(archiveUnion, archiveStartup, archiveLocalStartup, archiveAdmin, appShutdownOneForAll,
   mediaIfcEmbedded, log4jApiFragment, log4jConfFragment)
 
 /**
@@ -1259,7 +1259,7 @@ lazy val browserOsgiImage = (project in file("images/browser"))
     libraryDependencies ++= remotingDependencies,
     libraryDependencies ++= osgiLogDependencies,
     dependencyOverrides ++= asmOverrides
-  ) dependsOn(appWindowHiding, log4jApiFragment, log4jConfFragment, mediaIfcDisabled, platform, reorderAlbum,
+  ).dependsOn(appWindowHiding, log4jApiFragment, log4jConfFragment, mediaIfcDisabled, platform, reorderAlbum,
   reorderArtist, reorderMedium, reorderRandomAlbums, reorderRandomArtists, reorderRandomSongs, trayWindowList)
 
 /**
@@ -1278,7 +1278,7 @@ lazy val playerOsgiImage = (project in file("images/player"))
     libraryDependencies ++= remotingDependencies,
     libraryDependencies ++= osgiLogDependencies,
     dependencyOverrides ++= asmOverrides
-  ) dependsOn(mediaBrowser, playlistEditor, audioPlayerUI, reorderAlbum, reorderArtist, reorderMedium,
+  ).dependsOn(mediaBrowser, playlistEditor, audioPlayerUI, reorderAlbum, reorderArtist, reorderMedium,
   reorderRandomAlbums, reorderRandomArtists, reorderRandomSongs, mediaIfcRemote, appWindowHiding,
   trayWindowList, persistentPlaylistHandler, mp3PlaybackContextFactory, log4jApiFragment, log4jConfFragment)
 
@@ -1298,7 +1298,7 @@ lazy val playerAdvancedOsgiImage = (project in file("images/player_advanced"))
     libraryDependencies ++= remotingDependencies,
     libraryDependencies ++= osgiLogDependencies,
     dependencyOverrides ++= asmOverrides
-  ) dependsOn(mediaBrowser, playlistEditor, audioPlayerUI, reorderAlbum, reorderArtist, reorderMedium,
+  ).dependsOn(mediaBrowser, playlistEditor, audioPlayerUI, reorderAlbum, reorderArtist, reorderMedium,
   reorderRandomAlbums, reorderRandomArtists, reorderRandomSongs, appWindowHiding,
   trayWindowList, persistentPlaylistHandler, archiveUnion, archiveStartup, archiveHttp,
   archiveHttpStartup, mediaIfcEmbedded, protocolWebDav, protocolOneDrive, mp3PlaybackContextFactory, log4jApiFragment,
@@ -1318,5 +1318,5 @@ lazy val radioOsgiImage = (project in file("images/radio"))
     libraryDependencies ++= remotingDependencies,
     libraryDependencies ++= osgiLogDependencies,
     dependencyOverrides ++= asmOverrides
-  ) dependsOn(radioPlayer, appShutdownOneForAll, mediaIfcDisabled, mp3PlaybackContextFactory, log4jApiFragment,
+  ).dependsOn(radioPlayer, appShutdownOneForAll, mediaIfcDisabled, mp3PlaybackContextFactory, log4jApiFragment,
   log4jConfFragment)
