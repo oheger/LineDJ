@@ -58,6 +58,13 @@ object OsgiImagePlugin extends AutoPlugin:
   val PropImageRoot = "osgi.image.rootPath"
 
   /**
+    * The environment variable that defines the root path of source OSGi
+    * images. This variable is checked first. If it is undefined, the root
+    * path is obtained from a system property.
+    */
+  final val EnvImageRoot = "LINEDJ_IMAGE_ROOT_PATH"
+
+  /**
     * Name of the directory in the project's target folder in which the image
     * is generated.
     */
@@ -198,7 +205,7 @@ object OsgiImagePlugin extends AutoPlugin:
     Def.taskDyn:
       val projectsDependencies = buildDependencies.value.classpathTransitive
       val currentProjectDependencies = projectsDependencies.getOrElse(thisProjectRef.value, Nil)
-      val filter = ScopeFilter(inProjects(currentProjectDependencies*))
+      val filter = ScopeFilter(inProjects(currentProjectDependencies *))
       task.?.all(filter)
   end runTaskOnAffectedProjects
 
@@ -261,7 +268,7 @@ object OsgiImagePlugin extends AutoPlugin:
     * @param imageDir     the path where to generate the image
     * @param log          the logger
     */
-  private def createBundleDir(dependencies: Seq[File], 
+  private def createBundleDir(dependencies: Seq[File],
                               projects: Seq[File],
                               bundlePath: String,
                               imageDir: File,
@@ -286,7 +293,7 @@ object OsgiImagePlugin extends AutoPlugin:
     * @param log         the logger
     */
   private def copySourceImages(sourcePaths: Seq[String], imageDir: File, log: ManagedLogger): Unit =
-    lazy val imageRoot = file(System.getProperty(PropImageRoot, "."))
+    lazy val imageRoot = findImageRootFolder()
     lazy val copyOptions = CopyOptions(overwrite = true, preserveLastModified = true, preserveExecutable = true)
     sourcePaths foreach : sourcePath =>
       val sourceImage = new File(imageRoot, sourcePath)
@@ -297,4 +304,17 @@ object OsgiImagePlugin extends AutoPlugin:
       else
         log.info("Skipping source image as it does not exist: " + sourceImage)
   end copySourceImages
+
+  /**
+    * Determines the path which contains the source OSGi images. This function
+    * first checks for the presence of the [[EnvImageRoot]] environment 
+    * variable. If it is set, its value is interpreted as path to the source
+    * OSGi images. Otherwise, the function falls back to the [[PropImageRoot]]
+    * system property. If this is not defined either, as a last resort, the
+    * current folder is used.
+    *
+    * @return the folder containing the source root OSGi images
+    */
+  private def findImageRootFolder(): File =
+    file(Option(System.getenv(EnvImageRoot)).getOrElse(System.getProperty(PropImageRoot, ".")))
 end OsgiImagePlugin
