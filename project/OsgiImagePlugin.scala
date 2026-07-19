@@ -199,7 +199,7 @@ object OsgiImagePlugin extends AutoPlugin:
       val projectsDependencies = buildDependencies.value.classpathTransitive
       val currentProjectDependencies = projectsDependencies.getOrElse(thisProjectRef.value, Nil)
       val filter = ScopeFilter(inProjects(currentProjectDependencies*))
-      (task.?).all(filter)
+      task.?.all(filter)
   end runTaskOnAffectedProjects
 
   /**
@@ -261,11 +261,15 @@ object OsgiImagePlugin extends AutoPlugin:
     * @param imageDir     the path where to generate the image
     * @param log          the logger
     */
-  private def createBundleDir(dependencies: Seq[File], projects: Seq[File], bundlePath: String,
-                              imageDir: File, log: ManagedLogger): Unit =
+  private def createBundleDir(dependencies: Seq[File], 
+                              projects: Seq[File],
+                              bundlePath: String,
+                              imageDir: File,
+                              log: ManagedLogger): Unit =
     val bundleDir = new File(imageDir, bundlePath)
+    log.info(s"Creating bundle directory at $bundleDir.")
     val (dependencyBundles, nonBundles) = dependencies.partition(isBundle)
-    val bundleFiles = dependencyBundles ++ projects
+    val bundleFiles = dependencyBundles ++ projects.filter(_.isFile)
     val bundleMapping = bundleFiles pair Path.flat(bundleDir)
     IO.copy(bundleMapping, CopyOptions(overwrite = true, preserveLastModified = true, preserveExecutable = false))
 
@@ -284,7 +288,7 @@ object OsgiImagePlugin extends AutoPlugin:
   private def copySourceImages(sourcePaths: Seq[String], imageDir: File, log: ManagedLogger): Unit =
     lazy val imageRoot = file(System.getProperty(PropImageRoot, "."))
     lazy val copyOptions = CopyOptions(overwrite = true, preserveLastModified = true, preserveExecutable = true)
-    sourcePaths foreach { sourcePath =>
+    sourcePaths foreach : sourcePath =>
       val sourceImage = new File(imageRoot, sourcePath)
       if sourceImage.isDirectory then
         log.info("Copying source image: " + sourceImage)
@@ -292,6 +296,5 @@ object OsgiImagePlugin extends AutoPlugin:
           copyOptions)
       else
         log.info("Skipping source image as it does not exist: " + sourceImage)
-    }
   end copySourceImages
 end OsgiImagePlugin
