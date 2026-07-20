@@ -258,9 +258,9 @@ object Output:
     */
   private def createLayout(context: LoggerContext): PatternLayout =
     PatternLayout.newBuilder()
-      .withConfiguration(context.getConfiguration)
-      .withPattern("%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n")
-      .withCharset(StandardCharsets.UTF_8)
+      .setConfiguration(context.getConfiguration)
+      .setPattern("%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n")
+      .setCharset(StandardCharsets.UTF_8)
       .build()
 
   /**
