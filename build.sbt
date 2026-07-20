@@ -146,15 +146,15 @@ lazy val javaFxClassifier =
   else if (osName.startsWith("Mac")) "mac"
   else "linux"
 lazy val javaFxDependencies = Seq(
-  "org.openjfx" % "javafx-controls" % VersionJavaFX classifier javaFxClassifier,
-  "org.openjfx" % "javafx-base" % VersionJavaFX classifier javaFxClassifier,
-  "org.openjfx" % "javafx-graphics" % VersionJavaFX classifier javaFxClassifier
+  ("org.openjfx" % "javafx-controls" % VersionJavaFX).classifier(javaFxClassifier),
+  ("org.openjfx" % "javafx-base" % VersionJavaFX).classifier(javaFxClassifier),
+  ("org.openjfx" % "javafx-graphics" % VersionJavaFX).classifier(javaFxClassifier)
 )
 
 lazy val jguiraffeDependencies = Seq(
   "net.sf.jguiraffe" % "jguiraffe-java-fx" % VersionJguiraffe,
   "net.sf.jguiraffe" % "jguiraffe" % VersionJguiraffe,
-  "net.sf.jguiraffe" % "jguiraffe" % VersionJguiraffe % Test classifier "tests",
+  ("net.sf.jguiraffe" % "jguiraffe" % VersionJguiraffe % Test).classifier("tests"),
 ) ++ javaFxDependencies
 
 lazy val osgiDependencies = Seq(
@@ -201,7 +201,7 @@ lazy val LineDJ = (project in file("."))
   .settings(defaultSettings*)
   .settings(
     name := "linedj-parent"
-  ) aggregate(
+  ).aggregate(
   appShutdownOneForAll,
   appWindowHiding,
   archive,
