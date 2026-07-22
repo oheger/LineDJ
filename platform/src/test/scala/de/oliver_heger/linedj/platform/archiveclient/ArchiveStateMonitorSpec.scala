@@ -76,8 +76,13 @@ object ArchiveStateMonitorSpec:
     * @param optData the optional current data
     * @return the request to send to the archive
     */
-  private def createRequest(optData: Option[TestMonitorData]): HttpRequest =
-    archiveRequest(optData.map(_.tag))
+  private def createRequest(optData: Option[TestMonitorData]): List[HttpRequest] =
+    optData match
+      case Some(data) if data.data.contains(System.lineSeparator()) =>
+        data.data.split(System.lineSeparator()).toList.map: part =>
+          archiveRequest(Some(part))
+      case _ =>
+        List(archiveRequest(optData.map(_.tag)))
 
   /**
     * Returns an evaluation function that extracts the required data for the
@@ -89,14 +94,20 @@ object ArchiveStateMonitorSpec:
     */
   private def evaluateResponse(using mat: Materializer,
                                ec: ExecutionContext): ArchiveStateMonitor.EvaluateFunc[TestMonitorData, String] =
-    (response, optCurrentData) =>
-      if response.status == StatusCodes.NotModified then
+    (responses, optCurrentData) =>
+      if responses.exists(_.status == StatusCodes.NotModified) then
         Future.successful(None)
       else
-        response.entity.dataBytes.runFold(ByteString.empty)(_ ++ _) map : entity =>
-          val tag = response.header[ETag].map(_.etag.tag).getOrElse("")
-          val data = TestMonitorData(entity.utf8String, tag)
-          Some((data, data.data)).filterNot: nextData =>
+        val futParts = responses.map: response =>
+          response.entity.dataBytes.runFold(ByteString.empty)(_ ++ _) map: entity =>
+            val tag = response.header[ETag].map(_.etag.tag).getOrElse("")
+            (entity.utf8String, tag)
+
+        Future.sequence(futParts) map: parts =>
+          val data = parts.map(_._1).mkString(System.lineSeparator())
+          val tag = parts.lastOption.map(_._2).getOrElse("")
+          val resultData = TestMonitorData(data, tag)
+          Some((resultData, resultData.data)).filterNot: nextData =>
             optCurrentData.contains(nextData._1)
 
   /**
@@ -341,6 +352,32 @@ class ArchiveStateMonitorSpec(testSystem: ActorSystem) extends TestKit(testSyste
       res <- listener.expectNoInvocation()
     yield res
 
+  it should "handle multiple requests based on the current data" in :
+    val Line1 = "First line of archive data"
+    val Line2 = "Second line of archive data"
+    val Separator = System.lineSeparator()
+    val InitialData = s"$Line1$Separator$Line2"
+    val UpdatedLine1 = "Updated first line"
+    val UpdatedLine2 = "Updated second line"
+    val ExpectedUpdatedData = s"$UpdatedLine1$Separator$UpdatedLine2"
+    val listener = new TestArchiveChangeLister
+    val helper = new MonitorTestHelper("multipleRequests")
+
+    for
+      _ <- helper.registerListener(listener)
+        .expectBackoffActorCreation()
+        .handleArchiveRequest(archiveRequest(None), archiveResponse(Some(InitialData)), BackoffActor.TaskResult.Reset)
+      _ <- listener.expectState(InitialData)
+      req1 = archiveRequest(Some(Line1))
+      req2 = archiveRequest(Some(Line2))
+      _ <- helper.handleMultipleArchiveRequests(
+        List(req1, req2),
+        List(archiveResponse(Some(UpdatedLine1)), archiveResponse(Some(UpdatedLine2))),
+        BackoffActor.TaskResult.Reset
+      )
+      res <- listener.expectState(ExpectedUpdatedData)
+    yield res
+
   /**
     * A test helper class managing a test actor instance and its dependencies.
     *
@@ -448,6 +485,41 @@ class ArchiveStateMonitorSpec(testSystem: ActorSystem) extends TestKit(testSyste
         response = response
       )
       handleArchiveRequestWithResult(expectedRequest, result, expectedTaskResult, triggerInvocation)
+
+    /**
+      * Calls the task function that was passed to the backoff actor and
+      * handles multiple requests sent via the HTTP sender actor. For each
+      * request, it verifies that the expected request is sent and answers it
+      * with the provided response.
+      *
+      * @param expectedRequests   the list of expected requests to the archive
+      * @param responses         the list of HTTP responses to return
+      * @param expectedTaskResult the expected result of the task function
+      * @param triggerInvocation  flag whether to call the task function
+      * @return a [[Future]] with the check of the task result
+      */
+    def handleMultipleArchiveRequests(
+        expectedRequests: List[HttpRequest],
+        responses: List[HttpResponse],
+        expectedTaskResult: BackoffActor.TaskResult,
+        triggerInvocation: Boolean = true): Future[Assertion] =
+      val futTask = if triggerInvocation then
+        taskFunc()
+      else
+        Future.successful(expectedTaskResult)
+
+      expectedRequests.zip(responses).foreach: (expectedRequest, response) =>
+        val request = httpSenderProbe.expectMessageType[HttpRequestSender.SendRequest]
+        request.discardEntityMode should be(HttpRequestSender.DiscardEntityMode.OnFailure)
+        request.request should be(expectedRequest)
+        val result = HttpRequestSender.SuccessResult(
+          request = request,
+          response = response
+        )
+        request.replyTo ! result
+
+      futTask.map: taskResult =>
+        taskResult should be(expectedTaskResult)
 
     /**
       * Adds the given change listener to the test actor instance.

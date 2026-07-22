@@ -203,17 +203,17 @@ class ArchiveServiceSpec(testSystem: ActorSystem) extends TestKit(testSystem), A
     val request = HttpRequest(uri = "/test/request")
     val helper = new ServiceTestHelper
 
-    val archiveRequest = helper.requestFunc(Some(request))
+    val archiveRequests = helper.requestFunc(Some(request))
 
-    archiveRequest should be(request)
+    archiveRequests should contain only request
 
   it should "use a request function that creates a standard request if no data is available" in :
     val expectedRequest = HttpRequest(uri = "/api/archive/media")
     val helper = new ServiceTestHelper
 
-    val archiveRequest = helper.requestFunc(None)
+    val archiveRequests = helper.requestFunc(None)
 
-    archiveRequest should be(expectedRequest)
+    archiveRequests should contain only expectedRequest
 
   it should "use an evaluate function that returns updated data" in :
     val media = List(
@@ -223,13 +223,15 @@ class ArchiveServiceSpec(testSystem: ActorSystem) extends TestKit(testSystem), A
     )
     val testMediaData = ArchiveModel.MediaOverview(media)
     val TestTag = "0123456789"
-    val response = HttpResponse(
-      headers = Seq(ETag(EntityTag(TestTag))),
-      entity = HttpEntity(ContentTypes.`application/json`, testMediaData.toJson.prettyPrint)
+    val responses = List(
+      HttpResponse(
+        headers = Seq(ETag(EntityTag(TestTag))),
+        entity = HttpEntity(ContentTypes.`application/json`, testMediaData.toJson.prettyPrint)
+      )
     )
     val helper = new ServiceTestHelper
 
-    helper.evaluateFunc(response, None) map : data =>
+    helper.evaluateFunc(responses, None) map : data =>
       val expectedRequest = HttpRequest(
         uri = "/api/archive/media",
         headers = Seq(`If-None-Match`(EntityTag(TestTag)))
@@ -239,10 +241,10 @@ class ArchiveServiceSpec(testSystem: ActorSystem) extends TestKit(testSystem), A
       state should be(testMediaData)
 
   it should "use an evaluate function that handles a 304 response" in :
-    val response = HttpResponse(status = StatusCodes.NotModified)
+    val responses = List(HttpResponse(status = StatusCodes.NotModified))
     val helper = new ServiceTestHelper
 
-    helper.evaluateFunc(response, None) map : data =>
+    helper.evaluateFunc(responses, None) map : data =>
       data shouldBe empty
 
   it should "use an evaluate function that handles a 200 response without an ETag" in :
@@ -250,12 +252,14 @@ class ArchiveServiceSpec(testSystem: ActorSystem) extends TestKit(testSystem), A
       ArchiveModel.MediumOverview(Checksums.MediumChecksum("mid-1"), "TestMedium1")
     )
     val testMediaData = ArchiveModel.MediaOverview(media)
-    val response = HttpResponse(
-      entity = HttpEntity(ContentTypes.`application/json`, testMediaData.toJson.prettyPrint)
+    val responses = List(
+      HttpResponse(
+        entity = HttpEntity(ContentTypes.`application/json`, testMediaData.toJson.prettyPrint)
+      )
     )
     val helper = new ServiceTestHelper
   
-    helper.evaluateFunc(response, None) map : data =>
+    helper.evaluateFunc(responses, None) map : data =>
       val expectedRequest = HttpRequest(uri = "/api/archive/media")
       val (request, state) = data.value
       request should be(expectedRequest)

@@ -67,15 +67,15 @@ class LoginServiceImplSpec(testSystem: ActorSystem) extends TestKit(testSystem),
   import LoginServiceImplSpec.*
 
   /**
-    * Creates a response containing the given data entity.
+    * Creates the responses containing the given data entity.
     *
     * @param data the data for the response entity
     * @param m    the marshaller
     * @tparam T the type of the data
     * @return a [[Future]] with the response
     */
-  private def createResponse[T](data: T)(using m: Marshaller[T, HttpResponse]): Future[HttpResponse] =
-    Marshal(data).to[HttpResponse]
+  private def createResponse[T](data: T)(using m: Marshaller[T, HttpResponse]): Future[List[HttpResponse]] =
+    Marshal(data).to[HttpResponse].map(List(_))
 
   "A LoginServiceImpl" should "return information about credentials" in :
     val credentialsInfo = CloudArchiveModel.CredentialsInfo(
@@ -131,8 +131,10 @@ class LoginServiceImplSpec(testSystem: ActorSystem) extends TestKit(testSystem),
   it should "use a request function for the monitor that returns the correct request" in :
     val helper = new ServiceTestHelper
 
-    val request = helper.requestFunc(null)
+    val requests = helper.requestFunc(null)
 
+    requests should have size 1
+    val request = requests.head
     request.uri should be(Uri("/api/archive/archives/status"))
     request.method should be(HttpMethods.GET)
 

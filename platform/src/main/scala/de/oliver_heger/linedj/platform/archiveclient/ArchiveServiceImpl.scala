@@ -98,8 +98,8 @@ private object ArchiveServiceImpl extends ArchiveModel.ArchiveJsonSupport:
     * @param optData the optional managed data
     * @return the request to send to the archive
     */
-  private def createRequest(optData: Option[HttpRequest]): HttpRequest =
-    optData.getOrElse(MediaRequest)
+  private def createRequest(optData: Option[HttpRequest]): List[HttpRequest] =
+    List(optData.getOrElse(MediaRequest))
 
   /**
     * Returns the function to evaluate the response received from the archive
@@ -112,7 +112,8 @@ private object ArchiveServiceImpl extends ArchiveModel.ArchiveJsonSupport:
   ArchiveStateMonitor.EvaluateFunc[HttpRequest, ArchiveModel.MediaOverview] =
     given ExecutionContext = system.dispatcher
 
-    (response, optData) =>
+    (responses, optData) =>
+      val response = responses.head
       if response.status != StatusCodes.NotModified then
         Unmarshal(response).to[ArchiveModel.MediaOverview] map : media =>
           val nextRequest = response.header[ETag].map: etag =>

@@ -37,12 +37,12 @@ private object LoginServiceImpl extends CloudArchiveModel.CloudArchiveJsonSuppor
   private[archiveclient] type MonitorData = CloudArchiveModel.CloudArchiveStateResponse
 
   /**
-    * The request to be sent by the monitor actor to query the archive status.
+    * The requests to be sent by the monitor actor to query the archive status.
     */
-  private val ArchiveStatusRequest = HttpRequest(uri = "/api/archive/archives/status")
+  private val ArchiveStatusRequests = List(HttpRequest(uri = "/api/archive/archives/status"))
 
   /** The request function for the monitor actor. */
-  private val MonitorRequestFunc: ArchiveStateMonitor.RequestFunc[MonitorData] = _ => ArchiveStatusRequest
+  private val MonitorRequestFunc: ArchiveStateMonitor.RequestFunc[MonitorData] = _ => ArchiveStatusRequests
 
   /** The name of the monitor actor. */
   final val MonitorActorName = "archiveStateMonitor"
@@ -98,7 +98,8 @@ private object LoginServiceImpl extends CloudArchiveModel.CloudArchiveJsonSuppor
   ArchiveStateMonitor.EvaluateFunc[MonitorData, MonitorData] =
     given ExecutionContext = system.dispatcher
 
-    (response, optData) =>
+    (responses, optData) =>
+      val response = responses.head
       Unmarshal(response).to[MonitorData] map : state =>
         if optData.contains(state) then
           None
