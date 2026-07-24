@@ -31,6 +31,7 @@ import org.apache.pekko.testkit.TestKit
 import org.apache.pekko.util.Timeout
 import org.mockito.ArgumentMatchers.{any, eq as argEq}
 import org.mockito.Mockito.*
+import org.scalatest.Inspectors.forEvery
 import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{BeforeAndAfterAll, OptionValues}
@@ -50,6 +51,34 @@ object LoginServiceImplSpec:
 
   /** The timeout for the monitor actor. */
   private val MonitorTimeout: Timeout = Timeout(33.seconds)
+
+  /** Test data for the state of the cloud archives. */
+  private val TestArchiveState = CloudArchiveModel.CloudArchiveStateResponse(
+    waitingArchives = Set("notLoadedArchive"),
+    loadedArchives = Set("liveMusic", "musicOnline", "radioActive"),
+    failedArchives = Set(
+      CloudArchiveModel.FailedArchive("failedArchive1", "Failure1", 1),
+      CloudArchiveModel.FailedArchive("failedArchive2", "Failure2", 2),
+    )
+  )
+
+  /** Test data for the credentials state. */
+  private val TestCredentialsInfo = CloudArchiveModel.CredentialsInfo(
+    fileCredentials = Set("mySecretsFile"),
+    archiveCredentials = Set("foo.username", "bar.password")
+  )
+
+  /** Test data for the combined login state. */
+  private val TestLoginState = LoginService.ArchiveLoginState(
+    waitingArchives = Set("notLoadedArchive"),
+    loadedArchives = Set("liveMusic", "musicOnline", "radioActive"),
+    failedArchives = Map(
+      "failedArchive1" -> CloudArchiveModel.FailedArchive("failedArchive1", "Failure1", 1),
+      "failedArchive2" -> CloudArchiveModel.FailedArchive("failedArchive2", "Failure2", 2),
+    ),
+    fileCredentials = Set("mySecretsFile"),
+    archiveCredentials = Set("foo.username", "bar.password")
+  )
 end LoginServiceImplSpec
 
 class LoginServiceImplSpec(testSystem: ActorSystem) extends TestKit(testSystem), AsyncFlatSpecLike, BeforeAndAfterAll,
@@ -74,8 +103,8 @@ class LoginServiceImplSpec(testSystem: ActorSystem) extends TestKit(testSystem),
     * @tparam T the type of the data
     * @return a [[Future]] with the response
     */
-  private def createResponse[T](data: T)(using m: Marshaller[T, HttpResponse]): Future[List[HttpResponse]] =
-    Marshal(data).to[HttpResponse].map(List(_))
+  private def createResponse[T](data: T)(using m: Marshaller[T, HttpResponse]): Future[HttpResponse] =
+    Marshal(data).to[HttpResponse]
 
   "A LoginServiceImpl" should "return information about credentials" in :
     val credentialsInfo = CloudArchiveModel.CredentialsInfo(
@@ -128,68 +157,62 @@ class LoginServiceImplSpec(testSystem: ActorSystem) extends TestKit(testSystem),
 
     service.optMonitorActor shouldBe empty
 
-  it should "use a request function for the monitor that returns the correct request" in :
+  it should "use a request function for the monitor that returns the correct requests" in :
+    val expectedRequestUris = List(
+      "/api/archive/archives/status",
+      "/api/archive/credentials"
+    )
     val helper = new ServiceTestHelper
 
     val requests = helper.requestFunc(null)
 
-    requests should have size 1
-    val request = requests.head
-    request.uri should be(Uri("/api/archive/archives/status"))
-    request.method should be(HttpMethods.GET)
+    requests should have size expectedRequestUris.size
+    forEvery(requests.zip(expectedRequestUris)): (request, uri) =>
+      Future.successful:
+        request.uri should be(Uri(uri))
+        request.method should be(HttpMethods.GET)
 
   it should "use an evaluate function for the monitor that returns new data" in :
-    val status = CloudArchiveModel.CloudArchiveStateResponse(
-      waitingArchives = Set("notLoadedArchive"),
-      loadedArchives = Set("liveMusic", "musicOnline", "radioActive"),
-      failedArchives = Set.empty
-    )
     val helper = new ServiceTestHelper
 
     for
-      response <- createResponse(status)
-      result <- helper.evaluateFunc(response, None)
+      stateResponse <- createResponse(TestArchiveState)
+      credResponse <- createResponse(TestCredentialsInfo)
+      result <- helper.evaluateFunc(List(stateResponse, credResponse), None)
     yield
-      result.value should be((status, status))
+      result.value should be((TestLoginState, TestLoginState))
 
   it should "use an evaluate function for the monitor that returns None if data is not changed" in :
-    val status = CloudArchiveModel.CloudArchiveStateResponse(
-      waitingArchives = Set("notLoadedArchive"),
-      loadedArchives = Set("liveMusic", "musicOnline", "radioActive"),
-      failedArchives = Set(
-        CloudArchiveModel.FailedArchive("errorArchive", "Could not load", 2)
-      )
-    )
     val helper = new ServiceTestHelper
 
     for
-      response <- createResponse(status)
-      result <- helper.evaluateFunc(response, Some(status))
+      stateResponse <- createResponse(TestArchiveState)
+      credResponse <- createResponse(TestCredentialsInfo)
+      result <- helper.evaluateFunc(List(stateResponse, credResponse), Some(TestLoginState))
     yield
       result shouldBe empty
 
-  it should "return an evaluate function for the monitor that returns updated data" in :
-    val oldStatus = CloudArchiveModel.CloudArchiveStateResponse(
-      waitingArchives = Set("notLoadedArchive"),
-      loadedArchives = Set("liveMusic", "musicOnline", "radioActive"),
-      failedArchives = Set(
-        CloudArchiveModel.FailedArchive("errorArchive", "Could not load", 2)
-      )
-    )
-    val newStatus = CloudArchiveModel.CloudArchiveStateResponse(
+  it should "use an evaluate function for the monitor that returns updated data" in :
+    val newLoadedArchives = TestArchiveState.loadedArchives ++ TestArchiveState.waitingArchives
+    val newArchiveCredentials = TestCredentialsInfo.archiveCredentials + "test.credential"
+    val archiveState = TestArchiveState.copy(
       waitingArchives = Set.empty,
-      loadedArchives = Set("liveMusic", "musicOnline", "radioActive", "notLoadedArchive"),
-      failedArchives = Set(
-        CloudArchiveModel.FailedArchive("errorArchive", "Could not load", 3)
-      )
+      loadedArchives = newLoadedArchives
+    )
+    val credentialState = TestCredentialsInfo.copy(archiveCredentials = newArchiveCredentials)
+    val expectedLoginState = TestLoginState.copy(
+      waitingArchives = Set.empty,
+      loadedArchives = newLoadedArchives,
+      archiveCredentials = newArchiveCredentials
     )
     val helper = new ServiceTestHelper
 
     for
-      response <- createResponse(newStatus)
-      result <- helper.evaluateFunc(response, Some(oldStatus))
+      stateResponse <- createResponse(archiveState)
+      credResponse <- createResponse(credentialState)
+      result <- helper.evaluateFunc(List(stateResponse, credResponse), Some(TestLoginState))
     yield
-      result.value should be((newStatus, newStatus))
+      result.value should be((expectedLoginState, expectedLoginState))
 
   it should "stop the monitor actor when it is closed" in :
     val helper = new ServiceTestHelper

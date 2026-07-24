@@ -20,6 +20,28 @@ import de.oliver_heger.linedj.archive.server.cloud.model.CloudArchiveModel
 
 import scala.concurrent.Future
 
+object LoginService:
+  /**
+    * A data class storing a number of properties to reflect the login state of
+    * a cloud archive server. This combines the state of the single managed
+    * cloud archives with information about pending credentials. Clients of the
+    * login service are typically interested in all these properties. Thus, the
+    * change listener interface uses this as state that can be monitored.
+    *
+    * @param waitingArchives    the names of archives in waiting state
+    * @param loadedArchives     the names of archives in loaded state
+    * @param failedArchives     a map associating the names of failed archives
+    *                           with further information about the failure
+    * @param fileCredentials    the credentials unlocking credential files
+    * @param archiveCredentials single credentials to unlock archives
+    */
+  final case class ArchiveLoginState(waitingArchives: Set[String],
+                                     loadedArchives: Set[String],
+                                     failedArchives: Map[String, CloudArchiveModel.FailedArchive],
+                                     fileCredentials: Set[String],
+                                     archiveCredentials: Set[String])
+end LoginService
+
 /**
   * A trait to define the interface of a service which interacts with an 
   * archive server that supports login operations.
@@ -28,7 +50,7 @@ import scala.concurrent.Future
   * status of cloud archive, the credentials not yet available, and perform
   * login operations.
   */
-trait LoginService extends MonitorSupport[CloudArchiveModel.CloudArchiveStateResponse]:
+trait LoginService extends MonitorSupport[LoginService.ArchiveLoginState]:
   /**
     * Returns a [[Future]] with information about the currently missing
     * credentials. This can be used by clients to figure out which credentials

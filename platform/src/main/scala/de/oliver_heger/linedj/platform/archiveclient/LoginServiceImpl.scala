@@ -31,15 +31,18 @@ import scala.concurrent.{ExecutionContext, Future}
 private object LoginServiceImpl extends CloudArchiveModel.CloudArchiveJsonSupport:
   /**
     * Type alias for the DATA and STATE types for the monitor actor. For both
-    * types the current cloud archive state is used. The request function does
-    * not depend on any input; always the same request is sent.
+    * types the current cloud archive login state is used. The request function
+    * does not depend on any input; always the same request is sent.
     */
-  private[archiveclient] type MonitorData = CloudArchiveModel.CloudArchiveStateResponse
+  private[archiveclient] type MonitorData = LoginService.ArchiveLoginState
 
   /**
     * The requests to be sent by the monitor actor to query the archive status.
     */
-  private val ArchiveStatusRequests = List(HttpRequest(uri = "/api/archive/archives/status"))
+  private val ArchiveStatusRequests = List(
+    HttpRequest(uri = "/api/archive/archives/status"),
+    HttpRequest(uri = "/api/archive/credentials")
+  )
 
   /** The request function for the monitor actor. */
   private val MonitorRequestFunc: ArchiveStateMonitor.RequestFunc[MonitorData] = _ => ArchiveStatusRequests
@@ -99,12 +102,23 @@ private object LoginServiceImpl extends CloudArchiveModel.CloudArchiveJsonSuppor
     given ExecutionContext = system.dispatcher
 
     (responses, optData) =>
-      val response = responses.head
-      Unmarshal(response).to[MonitorData] map : state =>
-        if optData.contains(state) then
+      val futStateResponse = Unmarshal(responses.head).to[CloudArchiveModel.CloudArchiveStateResponse]
+      val futCredInfo = Unmarshal(responses(1)).to[CloudArchiveModel.CredentialsInfo]
+      for
+        stateResponse <- futStateResponse
+        credInfo <- futCredInfo
+      yield
+        val loginState = LoginService.ArchiveLoginState(
+          waitingArchives = stateResponse.waitingArchives,
+          loadedArchives = stateResponse.loadedArchives,
+          failedArchives = stateResponse.failedArchives.map(fa => fa.name -> fa).toMap,
+          fileCredentials = credInfo.fileCredentials,
+          archiveCredentials = credInfo.archiveCredentials
+        )
+        if optData.contains(loginState) then
           None
         else
-          Some((state, state))
+          Some((loginState, loginState))
 
   /**
     * Creates the monitor actor if a corresponding backoff configuration is
