@@ -210,6 +210,7 @@ lazy val LineDJ = (project in file("."))
   archiveHttp,
   archiveHttpStartup,
   archiveLocalStartup,
+  archiveLogin,
   archiveServer,
   archiveServerCloud,
   archiveServerCloudModel,
@@ -613,6 +614,27 @@ lazy val archiveHttpStartup = (project in file("mediaArchive/archiveHttpStartup"
   archiveHttp,
   cloudAccess
 )
+
+/**
+  * A project implementing an application that displays the status of cloud
+  * archives managed by an archive server application and allows providing
+  * credentials to unlock cloud archives.
+  */
+lazy val archiveLogin = (project in file("apps/archiveLogin"))
+  .enablePlugins(SbtOsgi)
+  .settings(defaultSettings)
+  .settings(OSGi.osgiSettings)
+  .settings(
+    name := "linedj-archiveLogin",
+    libraryDependencies ++= osgiDependencies,
+    libraryDependencies ++= jguiraffeDependencies,
+    OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.apps.archive.login.*"),
+    OsgiKeys.additionalHeaders :=
+      Map("Service-Component" -> "OSGI-INF/*.xml")
+  ).dependsOn(
+    shared % "compile->compile;test->test",
+    platform % "compile->compile;test->test"
+  )
 
 /**
   * A project which implements an admin UI for the media archive.
