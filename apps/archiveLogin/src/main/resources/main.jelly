@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!--
+
+    Copyright 2015-2026 The Developers Team.
+
+    Licensed under the Apache License, Version 2.0 (the "License")
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<!-- The Jelly script defining the main window of the Cloud Archive Login
+     application.
+-->
+<j:jelly xmlns:j="jelly:core" xmlns:di="diBuilder" xmlns:f="formBuilder"
+  xmlns:a="actionBuilder" xmlns:w="windowBuilder">
+
+  <!-- Definitions for actions and their tasks -->
+
+  <!-- The action for application shutdown -->
+  <a:action name="exitAction" textres="EXIT_ACTION_TEXT"
+            tooltipres="EXIT_ACTION_TOOLTIP" mnemonicres="EXIT_ACTION_MNEMO"
+            resgrp="application" taskBean="exitTask"/>
+
+  <!-- The main menu -->
+  <a:menubar name="mainMenu">
+    <a:menu textres="menu_file_text" mnemonicres="menu_file_mnemo">
+      <a:menuitem actionName="exitAction" acceleratorDef="ALT X"/>
+    </a:menu>
+  </a:menubar>
+
+  <w:frame titleres="main_title" menu="mainMenu">
+    <f:icon resource="app_icon.png"/>
+    <f:borderlayout canShrink="false"/>
+  </w:frame>
+
+  <!-- Action tasks and commands -->
+
+  <!-- The action task for quitting the application -->
+  <di:bean name="exitTask"
+           beanClassName="net.sf.jguiraffe.gui.app.ApplicationShutdownActionTask">
+  </di:bean>
+
+</j:jelly>
