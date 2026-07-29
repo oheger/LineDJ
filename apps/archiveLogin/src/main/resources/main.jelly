@@ -29,17 +29,136 @@
             tooltipres="EXIT_ACTION_TOOLTIP" mnemonicres="EXIT_ACTION_MNEMO"
             resgrp="application" taskBean="exitTask"/>
 
+  <!-- The action to refresh the archive state. -->
+  <a:action name="actionRefresh" textres="act_refresh_text" tooltipres="act_refresh_tip"
+            mnemonicres="act_refresh_mnemo" taskBean="refreshTask">
+    <f:icon resource="refresh.png"/>
+  </a:action>
+
+  <!-- The action to enter a credential. -->
+  <a:action name="actionEnterCredential" textres="act_enter_text" tooltipres="act_enter_tip"
+            mnemonicres="act_enter_mnemo" taskBean="enterCredentialTask">
+    <f:icon resource="login.png"/>
+  </a:action>
+
   <!-- The main menu -->
   <a:menubar name="mainMenu">
     <a:menu textres="menu_file_text" mnemonicres="menu_file_mnemo">
       <a:menuitem actionName="exitAction" acceleratorDef="ALT X"/>
     </a:menu>
+    <a:menu textres="menu_credentials_text" mnemonicres="menu_credentials_mnemo">
+      <a:menuitem actionName="actionEnterCredential"/>
+      <a:separator/>
+      <a:menuitem actionName="actionRefresh"/>
+    </a:menu>
   </a:menubar>
+
+  <!-- Icons for the archives' state -->
+  <f:icon resource="state_waiting.png" var="iconWaiting"/>
+  <f:icon resource="state_loaded.png" var="iconLoaded"/>
+  <f:icon resource="state_failure.png" var="iconFailure"/>
+
+  <!-- Status line helper -->
+  <di:bean name="statusHelper"
+           beanClassName="de.oliver_heger.linedj.apps.archive.login.ArchiveStatusHelper">
+    <di:constructor>
+      <di:param refName="jguiraffe.applicationContext"/>
+      <di:param refName="comp:txtStatusLine"/>
+      <di:param refName="iconWaiting"/>
+      <di:param refName="iconLoaded"/>
+      <di:param refName="iconFailure"/>
+    </di:constructor>
+  </di:bean>
+
+  <!-- The models of the archives and credentials tables. -->
+  <di:bean name="archivesTableModel" beanClassName="java.util.ArrayList"/>
+  <di:bean name="credentialsTableModel" beanClassName="java.util.ArrayList"/>
+
+  <!-- Reference to the currently selected credential. -->
+  <di:bean name="refCurrentCredential" beanClassName="java.util.concurrent.atomic.AtomicReference"/>
+
+  <!-- Message bus registration -->
+  <di:bean name="LineDJ_messageBusRegistration"
+           beanClassName="de.oliver_heger.linedj.platform.bus.MessageBusRegistration">
+    <di:constructor>
+      <di:param>
+        <di:list>
+          <di:element refName="loginController"/>
+        </di:list>
+      </di:param>
+    </di:constructor>
+    <di:setProperty property="messageBus" refName="LineDJ_MessageBus"/>
+    <di:shutdown>
+      <di:methodInvocation method="removeRegistrations"/>
+    </di:shutdown>
+  </di:bean>
+
+  <!-- Login controller -->
+  <di:bean name="loginController"
+           beanClassName="de.oliver_heger.linedj.apps.archive.login.LoginController">
+    <di:constructor>
+      <di:param refName="LineDJ_MessageBus"/>
+      <di:param refName="ACTION_STORE"/>
+      <di:param refName="loginService"/>
+      <di:param refName="archiveService"/>
+      <di:param refName="comp:tabArchives"/>
+      <di:param refName="comp:tabCredentials"/>
+      <di:param refName="statusHelper"/>
+      <di:param refName="refCurrentCredential"/>
+    </di:constructor>
+  </di:bean>
 
   <w:frame titleres="main_title" menu="mainMenu">
     <f:icon resource="app_icon.png"/>
     <f:borderlayout canShrink="false"/>
+
+    <a:toolbar>
+      <f:borderconstr name="NORTH"/>
+      <a:toolbutton actionName="actionEnterCredential"/>
+      <a:separator/>
+      <a:toolbutton actionName="actionRefresh"/>
+    </a:toolbar>
+
+    <f:splitter orientation="VERTICAL">
+      <f:borderconstr name="CENTER"/>
+
+      <!-- Table for archives -->
+      <f:table name="tabArchives" model="archivesTableModel" multiSelection="false"
+               scrollHeight="200">
+        <f:column name="iconState" percentWidth="20" headerres="tcol_state"
+                  columnClass="Icon"/>
+        <f:column name="name" percentWidth="80" headerres="tcol_archive"
+                  columnClass="String"/>
+      </f:table>
+
+      <!-- Table for credentials -->
+      <f:table name="tabCredentials" model="credentialsTableModel" multiSelection="false"
+               scrollHeight="200">
+        <f:column name="iconState" percentWidth="20" headerres="tcol_state"
+                  columnClass="Icon"/>
+        <f:column name="name" percentWidth="80" headerres="tcol_credential"
+                  columnClass="String">
+        </f:column>
+      </f:table>
+    </f:splitter>
+
+    <!-- Status line -->
+    <f:panel>
+      <f:borderconstr name="SOUTH"/>
+      <f:borderlayout leftMargin="4dlu" rightMargin="4dlu" topMargin="2dlu"/>
+      <f:statictext name="txtStatusLine">
+        <f:borderconstr name="CENTER"/>
+      </f:statictext>
+    </f:panel>
+
+    <w:controller beanName="loginController"/>
   </w:frame>
+
+  <!-- Change listener registrations for table selections -->
+  <a:eventListener component="tabArchives" eventType="CHANGE"
+                   beanName="loginController"/>
+  <a:eventListener component="tabCredentials" eventType="CHANGE"
+                   beanName="loginController"/>
 
   <!-- Action tasks and commands -->
 
@@ -48,4 +167,26 @@
            beanClassName="net.sf.jguiraffe.gui.app.ApplicationShutdownActionTask">
   </di:bean>
 
+  <!-- Command and task for the enter credential dialog. -->
+  <di:bean name="openEnterCredentialDialogCommand"
+           beanClassName="de.oliver_heger.linedj.apps.archive.login.OpenCredentialDialogCommand">
+    <di:constructor>
+      <di:param value="classpath:enter_credential.jelly"/>
+      <di:param refName="refCurrentCredential"/>
+    </di:constructor>
+  </di:bean>
+
+  <di:bean name="enterCredentialTask"
+           beanClassName="net.sf.jguiraffe.gui.app.CommandActionTask">
+    <di:setProperty property="commandBeanName" value="openEnterCredentialDialogCommand"/>
+    <di:setProperty property="beforeEnabler" value="action:actionEnterCredential"/>
+  </di:bean>
+
+  <!-- Task to refresh the state. -->
+  <di:bean name="refreshTask"
+           beanClassName="de.oliver_heger.linedj.apps.archive.login.RefreshTask">
+    <di:constructor>
+      <di:param refName="loginService"/>
+    </di:constructor>
+  </di:bean>
 </j:jelly>
