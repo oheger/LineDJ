@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Copyright 2015-2026 The Developers Team.
+
+    Licensed under the Apache License, Version 2.0 (the "License")
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<!--
+  Declarative Services declaration of LineDJ Archive Login State application.
+  component.
+-->
+<component xmlns="http://www.osgi.org/xmlns/scr/v1.1.0"
+           name="lineDJ.CloudArchiveLoginApplication" immediate="true">
+  <implementation class="de.oliver_heger.linedj.apps.archive.login.LoginApp" />
+
+  <service>
+    <provide interface="de.oliver_heger.linedj.platform.app.ClientApplication"/>
+  </service>
+
+  <reference interface="de.oliver_heger.linedj.platform.app.ClientApplicationContext"
+             name="clientContext" bind="initClientContext"/>
+  <reference interface="de.oliver_heger.linedj.platform.app.ApplicationManager"
+             name="applicationManager" bind="initApplicationManager"/>
+  <reference interface="de.oliver_heger.linedj.platform.archiveclient.ArchiveService"
+             name="archiveService" bind="initArchiveService"/>
+  <reference interface="de.oliver_heger.linedj.platform.archiveclient.LoginService"
+             name="loginService" bind="initLoginService"/>
+</component>

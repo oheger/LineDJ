@@ -629,6 +629,11 @@ lazy val archiveLogin = (project in file("apps/archiveLogin"))
     libraryDependencies ++= osgiDependencies,
     libraryDependencies ++= jguiraffeDependencies,
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.apps.archive.login.*"),
+    OsgiKeys.importPackage := Seq(
+      "de.oliver_heger.linedj.platform.bus",
+      OSGi.ScalaImport,
+      "*"
+    ),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
   ).dependsOn(
@@ -1282,7 +1287,8 @@ lazy val browserOsgiImage = (project in file("images/browser"))
     libraryDependencies ++= osgiLogDependencies,
     dependencyOverrides ++= asmOverrides
   ).dependsOn(appWindowHiding, log4jApiFragment, log4jConfFragment, mediaIfcDisabled, platform, reorderAlbum,
-  reorderArtist, reorderMedium, reorderRandomAlbums, reorderRandomArtists, reorderRandomSongs, trayWindowList)
+  reorderArtist, reorderMedium, reorderRandomAlbums, reorderRandomArtists, reorderRandomSongs, trayWindowList,
+    archiveLogin)
 
 /**
   * Project for the (local) audio player application.
