@@ -164,6 +164,10 @@ class LoginController(messageBus: MessageBus,
       currentLoginState = loginState
       archiveService.expectChanges()
 
+    case CredentialEntered(name, value) =>
+      loginService.setCredentials(Map(name -> value.secret))
+      loginService.expectChanges()
+
   /**
     * @inheritdoc This implementation publishes a message with the updated
     *             state on the message bus, so that it can process this message

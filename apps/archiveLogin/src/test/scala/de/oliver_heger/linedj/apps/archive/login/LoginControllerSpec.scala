@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.apps.archive.login
 
+import com.github.cloudfiles.core.http.Secret
 import de.oliver_heger.linedj.archive.server.cloud.model.CloudArchiveModel
 import de.oliver_heger.linedj.platform.archiveclient.{ArchiveService, ArchiveStateMonitor, LoginService}
 import de.oliver_heger.linedj.platform.comm.MessageBus
@@ -44,6 +45,12 @@ object LoginControllerSpec:
 
   /** The icon for the failure state. */
   private val IconError = new Object
+
+  /** The name of a test credential. */
+  private val CredentialName = "TestCredential"
+
+  /** The value of the test credential. */
+  private val CredentialValue = "secretCredentialValue"
 
   /** A test object with a login state. */
   private val TestLoginState = LoginService.ArchiveLoginState(
@@ -156,6 +163,13 @@ class LoginControllerSpec extends AnyFlatSpec, Matchers, MockitoSugar:
 
     helper.messageBusReceive(LoginController.LoginStateChanged(TestLoginState))
       .verifyArchiveStateMonitorReset()
+
+  it should "handle a newly entered credential" in :
+    val credentialData = LoginController.CredentialEntered(CredentialName, Secret(CredentialValue))
+    val helper = new ControllerTestHelper
+
+    helper.messageBusReceive(credentialData)
+      .verifyCredentialPassed()
 
   /**
     * A test helper class managing the controller to be tested and its
@@ -352,6 +366,17 @@ class LoginControllerSpec extends AnyFlatSpec, Matchers, MockitoSugar:
       */
     def verifyArchiveStateMonitorReset(): ControllerTestHelper =
       verify(archiveService).expectChanges()
+      this
+
+    /**
+      * Verifies that a newly entered credential is passed to the login
+      * service.
+      *
+      * @return this test helper
+      */
+    def verifyCredentialPassed(): ControllerTestHelper =
+      verify(loginService).setCredentials(Map(CredentialName -> CredentialValue))
+      verify(loginService).expectChanges()
       this
 
     /**
