@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.apps.archive.login
 
+import com.github.cloudfiles.core.http.Secret
 import de.oliver_heger.linedj.platform.archiveclient.{ArchiveService, ArchiveStateMonitor, LoginService}
 import de.oliver_heger.linedj.platform.comm.{MessageBus, MessageBusListener}
 import net.sf.jguiraffe.gui.builder.action.ActionStore
@@ -50,6 +51,16 @@ object LoginController:
     * @param state the new archive login state
     */
   private[login] case class LoginStateChanged(state: LoginService.ArchiveLoginState)
+
+  /**
+    * An internally used message class that is sent by the credentials 
+    * controller when the user has entered the value of a credential.
+    *
+    * @param name  the name of the credential
+    * @param value the secret value
+    */
+  private[login] case class CredentialEntered(name: String,
+                                              value: Secret)
 
   /**
     * Retrieves the [[TableElement]] from the model of a table handler at a
