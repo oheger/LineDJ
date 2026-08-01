@@ -21,6 +21,7 @@ import com.github.cloudfiles.crypt.alg.aes.Aes
 import com.github.cloudfiles.crypt.service.CryptService
 import de.oliver_heger.linedj.archive.cloud.auth.Credentials
 import de.oliver_heger.linedj.archive.server.cloud.CloudArchiveCredentialsManager.{CredentialKey, CredentialKeyType, FileCredentialPrefix, SetCredentialsResult, readCredentials}
+import de.oliver_heger.linedj.archive.server.cloud.model.CloudArchiveModel
 import de.oliver_heger.linedj.io.LocalFsUtils
 import de.oliver_heger.linedj.io.parser.JsonStreamParser
 import de.oliver_heger.linedj.shared.actors.ActorFactory
@@ -38,7 +39,7 @@ import java.security.SecureRandom
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
-object CloudArchiveCredentialsManager:
+object CloudArchiveCredentialsManager extends CloudArchiveModel.CloudArchiveJsonSupport:
   /** The extension for unencrypted files storing credentials. */
   private val PlainCredentialsFileExtension = "credentials"
 
@@ -114,19 +115,6 @@ object CloudArchiveCredentialsManager:
 
   /** Constant for an initial, empty result of a set credentials operation. */
   private val EmptySetCredentialsResult = SetCredentialsResult(0, Set.empty)
-
-  /**
-    * An internal data class modeling credential information in a JSON
-    * structure. This class is used to deserialize credential data from files
-    * and credential requests.
-    *
-    * @param key   the key of the credential
-    * @param value the (secret) value
-    */
-  private case class Credential(key: String, value: String)
-
-  /** The format to deserialize [[Credential]] structures. */
-  private given credentialFormat: RootJsonFormat[Credential] = jsonFormat2(Credential.apply)
 
   /** The secure random for decrypt operations. */
   private given random: SecureRandom = SecureRandom()
@@ -291,16 +279,17 @@ object CloudArchiveCredentialsManager:
                              (using system: ActorSystem): Future[SetCredentialsResult] =
     credentialSetter.credentialKeys flatMap : keys =>
       val validKeys = keys.filter(_.pending).map(_.key)
-      val setterSink = Sink.fold[SetCredentialsResult, Credential](EmptySetCredentialsResult): (res, cred) =>
-        val fileKey = FileCredentialPrefix + cred.key
-        val key = if validKeys.contains(fileKey) then fileKey else cred.key
-        val nextInvalidKeys = if validKeys.contains(key) then
-          credentialSetter.setCredential(key, Secret(cred.value))
-          res.invalidKeys
-        else
-          res.invalidKeys + cred.key
-        SetCredentialsResult(res.totalCredentialsCount + 1, nextInvalidKeys)
-      JsonStreamParser.parseStream[Credential, Any](source).runWith(setterSink)
+      val setterSink =
+        Sink.fold[SetCredentialsResult, CloudArchiveModel.Credential](EmptySetCredentialsResult): (res, cred) =>
+          val fileKey = FileCredentialPrefix + cred.key
+          val key = if validKeys.contains(fileKey) then fileKey else cred.key
+          val nextInvalidKeys = if validKeys.contains(key) then
+            credentialSetter.setCredential(key, Secret(cred.value))
+            res.invalidKeys
+          else
+            res.invalidKeys + cred.key
+          SetCredentialsResult(res.totalCredentialsCount + 1, nextInvalidKeys)
+      JsonStreamParser.parseStream[CloudArchiveModel.Credential, Any](source).runWith(setterSink)
 end CloudArchiveCredentialsManager
 
 /**

@@ -25,6 +25,16 @@ import spray.json.{DefaultJsonProtocol, RootJsonFormat}
   */
 object CloudArchiveModel:
   /**
+    * A data class representing a credential in requests to provide 
+    * authentication data to the archive server. Such requests expect a list of
+    * objects of this type.
+    *
+    * @param key   the key of the credential
+    * @param value the (secret) value
+    */
+  final case class Credential(key: String, value: String)
+
+  /**
     * A data class that stores information about the credentials that can be
     * set to unlock cloud archives. An instance stores the names of pending
     * credentials grouped by their types.
@@ -89,3 +99,5 @@ object CloudArchiveModel:
 
     given cloudArchiveStateResponseFormat: RootJsonFormat[CloudArchiveStateResponse] =
       jsonFormat3(CloudArchiveStateResponse.apply)
+    
+    given credentialFormat: RootJsonFormat[Credential] = jsonFormat2(Credential.apply)
