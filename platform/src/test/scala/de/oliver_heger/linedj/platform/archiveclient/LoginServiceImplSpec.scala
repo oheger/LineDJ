@@ -133,7 +133,10 @@ class LoginServiceImplSpec(testSystem: ActorSystem) extends TestKit(testSystem),
 
   it should "support setting credentials" in :
     val credentials = Map("cred1" -> "secret1", "anotherCred" -> "verySecret")
-    val credentialsJson = credentials.toJson.compactPrint
+    val credentialsJson = List(
+      CloudArchiveModel.Credential("cred1", "secret1"),
+      CloudArchiveModel.Credential("anotherCred", "verySecret")
+    ).toJson.compactPrint
     val request = HttpRequest(
       uri = "/api/archive/credentials",
       method = HttpMethods.PUT,

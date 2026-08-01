@@ -194,7 +194,8 @@ private class LoginServiceImpl(archiveService: ArchiveService,
     * @return a [[Future]] with the updated credentials state
     */
   override def setCredentials(credentials: Map[String, String]): Future[CloudArchiveModel.CredentialsInfo] =
-    val credentialsJson = credentials.toJson.compactPrint
+    val credentialsData = credentials.map(e => CloudArchiveModel.Credential(e._1, e._2))
+    val credentialsJson = credentialsData.toJson.compactPrint
     val entity = HttpEntity(ContentTypes.`application/json`, credentialsJson)
     val request = HttpRequest(
       uri = "/api/archive/credentials",
