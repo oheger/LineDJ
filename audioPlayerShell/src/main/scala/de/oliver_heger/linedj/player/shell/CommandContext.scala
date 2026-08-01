@@ -31,6 +31,7 @@ import org.apache.pekko.http.scaladsl.unmarshalling.{Unmarshal, Unmarshaller}
 import org.apache.pekko.util.Timeout
 import org.jline.reader.LineReader
 import org.jline.terminal.Terminal
+import spray.json.enrichAny
 
 import java.nio.file.{Files, Path, Paths}
 import java.util.Locale
@@ -294,7 +295,8 @@ object CommandContext extends ArchiveModel.ArchiveJsonSupport, CloudArchiveModel
           else
             val key = args.head
             val value = ctx.reader.readLine(s"Enter value for '$key': ", '\u0000')
-            val body = s"""[{"key":"$key","value":"$value"}]"""
+            val credentialData = List(CloudArchiveModel.Credential(key, value))
+            val body = credentialData.toJson.compactPrint
             val request = HttpRequest(method = HttpMethods.PUT, uri = "/api/archive/credentials", entity = body)
             ctx.handleArchiveCommand[CloudArchiveModel.SetCredentialsResponse](
               request,
