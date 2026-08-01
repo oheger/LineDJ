@@ -1,0 +1,15 @@
+:toc:
+:toc-placement!:
+:toclevels: 3
+
+= Cloud Archive Login Application
+
+An application displaying the login state of cloud archives and managing credentials for these archives.
+
+toc::[]
+
+== Synopsis
+This is a small OSGi application that becomes active when the platform is connected to an archive server that manages cloud archives. The UI of the application shows the available cloud archives with their states and the credentials that need to be provided by the user to unlock the archives.
+
+== Description
+The application relies on functionality provided by the xref:../../platform/README.adoc[Platform] module, especially the service to deal with login information for cloud archives. Via this service, it can monitor the current login state of the archives and the pending credentials, and also set the values for credentials. No further configuration is required specific to this application.
