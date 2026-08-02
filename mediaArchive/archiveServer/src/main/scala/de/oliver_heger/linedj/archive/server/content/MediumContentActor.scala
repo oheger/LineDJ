@@ -113,6 +113,28 @@ private object MediumContentActor:
 
       /**
         * A transformation function that constructs the final result for the
+        * _albums_ view. Here, the artist names have to be resolved to artist
+        * IDs.
+        *
+        * @param mapping the temporary mapping
+        * @return the transformed mapping
+        */
+      def albumInfoTransformer(mapping: Map[String, List[ArchiveModel.AlbumInfo]]):
+      Future[Map[String, List[ArchiveModel.AlbumInfo]]] =
+        given Scheduler = context.system.scheduler
+
+        given ExecutionContext = context.system.executionContext
+
+        val artistNames = mapping.values.flatMap(_.map(art => art.artistId -> Option(art.artistId))).toMap
+        artistIdManager.getIds(artistNames.values).map: idResponse =>
+          mapping.map: (key, albumInfos) =>
+            val resolvedInfos = albumInfos.map: albumInfo =>
+              albumInfo.copy(artistId = idResponse.ids(artistNames(albumInfo.artistId)))
+            (key, resolvedInfos)
+        .flatMap(DeduplicateAlbumTransformer)
+
+      /**
+        * A transformation function that constructs the final result for the
         * ''albumsForArtists'' view.
         *
         * @param mapping the temporary mapping
@@ -127,7 +149,7 @@ private object MediumContentActor:
         val albumNames = mapping.values.flatten
         albumIdManager.getIds(albumNames).map: idResponse =>
           mapping.map: (key, albumNames) =>
-            (key, albumNames.map(name => ArchiveModel.AlbumInfo(idResponse.ids(name), name.getOrElse(""))))
+            (key, albumNames.map(name => ArchiveModel.AlbumInfo(idResponse.ids(name), name.getOrElse(""), key)))
         .flatMap(DeduplicateAlbumTransformer)
 
       /**
@@ -160,9 +182,9 @@ private object MediumContentActor:
           albums = context.spawn(
             MediumContentManagerActor.newTransformingInstance(
               keyExtractor = AlbumKeyExtractor,
-              dataExtractor = (id, data) => ArchiveModel.AlbumInfo(id, extractAlbumName(data)),
+              dataExtractor = (id, data) => ArchiveModel.AlbumInfo(id, extractAlbumName(data), data.artist.orNull),
               groupingFunc = MediumContentManagerActor.AggregateGroupingFunc,
-              transformer = DeduplicateAlbumTransformer,
+              transformer = albumInfoTransformer,
               idManager = albumIdManager
             ),
             contentName("albums")

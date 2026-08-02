@@ -369,9 +369,9 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with BeforeAndAfterE
 
   it should "define a route to query the albums contained on a medium" in :
     val albums = List(
-      ArchiveModel.AlbumInfo("alb1", "Brothers in arms"),
-      ArchiveModel.AlbumInfo("alb2", "Tales of mystery and imaginations"),
-      ArchiveModel.AlbumInfo("alb3", "Tubular bells"),
+      ArchiveModel.AlbumInfo("alb1", "Brothers in arms", "art1"),
+      ArchiveModel.AlbumInfo("alb2", "Tales of mystery and imaginations", "art2"),
+      ArchiveModel.AlbumInfo("alb3", "Tubular bells", "art3")
     )
 
     val contentBehavior = Behaviors.receiveMessagePartial[ArchiveContentActor.ArchiveContentCommand]:
@@ -466,9 +466,9 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with BeforeAndAfterE
   it should "define a route to query the albums of an artist" in :
     val ArtistID = "art_dire_straits"
     val albums = List(
-      ArchiveModel.AlbumInfo("alb1", "Brothers in arms"),
-      ArchiveModel.AlbumInfo("alb2", "Dire Straits"),
-      ArchiveModel.AlbumInfo("alb3", "Love over gold"),
+      ArchiveModel.AlbumInfo("alb1", "Brothers in arms", "art1"),
+      ArchiveModel.AlbumInfo("alb2", "Dire Straits", "art1"),
+      ArchiveModel.AlbumInfo("alb3", "Love over gold", "art1")
     )
 
     val contentBehavior = Behaviors.receiveMessagePartial[ArchiveContentActor.ArchiveContentCommand]:

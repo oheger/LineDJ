@@ -50,7 +50,7 @@ class ArchiveModelSpec extends AnyFlatSpec with Matchers with ArchiveModel.Archi
     checkSerialization(artistInfo)
 
   it should "work for AlbumInfo" in :
-    val albumInfo = ArchiveModel.AlbumInfo("albumId", "Name of the album")
+    val albumInfo = ArchiveModel.AlbumInfo("albumId", "Name of the album", "artXYZ")
 
     checkSerialization(albumInfo)
 

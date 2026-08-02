@@ -462,7 +462,7 @@ class MediumContentManagerActorSpec extends ScalaTestWithActorTestKit with AnyFl
         val albumInfos = albums.map: album =>
           val albumID = calcAlbumID(album)
           val albumName = album.getOrElse("")
-          ArchiveModel.AlbumInfo(albumID, albumName)
+          ArchiveModel.AlbumInfo(albumID, albumName, "art0")
         (key, albumInfos)
       Future.successful(transformedMapping)
     val dataExtractorFunc: MediumContentManagerActor.DataExtractor[Option[String]] = (_, metadata) => metadata.album
@@ -498,7 +498,7 @@ class MediumContentManagerActorSpec extends ScalaTestWithActorTestKit with AnyFl
     val result = probe.expectMessageType[ArchiveCommands.GetMediumDataResponse[ArchiveModel.AlbumInfo]]
     result.request should be(request)
     val expectedAlbumInfos = List("Brothers in Arms", "Communique", "Love over Gold").map: albumName =>
-      ArchiveModel.AlbumInfo(calcAlbumID(Some(albumName)), albumName)
+      ArchiveModel.AlbumInfo(calcAlbumID(Some(albumName)), albumName, "art0")
     result.optResult.value should contain theSameElementsInOrderAs expectedAlbumInfos
 
   it should "provide an ordering for MediaMetadata" in :
@@ -629,10 +629,10 @@ class MediumContentManagerActorSpec extends ScalaTestWithActorTestKit with AnyFl
     sortedInfos should contain theSameElementsInOrderAs expectedInfos
 
   "AlbumInfoOrdering" should "sort objects based on the album name" in :
-    val albumDireStraits = ArchiveModel.AlbumInfo("alb1", "Dire Straits")
-    val albumLoveOverGold = ArchiveModel.AlbumInfo("alb2", "love over gold")
-    val albumBrothersInArms = ArchiveModel.AlbumInfo("alb3", "brothers in arms")
-    val albumMakingMovies = ArchiveModel.AlbumInfo("alb4", "Making movies")
+    val albumDireStraits = ArchiveModel.AlbumInfo("alb1", "Dire Straits", "art0")
+    val albumLoveOverGold = ArchiveModel.AlbumInfo("alb2", "love over gold", "art1")
+    val albumBrothersInArms = ArchiveModel.AlbumInfo("alb3", "brothers in arms", "art0")
+    val albumMakingMovies = ArchiveModel.AlbumInfo("alb4", "Making movies", "art0")
 
     val infos = List(
       albumDireStraits,

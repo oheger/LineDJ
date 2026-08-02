@@ -128,13 +128,17 @@ object ArchiveModel:
                               artistName: String)
 
   /**
-    * A data class holding information about an album found on a medium.
+    * A data class holding information about an album found on a medium. The
+    * album refers to the producing artist. If this is unknown or there is no
+    * unique artist, the property holds the ID of the unknown artist.
     *
     * @param id        a unique ID to identify this album
     * @param albumName the name of this album
+    * @param artistId  the ID of the artist who produced the album
     */
   final case class AlbumInfo(id: String,
-                             albumName: String)
+                             albumName: String,
+                             artistId: String)
 
   /**
     * A data class to represent a generic result consisting of a list of items.
@@ -203,7 +207,7 @@ object ArchiveModel:
 
     given artistInfoFormat: RootJsonFormat[ArtistInfo] = jsonFormat2(ArtistInfo.apply)
 
-    given albumInfoFormat: RootJsonFormat[AlbumInfo] = jsonFormat2(AlbumInfo.apply)
+    given albumInfoFormat: RootJsonFormat[AlbumInfo] = jsonFormat3(AlbumInfo.apply)
 
     given mediaMetadataFormat: RootJsonFormat[MediaMetadata] = jsonFormat9(MediaMetadata.apply)
 

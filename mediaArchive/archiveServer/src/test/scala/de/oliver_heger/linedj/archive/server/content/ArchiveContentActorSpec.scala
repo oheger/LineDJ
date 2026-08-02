@@ -244,7 +244,7 @@ object ArchiveContentActorSpec:
     */
   private def createAlbumInfos(names: Iterable[String]): Iterable[ArchiveModel.AlbumInfo] =
     names.map: album =>
-      ArchiveModel.AlbumInfo(calcAlbumID(album), album)
+      ArchiveModel.AlbumInfo(calcAlbumID(album), album, artistIdForAlbum(album))
 
   /**
     * Returns a factory for a file actor that propagates incoming messages to
@@ -255,6 +255,15 @@ object ArchiveContentActorSpec:
     */
   private def fileActorFactory(probe: ActorRef[MediaFileActor.MediaFileCommand]): MediaFileActor.Factory =
     () => Behaviors.monitor(probe, Behaviors.ignore)
+
+  /**
+    * Returns the ID of the artist who produced the album with the given name.
+    *
+    * @param albumName the album name
+    * @return the ID of the artist
+    */
+  private def artistIdForAlbum(albumName: String): String =
+    artistAlbums.find((_, names) => names.contains(albumName)).map(t => calcArtistID(t._1)).getOrElse("art0")
 end ArchiveContentActorSpec
 
 /**
@@ -374,7 +383,7 @@ class ArchiveContentActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpec
     val response = probe.expectMessageType[ArchiveCommands.GetMediumDataResponse[ArchiveModel.AlbumInfo]]
     response.request should be(artistsRequest)
     val result = response.optResult.value
-    val expectedAlbums = ArchiveModel.AlbumInfo("alb0", "") :: createAlbumInfos(albums.keySet).toList
+    val expectedAlbums = ArchiveModel.AlbumInfo("alb0", "", "art0") :: createAlbumInfos(albums.keySet).toList
     result should contain theSameElementsAs expectedAlbums
 
   it should "deduplicate album information of a medium" in :
