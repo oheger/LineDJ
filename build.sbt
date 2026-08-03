@@ -689,6 +689,30 @@ lazy val mediaBrowser = (project in file("browser"))
   ).dependsOn(shared % "compile->compile;test->test", platform % "compile->compile;test->test", audioPlatform)
 
 /**
+  * Project for the archive browser application. This application allows 
+  * browsing through the media stored in a connected archive server.
+  */
+lazy val archiveBrowser = (project in file("apps/archiveBrowser"))
+  .enablePlugins(SbtOsgi)
+  .settings(defaultSettings)
+  .settings(OSGi.osgiSettings)
+  .settings(
+    name := "linedj-archiveBrowser",
+    libraryDependencies ++= jguiraffeDependencies,
+    libraryDependencies ++= osgiDependencies,
+    OsgiKeys.privatePackage := Seq(
+      "de.oliver_heger.linedj.apps.archive.browser.*"
+    ),
+    OsgiKeys.importPackage := Seq(
+      "de.oliver_heger.linedj.platform.bus",
+      OSGi.ScalaImport,
+      "*"
+    ),
+    OsgiKeys.additionalHeaders :=
+      Map("Service-Component" -> "OSGI-INF/*.xml")
+  ).dependsOn(shared % "compile->compile;test->test", platform % "compile->compile;test->test", audioPlatform)
+
+/**
   * Project for the playlist editor client application. This application
   * allows creating a playlist from the media stored in the library.
   */
