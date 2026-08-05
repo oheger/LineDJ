@@ -1312,7 +1312,7 @@ lazy val browserOsgiImage = (project in file("images/browser"))
     dependencyOverrides ++= asmOverrides
   ).dependsOn(appWindowHiding, log4jApiFragment, log4jConfFragment, mediaIfcDisabled, platform, reorderAlbum,
   reorderArtist, reorderMedium, reorderRandomAlbums, reorderRandomArtists, reorderRandomSongs, trayWindowList,
-    archiveLogin)
+    archiveLogin, archiveBrowser)
 
 /**
   * Project for the (local) audio player application.
