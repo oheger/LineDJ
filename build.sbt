@@ -705,6 +705,7 @@ lazy val archiveBrowser = (project in file("apps/archiveBrowser"))
     ),
     OsgiKeys.importPackage := Seq(
       "de.oliver_heger.linedj.platform.bus",
+      "org.apache.commons.configuration.tree",
       OSGi.ScalaImport,
       "*"
     ),

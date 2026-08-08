@@ -38,6 +38,16 @@
 
   <!-- Models for UI controls -->
 
+  <!-- The model of the artists tree. -->
+  <di:bean name="artistsTreeModel"
+           beanClassName="org.apache.commons.configuration.HierarchicalConfiguration">
+    <di:setProperty property="expressionEngine">
+      <di:bean beanClassName="org.apache.commons.configuration.tree.DefaultExpressionEngine">
+        <di:setProperty property="propertyDelimiter" value="|"/>
+      </di:bean>
+    </di:setProperty>
+  </di:bean>
+
   <!-- The model for the media combo box. -->
   <di:bean name="mediaComboModel"
     beanClassName="de.oliver_heger.linedj.apps.archive.browser.EmptyMediumListModel"/>
@@ -86,6 +96,18 @@
           <f:borderconstr name="EAST"/>
         </f:label>
       </f:panel>
+
+      <f:splitter orientation="horizontal" resizeWeight="0.25">
+        <f:borderconstr name="CENTER"/>
+        <f:tree name="treeArtists" model="artistsTreeModel" editable="false"
+                scrollWidth="2cm" scrollHeight="3cm" multiSelection="true"
+                rootVisible="true">
+        </f:tree>
+
+        <f:panel>
+          <f:borderconstr name="CENTER"/>
+        </f:panel>
+      </f:splitter>
     </f:panel>
 
     <!-- The controller of the main window. -->
@@ -93,8 +115,10 @@
       beanClassName="de.oliver_heger.linedj.apps.archive.browser.Controller">
       <di:constructor>
         <di:param refName="archiveService"/>
+        <di:param refName="LineDJ_ExecutionContext"/>
         <di:param refName="LineDJ_MessageBus"/>
         <di:param refName="comp:comboMedia"/>
+        <di:param refName="comp:treeArtists"/>
       </di:constructor>
 
       <di:methodInvocation method="initialize"/>

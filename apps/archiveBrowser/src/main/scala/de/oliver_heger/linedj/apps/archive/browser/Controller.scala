@@ -16,15 +16,17 @@
 
 package de.oliver_heger.linedj.apps.archive.browser
 
-import de.oliver_heger.linedj.apps.archive.browser.Controller.MediaChanged
+import de.oliver_heger.linedj.apps.archive.browser.Controller.{AlbumID, ArtistID, MediaChanged, MediumData}
 import de.oliver_heger.linedj.archive.server.model.ArchiveModel
 import de.oliver_heger.linedj.platform.archiveclient.{ArchiveService, ArchiveStateMonitor}
 import de.oliver_heger.linedj.platform.comm.{MessageBus, MessageBusListener}
-import net.sf.jguiraffe.gui.builder.components.model.ListComponentHandler
+import de.oliver_heger.linedj.shared.archive.metadata.Checksums
+import net.sf.jguiraffe.gui.builder.components.model.{ListComponentHandler, TreeHandler, TreeNodePath}
 import org.apache.pekko.actor.Actor.Receive
 
 import java.util.Locale
 import scala.annotation.tailrec
+import scala.concurrent.ExecutionContext
 
 object Controller:
   /**
@@ -36,9 +38,47 @@ object Controller:
     */
   private[browser] case class MediaChanged(media: ArchiveModel.MediaOverview)
 
+  /**
+    * An internally used data class to represent the ID of an artist.
+    *
+    * @param id the alphanumeric artist ID
+    */
+  private[browser] case class ArtistID(id: String) extends AnyVal
+
+  /**
+    * An internally used data class to represent the ID of an album.
+    *
+    * @param id the alphanumeric album ID
+    */
+  private[browser] case class AlbumID(id: String) extends AnyVal
+
+  /**
+    * An internally used data class that stores the relevant data of a medium.
+    * When the user selects another medium, the controller loads data from the
+    * archive and creates an instance of this class. This is then used to
+    * populate the UI elements.
+    *
+    * @param artistData     a list with data about the artists of the medium
+    * @param albumData      a list with data about the albums of the medium
+    * @param albumsByArtist a map with the albums keyed by artist ID
+    */
+  private case class MediumData(artistData: List[ArchiveModel.ArtistInfo],
+                                albumData: List[ArchiveModel.AlbumInfo],
+                                albumsByArtist: Map[ArtistID, List[ArchiveModel.AlbumInfo]])
+
   /** An ordering for sorting media in the combobox. */
   private given mediumOverviewOrdering: Ordering[ArchiveModel.MediumOverview] =
     Ordering.by(_.title.toLowerCase(Locale.ROOT))
+
+  /**
+    * Generates the base URL for a request to the archive server for a specific
+    * medium.
+    *
+    * @param mediumID the ID of the medium
+    * @return the URL to access this medium
+    */
+  private def archiveMediumUrl(mediumID: Checksums.MediumChecksum): String =
+    s"/api/archive/media/${mediumID.checksum}"
 end Controller
 
 /**
@@ -50,14 +90,24 @@ end Controller
   * to select a specific medium. It then shows different views of the songs
   * stored on the selected medium.
   *
-  * @param archiveService the service to interact with the archive
-  * @param messageBus     the message bus
-  * @param comboMedia     the combobox to select a medium
+  * @param archiveService   the service to interact with the archive
+  * @param executionContext the execution context
+  * @param messageBus       the message bus
+  * @param comboMedia       the combobox to select a medium
+  * @param treeArtists      the handler for the tree with artist info
   */
 class Controller(archiveService: ArchiveService,
+                 executionContext: ExecutionContext,
                  messageBus: MessageBus,
-                 comboMedia: ListComponentHandler)
-  extends ArchiveStateMonitor.ArchiveChangeListener[ArchiveModel.MediaOverview], MessageBusListener:
+                 comboMedia: ListComponentHandler,
+                 treeArtists: TreeHandler)
+  extends ArchiveStateMonitor.ArchiveChangeListener[ArchiveModel.MediaOverview], MessageBusListener,
+    ArchiveModel.ArchiveJsonSupport:
+  /** Provides an execution context in implicit scope. */
+  private given ExecutionContext = executionContext
+
+  import Controller.*
+
   /**
     * Initializes this controller. This function is called by the DI framework
     * when the bean is created.
@@ -78,6 +128,34 @@ class Controller(archiveService: ArchiveService,
   override def receive: Receive =
     case MediaChanged(media) =>
       updateMedia(media)
+
+    case data: MediumData =>
+      updateUI(data)
+
+  /**
+    * Notifies this controller about a change in the selection of the media 
+    * combobox. If a medium is selected, the controller loads its data and 
+    * displays it in the managed controls. An empty option means that nothing
+    * is selected.
+    *
+    * @param mediumID the optional ID of the selected medium
+    */
+  private[browser] def mediumSelected(mediumID: Option[Checksums.MediumChecksum]): Unit =
+    treeArtists.getModel.clear()
+
+    if mediumID.isDefined then
+      val mediumUrl = archiveMediumUrl(mediumID.get)
+      val artistsUrl = s"$mediumUrl/artists"
+      val futArtists = archiveService.queryData[ArchiveModel.ItemsResult[ArchiveModel.ArtistInfo]](artistsUrl)
+      val albumsUrl = s"$mediumUrl/albums"
+      val futAlbums = archiveService.queryData[ArchiveModel.ItemsResult[ArchiveModel.AlbumInfo]](albumsUrl)
+
+      (for
+        artists <- futArtists
+        albums <- futAlbums
+      yield
+        createMediumData(artists, albums)
+        ).foreach(messageBus.publish)
 
   /**
     * Updates the combobox with media to contain exactly the given data. This
@@ -111,3 +189,43 @@ class Controller(archiveService: ArchiveService,
         clearListModel(index - 1)
 
     clearListModel(comboMedia.getListModel.size() - 1)
+
+  /**
+    * Creates a [[MediumData]] object from the given input that was requested
+    * from the archive server.
+    *
+    * @param artistResult the artists of the current medium
+    * @param albumResult  the albums of the current medium
+    * @return the [[MediumData]] for this medium
+    */
+  private def createMediumData(artistResult: ArchiveModel.ItemsResult[ArchiveModel.ArtistInfo],
+                               albumResult: ArchiveModel.ItemsResult[ArchiveModel.AlbumInfo]): MediumData =
+    val albumsByArtist = albumResult.items.groupBy(album => ArtistID(album.artistId))
+    MediumData(artistResult.items, albumResult.items, albumsByArtist)
+
+  /**
+    * Populate the UI elements with the data for a newly selected medium.
+    *
+    * Note that the artist node has to be added before its albums. Otherwise,
+    * JGUIraffe's change handler reports the (new) artist node as the node
+    * affected by an album update; since this node does not yet have a tree
+    * item, the update is lost, and the tree remains empty on subsequent
+    * medium selections.
+    *
+    * @param mediumData the data for the medium
+    */
+  private def updateUI(mediumData: MediumData): Unit =
+    mediumData.artistData.foreach: artistInfo =>
+      val artistKey = artistInfo.artistName
+      mediumData.albumsByArtist.get(ArtistID(artistInfo.id)) match
+        case Some(albums) =>
+          treeArtists.getModel.addProperty(artistKey, artistInfo.artistName)
+          albums.foreach: album =>
+            val configKey = s"$artistKey|${album.albumName}"
+            treeArtists.getModel.addProperty(configKey, AlbumID(album.id))
+        case None =>
+          treeArtists.getModel.addProperty(artistKey, ArtistID(artistInfo.id))
+    treeArtists.clearSelection()
+    val rootPath = new TreeNodePath(treeArtists.getModel.getRoot)
+    treeArtists.collapse(rootPath)
+    treeArtists.expand(rootPath)
