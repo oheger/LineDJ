@@ -130,6 +130,16 @@
     <w:controller beanName="mediaController"/>
   </w:frame>
 
+  <!-- Selection change listener for media controls -->
+  <di:bean name="mediaSelectionChangeListener"
+           beanClassName="de.oliver_heger.linedj.apps.archive.browser.SelectionChangeHandler">
+    <di:constructor>
+      <di:param refName="mediaController"/>
+    </di:constructor>
+  </di:bean>
+
+  <a:eventListener component="comboMedia" eventType="CHANGE" beanName="mediaSelectionChangeListener"/>
+
   <!-- Action tasks and commands -->
 
   <!-- The action task for quitting the application -->
