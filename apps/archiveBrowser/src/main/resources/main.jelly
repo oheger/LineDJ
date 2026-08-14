@@ -91,10 +91,6 @@
         <f:combo name="comboMedia" modelRef="mediaComboModel">
           <f:borderconstr name="CENTER"/>
         </f:combo>
-        <f:label name="mediaLoadingIndicator">
-          <f:icon resource="loading.gif"/>
-          <f:borderconstr name="EAST"/>
-        </f:label>
       </f:panel>
 
       <f:splitter orientation="horizontal" resizeWeight="0.25">
@@ -110,6 +106,29 @@
       </f:splitter>
     </f:panel>
 
+    <!-- Status line -->
+    <f:panel>
+      <f:borderconstr name="SOUTH"/>
+      <f:borderlayout canShrink="false"/>
+        <f:label name="mediaLoadingIndicator">
+          <f:icon resource="loading.gif"/>
+          <f:borderconstr name="WEST"/>
+        </f:label>
+        <f:statictext name="txtStatusLine">
+          <f:borderconstr name="CENTER"/>
+        </f:statictext>
+    </f:panel>
+
+    <!-- The controller for the status line. -->
+    <di:bean name="statusLineController"
+      beanClassName="de.oliver_heger.linedj.apps.archive.browser.StatusLineController">
+      <di:constructor>
+        <di:param refName="jguiraffe.applicationContext"/>
+        <di:param refName="comp:txtStatusLine"/>
+        <di:param refName="widget:mediaLoadingIndicator"/>
+      </di:constructor>
+    </di:bean>
+
     <!-- The controller of the main window. -->
     <di:bean name="mediaController"
       beanClassName="de.oliver_heger.linedj.apps.archive.browser.Controller">
@@ -117,6 +136,7 @@
         <di:param refName="archiveService"/>
         <di:param refName="LineDJ_ExecutionContext"/>
         <di:param refName="LineDJ_MessageBus"/>
+        <di:param refName="statusLineController"/>
         <di:param refName="comp:comboMedia"/>
         <di:param refName="comp:treeArtists"/>
       </di:constructor>

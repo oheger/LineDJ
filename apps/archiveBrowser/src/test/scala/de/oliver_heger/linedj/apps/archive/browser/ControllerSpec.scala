@@ -22,6 +22,7 @@ import de.oliver_heger.linedj.platform.archiveclient.ArchiveService
 import de.oliver_heger.linedj.shared.archive.metadata.Checksums
 import de.oliver_heger.linedj.shared.archive.metadata.Checksums.MediumChecksum
 import net.sf.jguiraffe.gui.builder.components.model.{TreeHandler, TreeNodePath}
+import net.sf.jguiraffe.resources.Message
 import org.apache.commons.configuration.{AbstractConfiguration, HierarchicalConfiguration}
 import org.apache.commons.configuration.tree.DefaultExpressionEngine
 import org.mockito.Mockito.*
@@ -57,11 +58,30 @@ object ControllerSpec:
   /** The sorted list of test media. */
   private val SortedTestMedia = List(ClassicMedium, PopMedium, RockMedium)
 
+  /** Details of the test medium. */
+  private val TestMediumDetails = ArchiveModel.MediumDetails(
+    overview = RockMedium,
+    description = "Very good rock music",
+    orderMode = Some(ArchiveModel.OrderMode.RandomSongs),
+    archiveName = "Test-Archive"
+  )
+
+  /** The URL to query detail information about the test medium. */
+  private val QueryMediumUrl = s"/api/archive/media/${RockMedium.id.checksum}"
+
   /** The URL to query the artists of the test medium. */
-  private val QueryArtistUrl = s"/api/archive/media/${RockMedium.id.checksum}/artists"
+  private val QueryArtistUrl = s"$QueryMediumUrl/artists"
 
   /** The URL to query the albums of the test medium. */
-  private val QueryAlbumUrl = s"/api/archive/media/${RockMedium.id.checksum}/albums"
+  private val QueryAlbumUrl = s"$QueryMediumUrl/albums"
+
+  /**
+    * Returns the URL to query information about the given medium.
+    *
+    * @param medium the medium
+    * @return the URL for this medium
+    */
+  private def mediumUrl(medium: ArchiveModel.MediumOverview): String = s"/api/archive/media/${medium.id.checksum}"
 end ControllerSpec
 
 /**
@@ -135,6 +155,7 @@ class ControllerSpec extends AnyFlatSpec, Matchers, MockitoSugar:
 
     helper.expectArchiveRequestData(QueryArtistUrl, ArchiveModel.ItemsResult(artists))
       .expectArchiveRequestData(QueryAlbumUrl, ArchiveModel.ItemsResult(albums))
+      .expectArchiveRequestData(QueryMediumUrl, TestMediumDetails)
       .passSelectedMedium(RockMedium.id)
       .handleArchiveRequest()
 
@@ -172,6 +193,7 @@ class ControllerSpec extends AnyFlatSpec, Matchers, MockitoSugar:
 
     helper.expectArchiveRequestData(QueryArtistUrl, ArchiveModel.ItemsResult(artists))
       .expectArchiveRequestData(QueryAlbumUrl, ArchiveModel.ItemsResult(albums))
+      .expectArchiveRequestData(QueryMediumUrl, TestMediumDetails)
       .passSelectedMedium(RockMedium.id)
       .handleArchiveRequest()
 
@@ -191,6 +213,7 @@ class ControllerSpec extends AnyFlatSpec, Matchers, MockitoSugar:
 
     helper.expectArchiveRequestData(QueryArtistUrl, ArchiveModel.ItemsResult(artists))
       .expectArchiveRequestData(QueryAlbumUrl, ArchiveModel.ItemsResult(albums))
+      .expectArchiveRequestData(QueryMediumUrl, TestMediumDetails)
       .passSelectedMedium(RockMedium.id)
 
     helper.artistTreeModel.isEmpty shouldBe true
@@ -202,6 +225,142 @@ class ControllerSpec extends AnyFlatSpec, Matchers, MockitoSugar:
     helper.simulateMediumSelection(None)
 
     helper.artistTreeModel.isEmpty shouldBe true
+
+  it should "update the status controller when a medium is selected" in :
+    val artists = List(ArchiveModel.ArtistInfo("art1", "Dire Straits"))
+    val albums = List(ArchiveModel.AlbumInfo("alb1", "Brothers in Arms", "art1"))
+    val helper = new ControllerTestHelper
+
+    helper.expectArchiveRequestData(QueryArtistUrl, ArchiveModel.ItemsResult(artists))
+      .expectArchiveRequestData(QueryAlbumUrl, ArchiveModel.ItemsResult(albums))
+      .expectArchiveRequestData(QueryMediumUrl, TestMediumDetails)
+      .passSelectedMedium(RockMedium.id)
+
+    helper.activeLoadOperations should be(1)
+    helper.currentStatusMessage should be(Some(Message(null, Controller.ResMediumLoading, RockMedium.id.checksum)))
+
+  it should "update the status controller when medium data has been loaded" in :
+    val artists = List(ArchiveModel.ArtistInfo("art1", "Dire Straits"))
+    val albums = List(ArchiveModel.AlbumInfo("alb1", "Brothers in Arms", "art1"))
+    val helper = new ControllerTestHelper
+
+    helper.expectArchiveRequestData(QueryArtistUrl, ArchiveModel.ItemsResult(artists))
+      .expectArchiveRequestData(QueryAlbumUrl, ArchiveModel.ItemsResult(albums))
+      .expectArchiveRequestData(QueryMediumUrl, TestMediumDetails)
+      .passSelectedMedium(RockMedium.id)
+      .handleArchiveRequest()
+
+    helper.activeLoadOperations should be(0)
+    helper.statusMediumTitle should be(Some(TestMediumDetails.title))
+
+  it should "update the status controller when loading fails" in :
+    val ErrorMessage = "Loading of data failed."
+    val failedFuture: Future[ArchiveModel.ItemsResult[ArchiveModel.AlbumInfo]] =
+      Future.failed(new IllegalArgumentException(ErrorMessage))
+    val helper = new ControllerTestHelper
+
+    helper.expectArchiveRequestData(
+        QueryArtistUrl,
+        ArchiveModel.ItemsResult(List(ArchiveModel.ArtistInfo("a1", "Artist")))
+      )
+      .expectArchiveRequestData(QueryMediumUrl, TestMediumDetails)
+      .expectArchiveRequest(QueryAlbumUrl, failedFuture)
+      .passSelectedMedium(RockMedium.id)
+      .handleArchiveRequest()
+
+    helper.activeLoadOperations should be(0)
+    helper.currentStatusMessage should be(Some(Message(null, Controller.ResErrorLoading, ErrorMessage)))
+
+  it should "update the status controller when no medium is selected" in :
+    val artists = List(ArchiveModel.ArtistInfo("art1", "Dire Straits"))
+    val albums = List(ArchiveModel.AlbumInfo("alb1", "Brothers in Arms", "art1"))
+    val helper = new ControllerTestHelper
+
+    helper.expectArchiveRequestData(QueryArtistUrl, ArchiveModel.ItemsResult(artists))
+      .expectArchiveRequestData(QueryAlbumUrl, ArchiveModel.ItemsResult(albums))
+      .expectArchiveRequestData(QueryMediumUrl, TestMediumDetails)
+      .passSelectedMedium(RockMedium.id)
+      .handleArchiveRequest()
+      .simulateMediumSelection(None)
+
+    helper.statusMediumTitle shouldBe empty
+
+  it should "update the UI when loading of a medium fails" in :
+    val failedAlbumsFuture: Future[ArchiveModel.ItemsResult[ArchiveModel.AlbumInfo]] =
+      Future.failed(new IllegalArgumentException("Some error"))
+    val failedArtistsFuture: Future[ArchiveModel.ItemsResult[ArchiveModel.ArtistInfo]] =
+      Future.failed(new IllegalStateException("Some other error"))
+    val helper = new ControllerTestHelper
+    helper.artistTreeModel.addProperty("foo", "bar")
+
+    helper.expectArchiveRequest(QueryAlbumUrl, failedAlbumsFuture)
+      .expectArchiveRequest(QueryArtistUrl, failedArtistsFuture)
+      .expectArchiveRequestData(QueryMediumUrl, TestMediumDetails)
+      .passSelectedMedium(RockMedium.id)
+      .handleArchiveRequest()
+
+    helper.artistTreeModel.isEmpty shouldBe true
+
+  it should "ignore a result for a no-longer selected medium" in :
+    val rockArtists = List(ArchiveModel.ArtistInfo("art1", "Dire Straits"))
+    val rockAlbums = List(ArchiveModel.AlbumInfo("alb1", "Brothers in Arms", "art1"))
+    val classicArtists = List(ArchiveModel.ArtistInfo("art2", "Beethoven"))
+    val classicAlbums = List(ArchiveModel.AlbumInfo("alb2", "Symphony No 9", "art2"))
+    val classicUrl = mediumUrl(ClassicMedium)
+    val classicDetails = ArchiveModel.MediumDetails(
+      overview = ClassicMedium,
+      description = "Classics",
+      orderMode = None,
+      archiveName = "Some-Archive"
+    )
+    val helper = new ControllerTestHelper
+
+    helper.expectArchiveRequestData(QueryArtistUrl, ArchiveModel.ItemsResult(rockArtists))
+      .expectArchiveRequestData(QueryAlbumUrl, ArchiveModel.ItemsResult(rockAlbums))
+      .expectArchiveRequestData(QueryMediumUrl, TestMediumDetails)
+      .expectArchiveRequestData(classicUrl + "/artists", ArchiveModel.ItemsResult(classicArtists))
+      .expectArchiveRequestData(classicUrl + "/albums", ArchiveModel.ItemsResult(classicAlbums))
+      .expectArchiveRequestData(classicUrl, classicDetails)
+      .passSelectedMedium(RockMedium.id)
+      .passSelectedMedium(ClassicMedium.id)
+      .handleArchiveRequest()
+
+    helper.artistTreeModel.isEmpty shouldBe true
+
+  it should "ignore a failure notification for a no-longer selected medium" in :
+    val ErrorMessage = "Loading of data failed."
+    val failedAlbumsFuture: Future[ArchiveModel.ItemsResult[ArchiveModel.AlbumInfo]] =
+      Future.failed(new IllegalArgumentException(ErrorMessage))
+    val classicUrl = mediumUrl(ClassicMedium)
+    val classicDetails = ArchiveModel.MediumDetails(
+      overview = ClassicMedium,
+      description = "Classics",
+      orderMode = None,
+      archiveName = "Some-Archive"
+    )
+    val helper = new ControllerTestHelper
+
+    helper.expectArchiveRequestData(
+        QueryArtistUrl,
+        ArchiveModel.ItemsResult(List(ArchiveModel.ArtistInfo("a1", "Artist")))
+      )
+      .expectArchiveRequestData(QueryMediumUrl, TestMediumDetails)
+      .expectArchiveRequest(QueryAlbumUrl, failedAlbumsFuture)
+      .expectArchiveRequestData(
+        classicUrl + "/artists",
+        ArchiveModel.ItemsResult(List(ArchiveModel.ArtistInfo("a2", "Artist")))
+      )
+      .expectArchiveRequestData(
+        classicUrl + "/albums",
+        ArchiveModel.ItemsResult(List(ArchiveModel.AlbumInfo("alb1", "Album", "a2")))
+      )
+      .expectArchiveRequestData(classicUrl, classicDetails)
+      .passSelectedMedium(RockMedium.id)
+      .passSelectedMedium(ClassicMedium.id)
+      .handleArchiveRequest()
+      .handleArchiveRequest()
+
+    helper.currentStatusMessage should be(Some(Message(null, Controller.ResMediumLoading, ClassicMedium.id.checksum)))
 
   /**
     * A test helper class managing a controller instance to be tested and its
@@ -230,6 +389,42 @@ class ControllerSpec extends AnyFlatSpec, Matchers, MockitoSugar:
 
     /** The controller to be tested. */
     private val controller = createController()
+
+    /**
+      * A counter for the invocations of the status line controller that
+      * indicate started and ended load operations.
+      */
+    private var activeLoadCounter = 0
+
+    /** Stores the last medium title for the status line. */
+    private var optMediumTitle: Option[String] = None
+
+    /** Stores the last message shown in the status line. */
+    private var optStatusMessage: Option[Message] = None
+
+    /**
+      * Returns the number of active load operations the controller has
+      * reported to the status line controller.
+      *
+      * @return the active load operations
+      */
+    def activeLoadOperations: Int = activeLoadCounter
+
+    /**
+      * Returns the last medium title that was passed to the status line
+      * controller.
+      *
+      * @return the medium title in the status line
+      */
+    def statusMediumTitle: Option[String] = optMediumTitle
+
+    /**
+      * Returns an [[Option]] with the last message that was passed to the
+      * status line controller for being displayed.
+      *
+      * @return the currently displayed status message
+      */
+    def currentStatusMessage: Option[Message] = optStatusMessage
 
     /**
       * Verifies that the controller removes the change listener registration
@@ -385,6 +580,26 @@ class ControllerSpec extends AnyFlatSpec, Matchers, MockitoSugar:
       handler
 
     /**
+      * Creates a stub for the [[StatusLineController]] that allows tracking
+      * the modifications of the status line.
+      *
+      * @return the stub controller for the status line
+      */
+    private def createStatusLineController(): StatusLineController =
+      new StatusLineController(mock, mock, mock):
+        override def setMediumTitle(optTitle: Option[String]): Unit =
+          optMediumTitle = optTitle
+
+        override def loadOperationStarts(): Unit =
+          activeLoadCounter += 1
+
+        override def loadOperationEnds(): Unit =
+          activeLoadCounter -= 1
+
+        override def setStatusMessage(message: Message): Unit =
+          optStatusMessage = Some(message)
+
+    /**
       * Creates the controller instance under test.
       *
       * @return the test controller instance
@@ -394,6 +609,7 @@ class ControllerSpec extends AnyFlatSpec, Matchers, MockitoSugar:
         archiveService,
         ExecutionContext.global,
         messageBus,
+        createStatusLineController(),
         comboMedia,
         artistTreeHandler
       )

@@ -22,13 +22,22 @@ import de.oliver_heger.linedj.platform.archiveclient.{ArchiveService, ArchiveSta
 import de.oliver_heger.linedj.platform.comm.{MessageBus, MessageBusListener}
 import de.oliver_heger.linedj.shared.archive.metadata.Checksums
 import net.sf.jguiraffe.gui.builder.components.model.{ListComponentHandler, TreeHandler, TreeNodePath}
+import net.sf.jguiraffe.resources.Message
+import org.apache.logging.log4j.LogManager
 import org.apache.pekko.actor.Actor.Receive
 
 import java.util.Locale
 import scala.annotation.tailrec
 import scala.concurrent.ExecutionContext
+import scala.util.{Failure, Success}
 
 object Controller:
+  /** The resource ID of the medium loading message. */
+  private[browser] val ResMediumLoading = "stat_medium_loading"
+
+  /** The resource ID to display an error while loading data. */
+  private[browser] val ResErrorLoading = "stat_loading_error"
+
   /**
     * An internally used message class the controller sends to itself when it
     * is notified about a change in the media data of the connected archive
@@ -52,19 +61,35 @@ object Controller:
     */
   private[browser] case class AlbumID(id: String) extends AnyVal
 
+  /** The logger. */
+  private val log = LogManager.getLogger(classOf[Controller])
+
   /**
     * An internally used data class that stores the relevant data of a medium.
     * When the user selects another medium, the controller loads data from the
     * archive and creates an instance of this class. This is then used to
     * populate the UI elements.
     *
+    * @param mediumDetails  detail information about the medium
     * @param artistData     a list with data about the artists of the medium
     * @param albumData      a list with data about the albums of the medium
     * @param albumsByArtist a map with the albums keyed by artist ID
     */
-  private case class MediumData(artistData: List[ArchiveModel.ArtistInfo],
+  private case class MediumData(mediumDetails: ArchiveModel.MediumDetails,
+                                artistData: List[ArchiveModel.ArtistInfo],
                                 albumData: List[ArchiveModel.AlbumInfo],
                                 albumsByArtist: Map[ArtistID, List[ArchiveModel.AlbumInfo]])
+
+  /**
+    * An internally used data class that reports an error when obtaining the
+    * data for a medium. The controller sends an instance to itself over the
+    * message bus, so that it can handle the error in the UI thread.
+    *
+    * @param mediumID  the ID of the affected medium
+    * @param exception the exception that occurred
+    */
+  private case class MediumError(mediumID: Checksums.MediumChecksum,
+                                 exception: Throwable)
 
   /** An ordering for sorting media in the combobox. */
   private given mediumOverviewOrdering: Ordering[ArchiveModel.MediumOverview] =
@@ -93,18 +118,23 @@ end Controller
   * @param archiveService   the service to interact with the archive
   * @param executionContext the execution context
   * @param messageBus       the message bus
+  * @param statusController the controller for the status line
   * @param comboMedia       the combobox to select a medium
   * @param treeArtists      the handler for the tree with artist info
   */
 class Controller(archiveService: ArchiveService,
                  executionContext: ExecutionContext,
                  messageBus: MessageBus,
+                 statusController: StatusLineController,
                  comboMedia: ListComponentHandler,
                  treeArtists: TreeHandler)
   extends ArchiveStateMonitor.ArchiveChangeListener[ArchiveModel.MediaOverview], MessageBusListener,
     ArchiveModel.ArchiveJsonSupport:
   /** Provides an execution context in implicit scope. */
   private given ExecutionContext = executionContext
+
+  /** Holds the currently selected medium if any. */
+  private var optSelectedMedium: Option[Checksums.MediumChecksum] = None
 
   import Controller.*
 
@@ -130,7 +160,12 @@ class Controller(archiveService: ArchiveService,
       updateMedia(media)
 
     case data: MediumData =>
+      statusController.loadOperationEnds()
       updateUI(data)
+
+    case error: MediumError =>
+      statusController.loadOperationEnds()
+      handleMediumError(error)
 
   /**
     * Notifies this controller about a change in the selection of the media 
@@ -138,24 +173,37 @@ class Controller(archiveService: ArchiveService,
     * displays it in the managed controls. An empty option means that nothing
     * is selected.
     *
-    * @param mediumID the optional ID of the selected medium
+    * @param optMediumID the optional ID and title of the selected medium
     */
-  private[browser] def mediumSelected(mediumID: Option[Checksums.MediumChecksum]): Unit =
+  private[browser] def mediumSelected(optMediumID: Option[Checksums.MediumChecksum]): Unit =
     treeArtists.getModel.clear()
+    optSelectedMedium = optMediumID
 
-    if mediumID.isDefined then
-      val mediumUrl = archiveMediumUrl(mediumID.get)
-      val artistsUrl = s"$mediumUrl/artists"
-      val futArtists = archiveService.queryData[ArchiveModel.ItemsResult[ArchiveModel.ArtistInfo]](artistsUrl)
-      val albumsUrl = s"$mediumUrl/albums"
-      val futAlbums = archiveService.queryData[ArchiveModel.ItemsResult[ArchiveModel.AlbumInfo]](albumsUrl)
+    optMediumID match
+      case Some(mediumID) =>
+        statusController.loadOperationStarts()
+        statusController.setStatusMessage(new Message(null, ResMediumLoading, mediumID.checksum))
+        val mediumUrl = archiveMediumUrl(mediumID)
+        val futDetails = archiveService.queryData[ArchiveModel.MediumDetails](mediumUrl)
+        val artistsUrl = s"$mediumUrl/artists"
+        val futArtists = archiveService.queryData[ArchiveModel.ItemsResult[ArchiveModel.ArtistInfo]](artistsUrl)
+        val albumsUrl = s"$mediumUrl/albums"
+        val futAlbums = archiveService.queryData[ArchiveModel.ItemsResult[ArchiveModel.AlbumInfo]](albumsUrl)
 
-      (for
-        artists <- futArtists
-        albums <- futAlbums
-      yield
-        createMediumData(artists, albums)
-        ).foreach(messageBus.publish)
+        (for
+          details <- futDetails
+          artists <- futArtists
+          albums <- futAlbums
+        yield
+          createMediumData(details, artists, albums)
+          ).onComplete:
+          case Success(mediumData) =>
+            messageBus.publish(mediumData)
+          case Failure(exception) =>
+            log.error("Failed to load data for medium '{}'.", mediumID, exception)
+            messageBus.publish(MediumError(mediumID, exception))
+      case None =>
+        statusController.setMediumTitle(None)
 
   /**
     * Updates the combobox with media to contain exactly the given data. This
@@ -194,14 +242,16 @@ class Controller(archiveService: ArchiveService,
     * Creates a [[MediumData]] object from the given input that was requested
     * from the archive server.
     *
+    * @param details      the details of the selected medium
     * @param artistResult the artists of the current medium
     * @param albumResult  the albums of the current medium
     * @return the [[MediumData]] for this medium
     */
-  private def createMediumData(artistResult: ArchiveModel.ItemsResult[ArchiveModel.ArtistInfo],
+  private def createMediumData(details: ArchiveModel.MediumDetails,
+                               artistResult: ArchiveModel.ItemsResult[ArchiveModel.ArtistInfo],
                                albumResult: ArchiveModel.ItemsResult[ArchiveModel.AlbumInfo]): MediumData =
     val albumsByArtist = albumResult.items.groupBy(album => ArtistID(album.artistId))
-    MediumData(artistResult.items, albumResult.items, albumsByArtist)
+    MediumData(details, artistResult.items, albumResult.items, albumsByArtist)
 
   /**
     * Populate the UI elements with the data for a newly selected medium.
@@ -215,17 +265,38 @@ class Controller(archiveService: ArchiveService,
     * @param mediumData the data for the medium
     */
   private def updateUI(mediumData: MediumData): Unit =
-    mediumData.artistData.foreach: artistInfo =>
-      val artistKey = artistInfo.artistName
-      mediumData.albumsByArtist.get(ArtistID(artistInfo.id)) match
-        case Some(albums) =>
-          treeArtists.getModel.addProperty(artistKey, artistInfo.artistName)
-          albums.foreach: album =>
-            val configKey = s"$artistKey|${album.albumName}"
-            treeArtists.getModel.addProperty(configKey, AlbumID(album.id))
-        case None =>
-          treeArtists.getModel.addProperty(artistKey, ArtistID(artistInfo.id))
-    treeArtists.clearSelection()
-    val rootPath = new TreeNodePath(treeArtists.getModel.getRoot)
-    treeArtists.collapse(rootPath)
-    treeArtists.expand(rootPath)
+    if isCurrentMedium(mediumData.mediumDetails.id) then
+      statusController.setMediumTitle(Some(mediumData.mediumDetails.title))
+      mediumData.artistData.foreach: artistInfo =>
+        val artistKey = artistInfo.artistName
+        mediumData.albumsByArtist.get(ArtistID(artistInfo.id)) match
+          case Some(albums) =>
+            treeArtists.getModel.addProperty(artistKey, artistInfo.artistName)
+            albums.foreach: album =>
+              val configKey = s"$artistKey|${album.albumName}"
+              treeArtists.getModel.addProperty(configKey, AlbumID(album.id))
+          case None =>
+            treeArtists.getModel.addProperty(artistKey, ArtistID(artistInfo.id))
+      treeArtists.clearSelection()
+      val rootPath = new TreeNodePath(treeArtists.getModel.getRoot)
+      treeArtists.collapse(rootPath)
+      treeArtists.expand(rootPath)
+
+  /**
+    * Updates the UI when data about a medium could not be loaded.
+    *
+    * @param error the object with information about the error
+    */
+  private def handleMediumError(error: MediumError): Unit =
+    if isCurrentMedium(error.mediumID) then
+      val statusMessage = new Message(null, ResErrorLoading, error.exception.getMessage)
+      statusController.setStatusMessage(statusMessage)
+
+  /**
+    * Returns a flag whether the given medium ID refers to the currently
+    * selected medium.
+    *
+    * @param id the ID in question
+    * @return *true* if this is the current medium, *false* otherwise
+    */
+  private def isCurrentMedium(id: Checksums.MediumChecksum): Boolean = optSelectedMedium.contains(id)

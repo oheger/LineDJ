@@ -39,3 +39,11 @@ class BrowserAppSpec extends AnyFlatSpec, Matchers, MockitoSugar, ApplicationTes
     activateApp(app)
 
     queryBean[ArchiveService](app, BrowserApp.BeanArchiveService) should be(archiveService)
+
+  it should "correctly configure the controller" in:
+    val app = new BrowserApp with ApplicationSyncStartup with AppWithTestPlatform
+
+    app.initArchiveService(mock)
+    activateApp(app)
+
+    queryBean[Controller](app.getMainWindowBeanContext, "mediaController") should not be null
