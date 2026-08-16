@@ -17,8 +17,9 @@
 package de.oliver_heger.linedj.apps.archive.browser
 
 import de.oliver_heger.linedj.shared.archive.metadata.Checksums
-import net.sf.jguiraffe.gui.builder.components.model.ListComponentHandler
+import net.sf.jguiraffe.gui.builder.components.model.{ListComponentHandler, TreeHandler, TreeNodePath}
 import net.sf.jguiraffe.gui.builder.event.FormChangeEvent
+import org.apache.commons.configuration.tree.ConfigurationNode
 import org.mockito.Mockito.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -50,3 +51,50 @@ class SelectionChangeHandlerSpec extends AnyFlatSpec, Matchers, MockitoSugar:
     handler.elementChanged(event)
 
     verify(controller).mediumSelected(None)
+
+  /**
+    * Initializes a mock tree handler to return a selected path that points to
+    * the specified ID object.
+    *
+    * @param treeHandler the mock tree handler
+    * @param targetID    the ID to return as selected path
+    */
+  private def initSelectedPath(treeHandler: TreeHandler, targetID: Any): Unit =
+    val configNode = mock[ConfigurationNode]
+    doReturn(targetID).when(configNode).getValue
+    val nodePath = new TreeNodePath(configNode)
+    doReturn(nodePath).when(treeHandler).getSelectedPath
+
+  it should "notify the controller when an album is selected in the artists tree" in :
+    val albumID = Controller.AlbumID("someAlbum")
+    val controller = mock[Controller]
+    val treeHandler = mock[TreeHandler]
+    initSelectedPath(treeHandler, albumID)
+    val event = new FormChangeEvent("someSource", treeHandler, "someName")
+
+    val handler = new SelectionChangeHandler(controller)
+    handler.elementChanged(event)
+
+    verify(controller).artistAlbumSelected(Some(albumID))
+
+  it should "notify the controller when the selection in the artist tree is reset" in :
+    val controller = mock[Controller]
+    val treeHandler = mock[TreeHandler]
+    doReturn(null).when(treeHandler).getSelectedPath
+    val event = new FormChangeEvent("someSource", treeHandler, "someName")
+
+    val handler = new SelectionChangeHandler(controller)
+    handler.elementChanged(event)
+
+    verify(controller).artistAlbumSelected(None)
+
+  it should "notify the controller when an artist is selected in the artists tree" in :
+    val controller = mock[Controller]
+    val treeHandler = mock[TreeHandler]
+    initSelectedPath(treeHandler, Controller.ArtistID("someArtist"))
+    val event = new FormChangeEvent("someSource", treeHandler, "someName")
+
+    val handler = new SelectionChangeHandler(controller)
+    handler.elementChanged(event)
+
+    verify(controller).artistAlbumSelected(None)

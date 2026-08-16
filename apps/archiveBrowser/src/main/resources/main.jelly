@@ -22,6 +22,11 @@
 <j:jelly xmlns:j="jelly:core" xmlns:di="diBuilder" xmlns:f="formBuilder"
   xmlns:a="actionBuilder" xmlns:w="windowBuilder">
 
+  <!-- A transformer for durations. -->
+  <di:bean name="durationTransformer"
+           beanClassName="de.oliver_heger.linedj.platform.ui.DurationTransformer">
+  </di:bean>
+
   <!-- Definitions for actions and their tasks -->
 
   <!-- The action for application shutdown -->
@@ -48,6 +53,9 @@
     </di:setProperty>
   </di:bean>
 
+  <!-- The model of the artist song table. -->
+  <di:bean name="artistSongsTableModel" beanClassName="java.util.ArrayList"/>
+
   <!-- The model for the media combo box. -->
   <di:bean name="mediaComboModel"
     beanClassName="de.oliver_heger.linedj.apps.archive.browser.EmptyMediumListModel"/>
@@ -58,6 +66,7 @@
     <di:constructor>
       <di:param>
         <di:list>
+          <di:element refName="albumSongsLoader"/>
           <di:element refName="mediaController"/>
         </di:list>
       </di:param>
@@ -96,13 +105,22 @@
       <f:splitter orientation="horizontal" resizeWeight="0.25">
         <f:borderconstr name="CENTER"/>
         <f:tree name="treeArtists" model="artistsTreeModel" editable="false"
-                scrollWidth="2cm" scrollHeight="3cm" multiSelection="true"
+                scrollWidth="2cm" scrollHeight="3cm" multiSelection="false"
                 rootVisible="true">
         </f:tree>
 
-        <f:panel>
+        <f:table name="tableArtistSongs" model="artistSongsTableModel" multiSelection="true">
           <f:borderconstr name="CENTER"/>
-        </f:panel>
+          <f:column name="artist" percentWidth="35"
+                    headerres="tcol_song_artist">
+          </f:column>
+          <f:column name="title" percentWidth="40" headerres="tcol_song_title"
+                    columnClass="String"/>
+          <f:column name="trackNumber" percentWidth="10" headerres="tcol_song_track"/>
+          <f:column name="duration" percentWidth="15" headerres="tcol_song_duration">
+            <f:transformer type="write" beanName="durationTransformer"/>
+          </f:column>
+        </f:table>
       </f:splitter>
     </f:panel>
 
@@ -128,17 +146,27 @@
         <di:param refName="widget:mediaLoadingIndicator"/>
       </di:constructor>
     </di:bean>
-
-    <!-- The controller of the main window. -->
-    <di:bean name="mediaController"
-      beanClassName="de.oliver_heger.linedj.apps.archive.browser.Controller">
+    
+    <!-- The loader for songs on a specific album. -->
+    <di:bean name="albumSongsLoader"
+      beanClassName="de.oliver_heger.linedj.apps.archive.browser.SongsLoader">
       <di:constructor>
         <di:param refName="archiveService"/>
         <di:param refName="LineDJ_ExecutionContext"/>
         <di:param refName="LineDJ_MessageBus"/>
         <di:param refName="statusLineController"/>
+        <di:param value="/api/archive/media/{mediumID}/albums"/>
+      </di:constructor>
+    </di:bean>
+
+    <!-- The controller of the main window. -->
+    <di:bean name="mediaController"
+      beanClassName="de.oliver_heger.linedj.apps.archive.browser.Controller">
+      <di:constructor>
+        <di:param refName="albumSongsLoader"/>
         <di:param refName="comp:comboMedia"/>
         <di:param refName="comp:treeArtists"/>
+        <di:param refName="comp:tableArtistSongs"/>
       </di:constructor>
 
       <di:methodInvocation method="initialize"/>
@@ -150,7 +178,7 @@
     <w:controller beanName="mediaController"/>
   </w:frame>
 
-  <!-- Selection change listener for media controls -->
+  <!-- Selection change listener for media controls. -->
   <di:bean name="mediaSelectionChangeListener"
            beanClassName="de.oliver_heger.linedj.apps.archive.browser.SelectionChangeHandler">
     <di:constructor>
@@ -159,6 +187,7 @@
   </di:bean>
 
   <a:eventListener component="comboMedia" eventType="CHANGE" beanName="mediaSelectionChangeListener"/>
+  <a:eventListener component="treeArtists" eventType="CHANGE" beanName="mediaSelectionChangeListener"/>
 
   <!-- Action tasks and commands -->
 

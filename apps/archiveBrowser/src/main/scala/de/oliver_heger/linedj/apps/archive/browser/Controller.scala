@@ -18,10 +18,10 @@ package de.oliver_heger.linedj.apps.archive.browser
 
 import de.oliver_heger.linedj.apps.archive.browser.Controller.{AlbumID, ArtistID, MediaChanged, MediumData}
 import de.oliver_heger.linedj.archive.server.model.ArchiveModel
-import de.oliver_heger.linedj.platform.archiveclient.{ArchiveService, ArchiveStateMonitor}
-import de.oliver_heger.linedj.platform.comm.{MessageBus, MessageBusListener}
+import de.oliver_heger.linedj.platform.archiveclient.ArchiveStateMonitor
+import de.oliver_heger.linedj.platform.comm.MessageBusListener
 import de.oliver_heger.linedj.shared.archive.metadata.Checksums
-import net.sf.jguiraffe.gui.builder.components.model.{ListComponentHandler, TreeHandler, TreeNodePath}
+import net.sf.jguiraffe.gui.builder.components.model.{ListComponentHandler, TableHandler, TreeHandler, TreeNodePath}
 import net.sf.jguiraffe.resources.Message
 import org.apache.logging.log4j.LogManager
 import org.apache.pekko.actor.Actor.Receive
@@ -111,25 +111,24 @@ end Controller
   *
   * This class manages various controls to browse the content of a media
   * archive hosted by a connected archive server. Interaction with this server
-  * takes place via an [[ArchiveService]] instance. The UI contains a combobox
-  * to select a specific medium. It then shows different views of the songs
-  * stored on the selected medium.
+  * takes place via the [[ArchiveService]] passed to the [[SongsLoader]]. The
+  * UI contains a combobox to select a specific medium. It then shows different
+  * views of the songs stored on the selected medium.
   *
-  * @param archiveService   the service to interact with the archive
-  * @param executionContext the execution context
-  * @param messageBus       the message bus
-  * @param statusController the controller for the status line
-  * @param comboMedia       the combobox to select a medium
-  * @param treeArtists      the handler for the tree with artist info
+  * @param songsLoader    the loader and cache for the songs of albums
+  * @param comboMedia     the combobox to select a medium
+  * @param treeArtists    the handler for the tree with artist info
+  * @param tabArtistSongs the table for the songs in the artist view
   */
-class Controller(archiveService: ArchiveService,
-                 executionContext: ExecutionContext,
-                 messageBus: MessageBus,
-                 statusController: StatusLineController,
+class Controller(songsLoader: SongsLoader,
                  comboMedia: ListComponentHandler,
-                 treeArtists: TreeHandler)
+                 treeArtists: TreeHandler,
+                 tabArtistSongs: TableHandler)
   extends ArchiveStateMonitor.ArchiveChangeListener[ArchiveModel.MediaOverview], MessageBusListener,
     ArchiveModel.ArchiveJsonSupport:
+
+  import songsLoader.*
+
   /** Provides an execution context in implicit scope. */
   private given ExecutionContext = executionContext
 
@@ -177,6 +176,8 @@ class Controller(archiveService: ArchiveService,
     */
   private[browser] def mediumSelected(optMediumID: Option[Checksums.MediumChecksum]): Unit =
     treeArtists.getModel.clear()
+    tabArtistSongs.getModel.clear()
+    songsLoader.mediumSelectionChanged()
     optSelectedMedium = optMediumID
 
     optMediumID match
@@ -204,6 +205,21 @@ class Controller(archiveService: ArchiveService,
             messageBus.publish(MediumError(mediumID, exception))
       case None =>
         statusController.setMediumTitle(None)
+
+  /**
+    * Notifies this controller about a change in the selection of the albums of
+    * an artist. This means that the songs of the corresponding album need to 
+    * be shown in the table view.
+    *
+    * @param optAlbumID the optional selected album ID
+    */
+  private[browser] def artistAlbumSelected(optAlbumID: Option[AlbumID]): Unit =
+    optAlbumID match
+      case Some(albumID) =>
+        songsLoader.fetchSongs(optSelectedMedium.map(_.checksum), albumID.id, tabArtistSongs)
+      case None =>
+        tabArtistSongs.getModel.clear()
+        tabArtistSongs.tableDataChanged()
 
   /**
     * Updates the combobox with media to contain exactly the given data. This

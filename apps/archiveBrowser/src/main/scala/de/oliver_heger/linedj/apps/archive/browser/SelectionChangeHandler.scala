@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.apps.archive.browser
 
 import de.oliver_heger.linedj.shared.archive.metadata.Checksums
-import net.sf.jguiraffe.gui.builder.components.model.ListComponentHandler
+import net.sf.jguiraffe.gui.builder.components.model.{ListComponentHandler, TreeHandler}
 import net.sf.jguiraffe.gui.builder.event.{FormChangeEvent, FormChangeListener}
 
 /**
@@ -34,3 +34,10 @@ class SelectionChangeHandler(controller: Controller) extends FormChangeListener:
       case list: ListComponentHandler =>
         val mediumSelection = Option(list.getData).map(_.asInstanceOf[Checksums.MediumChecksum])
         controller.mediumSelected(mediumSelection)
+
+      case tree: TreeHandler =>
+        val albumSelection = Option(tree.getSelectedPath)
+          .map(_.getTargetNode.getValue)
+          .filter(_.isInstanceOf[Controller.AlbumID])
+          .map(_.asInstanceOf[Controller.AlbumID])
+        controller.artistAlbumSelected(albumSelection)
