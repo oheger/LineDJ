@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.apps.archive.browser
 
-import de.oliver_heger.linedj.apps.archive.browser.Controller.{AlbumID, ArtistID, MediaChanged, MediumData}
+import de.oliver_heger.linedj.apps.archive.browser.Controller.{AlbumID, ArtistID, MediaChanged, MediumData, SongOwnerID}
 import de.oliver_heger.linedj.archive.server.model.ArchiveModel
 import de.oliver_heger.linedj.platform.archiveclient.ArchiveStateMonitor
 import de.oliver_heger.linedj.platform.comm.MessageBusListener
@@ -48,18 +48,32 @@ object Controller:
   private[browser] case class MediaChanged(media: ArchiveModel.MediaOverview)
 
   /**
+    * A trait defining the ID of an entity that is associated with songs. Such
+    * entities can be selected in the UI. Based on the concrete ID type,
+    * different queries need to be sent to the archive to load the correct
+    * songs.
+    */
+  private[browser] sealed trait SongOwnerID:
+    /**
+      * Returns the string value of the represented ID.
+      *
+      * @return the ID as string
+      */
+    def id: String
+
+  /**
     * An internally used data class to represent the ID of an artist.
     *
     * @param id the alphanumeric artist ID
     */
-  private[browser] case class ArtistID(id: String) extends AnyVal
+  private[browser] case class ArtistID(override val id: String) extends SongOwnerID
 
   /**
     * An internally used data class to represent the ID of an album.
     *
     * @param id the alphanumeric album ID
     */
-  private[browser] case class AlbumID(id: String) extends AnyVal
+  private[browser] case class AlbumID(override val id: String) extends SongOwnerID
 
   /** The logger. */
   private val log = LogManager.getLogger(classOf[Controller])
@@ -111,16 +125,18 @@ end Controller
   *
   * This class manages various controls to browse the content of a media
   * archive hosted by a connected archive server. Interaction with this server
-  * takes place via the [[ArchiveService]] passed to the [[SongsLoader]]. The
+  * takes place via the [[ArchiveService]] passed to the [[SongsLoader]]s. The
   * UI contains a combobox to select a specific medium. It then shows different
   * views of the songs stored on the selected medium.
   *
-  * @param songsLoader    the loader and cache for the songs of albums
-  * @param comboMedia     the combobox to select a medium
-  * @param treeArtists    the handler for the tree with artist info
-  * @param tabArtistSongs the table for the songs in the artist view
+  * @param songsLoader       the loader and cache for the songs of albums
+  * @param artistSongsLoader the loader and cache for the songs of artists
+  * @param comboMedia        the combobox to select a medium
+  * @param treeArtists       the handler for the tree with artist info
+  * @param tabArtistSongs    the table for the songs in the artist view
   */
 class Controller(songsLoader: SongsLoader,
+                 artistSongsLoader: SongsLoader,
                  comboMedia: ListComponentHandler,
                  treeArtists: TreeHandler,
                  tabArtistSongs: TableHandler)
@@ -178,6 +194,7 @@ class Controller(songsLoader: SongsLoader,
     treeArtists.getModel.clear()
     tabArtistSongs.getModel.clear()
     songsLoader.mediumSelectionChanged()
+    artistSongsLoader.mediumSelectionChanged()
     optSelectedMedium = optMediumID
 
     optMediumID match
@@ -208,15 +225,19 @@ class Controller(songsLoader: SongsLoader,
 
   /**
     * Notifies this controller about a change in the selection of the albums of
-    * an artist. This means that the songs of the corresponding album need to 
-    * be shown in the table view.
+    * an artist. This means that the songs of the corresponding album or
+    * artist need to be shown in the table view. Based on the concrete type
+    * of the ID, the appropriate songs loader is used.
     *
-    * @param optAlbumID the optional selected album ID
+    * @param optOwnerID the optional selected song owner ID
     */
-  private[browser] def artistAlbumSelected(optAlbumID: Option[AlbumID]): Unit =
-    optAlbumID match
-      case Some(albumID) =>
-        songsLoader.fetchSongs(optSelectedMedium.map(_.checksum), albumID.id, tabArtistSongs)
+  private[browser] def artistAlbumSelected(optOwnerID: Option[SongOwnerID]): Unit =
+    optOwnerID match
+      case Some(ownerID) =>
+        val loader = ownerID match
+          case _: AlbumID => songsLoader
+          case _: ArtistID => artistSongsLoader
+        loader.fetchSongs(optSelectedMedium.map(_.checksum), ownerID.id, tabArtistSongs)
       case None =>
         tabArtistSongs.getModel.clear()
         tabArtistSongs.tableDataChanged()

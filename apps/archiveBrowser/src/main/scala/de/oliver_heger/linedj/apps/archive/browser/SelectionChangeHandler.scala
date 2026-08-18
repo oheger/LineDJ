@@ -36,8 +36,8 @@ class SelectionChangeHandler(controller: Controller) extends FormChangeListener:
         controller.mediumSelected(mediumSelection)
 
       case tree: TreeHandler =>
-        val albumSelection = Option(tree.getSelectedPath)
+        val selection = Option(tree.getSelectedPath)
           .map(_.getTargetNode.getValue)
-          .filter(_.isInstanceOf[Controller.AlbumID])
-          .map(_.asInstanceOf[Controller.AlbumID])
-        controller.artistAlbumSelected(albumSelection)
+          .filter(_.isInstanceOf[Controller.SongOwnerID])
+          .map(_.asInstanceOf[Controller.SongOwnerID])
+        controller.artistAlbumSelected(selection)

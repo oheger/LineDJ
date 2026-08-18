@@ -80,6 +80,9 @@ object ControllerSpec:
   /** A URL pattern to query the albums of a medium with a placeholder for the medium checksum. */
   private val QueryAlbumUrlPattern = s"/api/archive/media/${SongsLoader.MediumIDPlaceholder}/albums"
 
+  /** A URL pattern to query the songs of an artist of a medium with a placeholder for the medium checksum. */
+  private val QueryArtistSongsUrlPattern = s"/api/archive/media/${SongsLoader.MediumIDPlaceholder}/artists"
+
   /**
     * Returns the URL to query information about the given medium.
     *
@@ -370,6 +373,50 @@ class ControllerSpec extends AnyFlatSpec, Matchers, MockitoSugar:
 
     helper.expectSongsInArtistTable(songsAlb1, numUpdates = 2)
 
+  it should "call loadOperationEnds for a stale SongsLoaded after medium selection change" in :
+    val artists = List(ArchiveModel.ArtistInfo("art1", "Dire Straits"))
+    val albums = List(ArchiveModel.AlbumInfo("alb1", "Brothers in Arms", "art1"))
+    val helper = new ControllerTestHelper
+
+    helper.expectArchiveRequestData(QueryArtistUrl, ArchiveModel.ItemsResult(artists))
+      .expectArchiveRequestData(QueryAlbumUrl, ArchiveModel.ItemsResult(albums))
+      .expectArchiveRequestData(QueryMediumUrl, TestMediumDetails)
+      .expectArchiveRequestData(
+        s"$QueryAlbumUrl/alb1/songs",
+        ArchiveModel.ItemsResult(List.empty)
+      )
+      .passSelectedMedium(RockMedium.id)
+      .handleArchiveRequest()
+      .passSelectedArtistAlbum(Controller.AlbumID("alb1"))
+
+    helper.activeLoadOperations should be(1)
+    helper.simulateMediumSelection(None)
+    helper.handleArchiveRequest()
+
+    helper.activeLoadOperations should be(0)
+
+  it should "call loadOperationEnds for a stale SongsLoadError after medium selection change" in :
+    val artists = List(ArchiveModel.ArtistInfo("art1", "Dire Straits"))
+    val albums = List(ArchiveModel.AlbumInfo("alb1", "Brothers in Arms", "art1"))
+    val helper = new ControllerTestHelper
+
+    helper.expectArchiveRequestData(QueryArtistUrl, ArchiveModel.ItemsResult(artists))
+      .expectArchiveRequestData(QueryAlbumUrl, ArchiveModel.ItemsResult(albums))
+      .expectArchiveRequestData(QueryMediumUrl, TestMediumDetails)
+      .expectArchiveRequest(
+        s"$QueryAlbumUrl/alb1/songs",
+        Future.failed(new RuntimeException("test"))
+      )
+      .passSelectedMedium(RockMedium.id)
+      .handleArchiveRequest()
+      .passSelectedArtistAlbum(Controller.AlbumID("alb1"))
+
+    helper.activeLoadOperations should be(1)
+    helper.simulateMediumSelection(None)
+    helper.handleArchiveRequest()
+
+    helper.activeLoadOperations should be(0)
+
   it should "ignore a result for a no-longer selected album" in :
     val songsAlb1 = List(
       MediaMetadata(
@@ -491,6 +538,185 @@ class ControllerSpec extends AnyFlatSpec, Matchers, MockitoSugar:
       .handleArchiveRequest()
       .expectArchiveRequestData(s"$QueryAlbumUrl/alb1/songs", ArchiveModel.ItemsResult(songs))
       .passSelectedArtistAlbum(Controller.AlbumID("alb1"))
+      .handleArchiveRequest()
+
+    helper.activeLoadOperations should be(0)
+
+  it should "load the songs of a newly selected artist into the table" in :
+    val songs = List(
+      MediaMetadata(
+        title = Some("Money for Nothing"),
+        artist = Some("Dire Straits"),
+        size = 1024L,
+        checksum = "song1"
+      ),
+      MediaMetadata(
+        title = Some("Walk of Life"),
+        artist = Some("Dire Straits"),
+        size = 1025L,
+        checksum = "song2"
+      )
+    )
+    val artists = List(ArchiveModel.ArtistInfo("art1", "Dire Straits"))
+    val albums = List(ArchiveModel.AlbumInfo("alb1", "Brothers in Arms", "art1"))
+    val helper = new ControllerTestHelper
+
+    helper.expectArchiveRequestData(QueryArtistUrl, ArchiveModel.ItemsResult(artists))
+      .expectArchiveRequestData(QueryAlbumUrl, ArchiveModel.ItemsResult(albums))
+      .expectArchiveRequestData(QueryMediumUrl, TestMediumDetails)
+      .passSelectedMedium(RockMedium.id)
+      .handleArchiveRequest()
+      .expectArchiveRequestData(
+        s"/api/archive/media/${RockMedium.id.checksum}/artists/art1/songs",
+        ArchiveModel.ItemsResult(songs)
+      )
+      .passSelectedArtistArtist(Controller.ArtistID("art1"))
+      .handleArchiveRequest()
+
+    helper.expectSongsInArtistTable(songs)
+
+  it should "reuse cached songs when an already selected artist is selected again" in :
+    val songs = List(
+      MediaMetadata(
+        title = Some("Money for Nothing"),
+        artist = Some("Dire Straits"),
+        size = 1024L,
+        checksum = "song1"
+      )
+    )
+    val artists = List(ArchiveModel.ArtistInfo("art1", "Dire Straits"))
+    val albums = List(ArchiveModel.AlbumInfo("alb1", "Brothers in Arms", "art1"))
+    val helper = new ControllerTestHelper
+
+    helper.expectArchiveRequestData(QueryArtistUrl, ArchiveModel.ItemsResult(artists))
+      .expectArchiveRequestData(QueryAlbumUrl, ArchiveModel.ItemsResult(albums))
+      .expectArchiveRequestData(QueryMediumUrl, TestMediumDetails)
+      .passSelectedMedium(RockMedium.id)
+      .handleArchiveRequest()
+      .expectArchiveRequestData(
+        s"/api/archive/media/${RockMedium.id.checksum}/artists/art1/songs",
+        ArchiveModel.ItemsResult(songs)
+      )
+      .passSelectedArtistArtist(Controller.ArtistID("art1"))
+      .handleArchiveRequest()
+      .simulateArtistAlbumSelection(None)
+      .passSelectedArtistArtist(Controller.ArtistID("art1"))
+
+    helper.expectSongsInArtistTable(songs, numUpdates = 3)
+
+  it should "ignore a result for a no-longer selected artist" in :
+    val songsArt1 = List(
+      MediaMetadata(
+        title = Some("Money for Nothing"),
+        artist = Some("Dire Straits"),
+        size = 1024L,
+        checksum = "song1"
+      )
+    )
+    val songsArt2 = List(
+      MediaMetadata(
+        title = Some("Oxygene"),
+        artist = Some("Jean-Michel Jarre"),
+        size = 1025L,
+        checksum = "song2"
+      )
+    )
+    val artists = List(
+      ArchiveModel.ArtistInfo("art1", "Dire Straits"),
+      ArchiveModel.ArtistInfo("art2", "Jean-Michel Jarre")
+    )
+    val albums = List(ArchiveModel.AlbumInfo("alb1", "Brothers in Arms", "art1"))
+    val helper = new ControllerTestHelper
+
+    helper.expectArchiveRequestData(QueryArtistUrl, ArchiveModel.ItemsResult(artists))
+      .expectArchiveRequestData(QueryAlbumUrl, ArchiveModel.ItemsResult(albums))
+      .expectArchiveRequestData(QueryMediumUrl, TestMediumDetails)
+      .expectArchiveRequestData(
+        s"/api/archive/media/${RockMedium.id.checksum}/artists/art1/songs",
+        ArchiveModel.ItemsResult(songsArt1)
+      )
+      .expectArchiveRequestData(
+        s"/api/archive/media/${RockMedium.id.checksum}/artists/art2/songs",
+        ArchiveModel.ItemsResult(songsArt2)
+      )
+      .passSelectedMedium(RockMedium.id)
+      .handleArchiveRequest()
+      .passSelectedArtistArtist(Controller.ArtistID("art1"))
+      .passSelectedArtistArtist(Controller.ArtistID("art2"))
+      .handleArchiveRequest()
+
+    helper.artistTableModel.isEmpty shouldBe true
+
+  it should "show an error message and an empty table if loading the songs of an artist fails" in :
+    val ErrorMessage = "Loading the songs of the artist failed."
+    val failedFuture: Future[ArchiveModel.ItemsResult[MediaMetadata]] =
+      Future.failed(new IllegalArgumentException(ErrorMessage))
+    val artists = List(ArchiveModel.ArtistInfo("art1", "Dire Straits"))
+    val albums = List(ArchiveModel.AlbumInfo("alb1", "Brothers in Arms", "art1"))
+    val helper = new ControllerTestHelper
+
+    helper.expectArchiveRequestData(QueryArtistUrl, ArchiveModel.ItemsResult(artists))
+      .expectArchiveRequestData(QueryAlbumUrl, ArchiveModel.ItemsResult(albums))
+      .expectArchiveRequestData(QueryMediumUrl, TestMediumDetails)
+      .expectArchiveRequest(s"/api/archive/media/${RockMedium.id.checksum}/artists/art1/songs", failedFuture)
+      .passSelectedMedium(RockMedium.id)
+      .handleArchiveRequest()
+      .passSelectedArtistArtist(Controller.ArtistID("art1"))
+      .handleArchiveRequest()
+
+    helper.artistTableModel.isEmpty shouldBe true
+    helper.currentStatusMessage should be(Some(Message(null, Controller.ResErrorLoading, ErrorMessage)))
+
+  it should "update the status controller when the songs of an artist are requested" in :
+    val songs = List(
+      MediaMetadata(
+        title = Some("Money for Nothing"),
+        artist = Some("Dire Straits"),
+        size = 1024L,
+        checksum = "song1"
+      )
+    )
+    val artists = List(ArchiveModel.ArtistInfo("art1", "Dire Straits"))
+    val albums = List(ArchiveModel.AlbumInfo("alb1", "Brothers in Arms", "art1"))
+    val helper = new ControllerTestHelper
+
+    helper.expectArchiveRequestData(QueryArtistUrl, ArchiveModel.ItemsResult(artists))
+      .expectArchiveRequestData(QueryAlbumUrl, ArchiveModel.ItemsResult(albums))
+      .expectArchiveRequestData(QueryMediumUrl, TestMediumDetails)
+      .passSelectedMedium(RockMedium.id)
+      .handleArchiveRequest()
+      .expectArchiveRequestData(
+        s"/api/archive/media/${RockMedium.id.checksum}/artists/art1/songs",
+        ArchiveModel.ItemsResult(songs)
+      )
+      .passSelectedArtistArtist(Controller.ArtistID("art1"))
+
+    helper.activeLoadOperations should be(1)
+    helper.currentStatusMessage should be(Some(Message(null, SongsLoader.ResArtistLoading, "art1")))
+
+  it should "update the status controller when the songs of an artist have been loaded" in :
+    val songs = List(
+      MediaMetadata(
+        title = Some("Money for Nothing"),
+        artist = Some("Dire Straits"),
+        size = 1024L,
+        checksum = "song1"
+      )
+    )
+    val artists = List(ArchiveModel.ArtistInfo("art1", "Dire Straits"))
+    val albums = List(ArchiveModel.AlbumInfo("alb1", "Brothers in Arms", "art1"))
+    val helper = new ControllerTestHelper
+
+    helper.expectArchiveRequestData(QueryArtistUrl, ArchiveModel.ItemsResult(artists))
+      .expectArchiveRequestData(QueryAlbumUrl, ArchiveModel.ItemsResult(albums))
+      .expectArchiveRequestData(QueryMediumUrl, TestMediumDetails)
+      .passSelectedMedium(RockMedium.id)
+      .handleArchiveRequest()
+      .expectArchiveRequestData(
+        s"/api/archive/media/${RockMedium.id.checksum}/artists/art1/songs",
+        ArchiveModel.ItemsResult(songs)
+      )
+      .passSelectedArtistArtist(Controller.ArtistID("art1"))
       .handleArchiveRequest()
 
     helper.activeLoadOperations should be(0)
@@ -663,7 +889,10 @@ class ControllerSpec extends AnyFlatSpec, Matchers, MockitoSugar:
     private val artistTableHandler: TableHandler = createTableHandler(artistTableModel)
 
     /** The loader for the songs of an album. */
-    private val songsLoader = createSongsLoader()
+    private val songsLoader = createSongsLoader(QueryAlbumUrlPattern, SongsLoader.ResAlbumLoading)
+
+    /** The loader for the songs of an artist. */
+    private val artistSongsLoader = createSongsLoader(QueryArtistSongsUrlPattern, SongsLoader.ResArtistLoading)
 
     /** The controller to be tested. */
     private val controller = createController()
@@ -802,6 +1031,8 @@ class ControllerSpec extends AnyFlatSpec, Matchers, MockitoSugar:
         controller.receive(message)
       if songsLoader.receive.isDefinedAt(message) then
         songsLoader.receive(message)
+      if artistSongsLoader.receive.isDefinedAt(message) then
+        artistSongsLoader.receive(message)
       this
 
     /**
@@ -835,14 +1066,24 @@ class ControllerSpec extends AnyFlatSpec, Matchers, MockitoSugar:
       simulateArtistAlbumSelection(Some(albumID))
 
     /**
-      * Notifies the test controller about a change in the selected album in
-      * the artist view.
+      * Notifies the test controller that the selected artist in the artist
+      * view changed to the given artist.
       *
-      * @param optAlbumID the optional selected album
+      * @param artistID the ID of the selected artist
       * @return this test helper
       */
-    def simulateArtistAlbumSelection(optAlbumID: Option[Controller.AlbumID]): ControllerTestHelper =
-      controller.artistAlbumSelected(optAlbumID)
+    def passSelectedArtistArtist(artistID: Controller.ArtistID): ControllerTestHelper =
+      simulateArtistAlbumSelection(Some(artistID))
+
+    /**
+      * Notifies the test controller about a change in the selected album or
+      * artist in the artist view.
+      *
+      * @param optOwnerID the optional selected song owner
+      * @return this test helper
+      */
+    def simulateArtistAlbumSelection(optOwnerID: Option[Controller.SongOwnerID]): ControllerTestHelper =
+      controller.artistAlbumSelected(optOwnerID)
       this
 
     /**
@@ -868,12 +1109,13 @@ class ControllerSpec extends AnyFlatSpec, Matchers, MockitoSugar:
       * @param songs      the expected songs
       * @param numUpdates the expected number of notifications about changes of
       *                   the table data
-      *
       * @return this test helper
       */
     def expectSongsInArtistTable(songs: Iterable[MediaMetadata],
                                  numUpdates: Int = 1): ControllerTestHelper =
-      artistTableModel.size() should be(songs.size)
+      // Reflect the ugly workaround when determining the size.
+      val expectedSize = if songs.isEmpty then 0 else math.max(songs.size, 2)
+      artistTableModel.size() should be(expectedSize)
       forEvery(songs.zip(artistTableModel.asScala)):
         case (song, entry) =>
           entry shouldBe a[SongData]
@@ -937,17 +1179,20 @@ class ControllerSpec extends AnyFlatSpec, Matchers, MockitoSugar:
           optStatusMessage = Some(message)
 
     /**
-      * Creates the loader for the songs of an album.
+      * Creates a loader for songs with the given URL pattern and resource ID.
       *
+      * @param pattern         the URL pattern for the loader
+      * @param loadingResource the resource ID for the loading message
       * @return the test songs loader instance
       */
-    private def createSongsLoader(): SongsLoader =
+    private def createSongsLoader(pattern: String, loadingResource: String): SongsLoader =
       new SongsLoader(
         archiveService,
         ExecutionContext.global,
         messageBus,
         createStatusLineController(),
-        QueryAlbumUrlPattern
+        pattern,
+        loadingResource
       )
 
     /**
@@ -958,6 +1203,7 @@ class ControllerSpec extends AnyFlatSpec, Matchers, MockitoSugar:
     private def createController(): Controller =
       val c = new Controller(
         songsLoader,
+        artistSongsLoader,
         comboMedia,
         artistTreeHandler,
         artistTableHandler

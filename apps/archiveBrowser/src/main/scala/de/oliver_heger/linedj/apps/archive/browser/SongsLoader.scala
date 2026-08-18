@@ -32,18 +32,34 @@ object SongsLoader:
   /** The resource ID of the message when the songs of an album are loaded. */
   private[browser] val ResAlbumLoading = "stat_album_loading"
 
+  /** The resource ID of the message when the songs of an artist are loaded. */
+  private[browser] val ResArtistLoading = "stat_artist_loading"
+
   /** The placeholder for the medium ID to be replaced in the URL pattern. */
   private[browser] val MediumIDPlaceholder = "{mediumID}"
+
+  /** A [[MediaMetadata]] object without any content. */
+  private val DummyMetadata = MediaMetadata(size = 0, checksum = "")
+
+  /**
+    * A data object wrapping the dummy metadata. This is needed to work around
+    * a bug of the JavaFX table view that does not update itself correctly if
+    * only a single row is added.
+    */
+  private val DummySongData = SongData(DummyMetadata)
 
   /**
     * An internally used message class that reports the result of a request
     * for the songs of an entity. An instance is published on the message bus,
     * so that the result can be processed in the UI thread.
     *
-    * @param id    the ID of the entity the songs belong to
-    * @param songs the songs that have been loaded from the archive server
+    * @param id     the ID of the entity the songs belong to
+    * @param songs  the songs that have been loaded from the archive server
+    * @param sender a reference to the loader instance that sent this message
     */
-  private[browser] case class SongsLoaded(id: String, songs: List[MediaMetadata])
+  private[browser] case class SongsLoaded(id: String,
+                                          songs: List[MediaMetadata],
+                                          sender: AnyRef)
 
   /**
     * An internally used message class that reports an error when requesting
@@ -52,8 +68,11 @@ object SongsLoader:
     *
     * @param id        the ID of the affected entity
     * @param exception the exception that occurred
+    * @param sender    a reference to the loader instance that sent this message
     */
-  private[browser] case class SongsLoadError(id: String, exception: Throwable)
+  private[browser] case class SongsLoadError(id: String,
+                                             exception: Throwable,
+                                             sender: AnyRef)
 end SongsLoader
 
 /**
@@ -74,12 +93,15 @@ end SongsLoader
   * @param urlPattern       a pattern to construct the URL to request songs;
   *                         the placeholder {mediumID} is replaced by the
   *                         medium's checksum
+  * @param loadingResource  the resource ID for the status line message when
+  *                         a loading operation starts
   */
 private class SongsLoader(val archiveService: ArchiveService,
                           val executionContext: ExecutionContext,
                           val messageBus: MessageBus,
                           val statusController: StatusLineController,
-                          urlPattern: String)
+                          urlPattern: String,
+                          loadingResource: String)
   extends MessageBusListener, ArchiveModel.ArchiveJsonSupport:
 
   import SongsLoader.*
@@ -106,14 +128,14 @@ private class SongsLoader(val archiveService: ArchiveService,
     *             are reported via the status line controller.
     */
   override def receive: Receive =
-    case SongsLoaded(id, songs) =>
+    case msg@SongsLoaded(id, songs, loader) if loader eq this =>
       statusController.loadOperationEnds()
       songCache += id -> songs
       if optCurrentID.contains(id) then
         optCurrentTable.foreach: table =>
           populateTable(songs, table)
 
-    case error: SongsLoadError =>
+    case error: SongsLoadError if error.sender eq this =>
       statusController.loadOperationEnds()
       if optCurrentID.contains(error.id) then
         val statusMessage = new Message(null, Controller.ResErrorLoading, error.exception.getMessage)
@@ -143,15 +165,15 @@ private class SongsLoader(val archiveService: ArchiveService,
             populateTable(songs, table)
           case None =>
             statusController.loadOperationStarts()
-            statusController.setStatusMessage(new Message(null, ResAlbumLoading, id))
+            statusController.setStatusMessage(new Message(null, loadingResource, id))
             val url = urlPattern.replace(MediumIDPlaceholder, mediumChecksum) + s"/$id/songs"
             val future = archiveService.queryData[ArchiveModel.ItemsResult[MediaMetadata]](url)
             future.onComplete:
               case Success(result) =>
-                messageBus.publish(SongsLoaded(id, result.items))
+                messageBus.publish(SongsLoaded(id, result.items, sender = this))
               case Failure(exception) =>
                 log.error("Failed to load songs for entity '{}'.", id, exception)
-                messageBus.publish(SongsLoadError(id, exception))
+                messageBus.publish(SongsLoadError(id, exception, sender = this))
       case None =>
 
   /**
@@ -172,4 +194,11 @@ private class SongsLoader(val archiveService: ArchiveService,
   private def populateTable(songs: List[MediaMetadata], table: TableHandler): Unit =
     table.getModel.clear()
     songs.foreach(song => table.getModel.add(SongData(song)))
+
+    // This is a hacky workaround. If the new table content consists only of a
+    // single row, for unknown reasons the table does not update itself.
+    // Therefore, in this case a dummy row is inserted.
+    if songs.size == 1 then
+      table.getModel.add(DummySongData)
+
     table.tableDataChanged()

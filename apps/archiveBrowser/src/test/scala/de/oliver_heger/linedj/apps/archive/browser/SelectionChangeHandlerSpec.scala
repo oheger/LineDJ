@@ -89,9 +89,21 @@ class SelectionChangeHandlerSpec extends AnyFlatSpec, Matchers, MockitoSugar:
     verify(controller).artistAlbumSelected(None)
 
   it should "notify the controller when an artist is selected in the artists tree" in :
+    val artistID = Controller.ArtistID("someArtist")
     val controller = mock[Controller]
     val treeHandler = mock[TreeHandler]
-    initSelectedPath(treeHandler, Controller.ArtistID("someArtist"))
+    initSelectedPath(treeHandler, artistID)
+    val event = new FormChangeEvent("someSource", treeHandler, "someName")
+
+    val handler = new SelectionChangeHandler(controller)
+    handler.elementChanged(event)
+
+    verify(controller).artistAlbumSelected(Some(artistID))
+
+  it should "notify the controller if a node without a value is selected in the artists tree" in :
+    val controller = mock[Controller]
+    val treeHandler = mock[TreeHandler]
+    initSelectedPath(treeHandler, null)
     val event = new FormChangeEvent("someSource", treeHandler, "someName")
 
     val handler = new SelectionChangeHandler(controller)
