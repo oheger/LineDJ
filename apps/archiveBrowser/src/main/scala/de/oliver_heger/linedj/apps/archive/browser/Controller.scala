@@ -134,12 +134,14 @@ end Controller
   * @param comboMedia        the combobox to select a medium
   * @param treeArtists       the handler for the tree with artist info
   * @param tabArtistSongs    the table for the songs in the artist view
+  * @param tabAlbums         the table for the albums on a medium
   */
 class Controller(songsLoader: SongsLoader,
                  artistSongsLoader: SongsLoader,
                  comboMedia: ListComponentHandler,
                  treeArtists: TreeHandler,
-                 tabArtistSongs: TableHandler)
+                 tabArtistSongs: TableHandler,
+                 tabAlbums: TableHandler)
   extends ArchiveStateMonitor.ArchiveChangeListener[ArchiveModel.MediaOverview], MessageBusListener,
     ArchiveModel.ArchiveJsonSupport:
 
@@ -193,6 +195,7 @@ class Controller(songsLoader: SongsLoader,
   private[browser] def mediumSelected(optMediumID: Option[Checksums.MediumChecksum]): Unit =
     treeArtists.getModel.clear()
     tabArtistSongs.getModel.clear()
+    tabAlbums.getModel.clear()
     songsLoader.mediumSelectionChanged()
     artistSongsLoader.mediumSelectionChanged()
     optSelectedMedium = optMediumID
@@ -318,6 +321,21 @@ class Controller(songsLoader: SongsLoader,
       val rootPath = new TreeNodePath(treeArtists.getModel.getRoot)
       treeArtists.collapse(rootPath)
       treeArtists.expand(rootPath)
+      populateAlbumsTable(mediumData)
+
+  /**
+    * Populates the albums table with the data from the given medium.
+    * For each album, the album title and the artist name are added. If the
+    * artist name cannot be resolved, an empty string is used.
+    *
+    * @param mediumData the data for the medium
+    */
+  private def populateAlbumsTable(mediumData: MediumData): Unit =
+    val artistNames = mediumData.artistData.map(a => a.id -> a.artistName).toMap
+    mediumData.albumData.foreach: albumInfo =>
+      val artistName = artistNames.getOrElse(albumInfo.artistId, "")
+      tabAlbums.getModel.add(AlbumData(albumInfo, artistName))
+    tabAlbums.tableDataChanged()
 
   /**
     * Updates the UI when data about a medium could not be loaded.

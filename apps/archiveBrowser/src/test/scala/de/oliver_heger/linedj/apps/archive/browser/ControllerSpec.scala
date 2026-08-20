@@ -234,6 +234,67 @@ class ControllerSpec extends AnyFlatSpec, Matchers, MockitoSugar:
 
     helper.artistTreeModel.isEmpty shouldBe true
 
+  it should "populate the albums table when a medium is selected" in :
+    val artists = List(
+      ArchiveModel.ArtistInfo("art1", "Dire Straits"),
+      ArchiveModel.ArtistInfo("art2", "Mike Oldfield")
+    )
+    val albums = List(
+      ArchiveModel.AlbumInfo("alb1", "Brothers in Arms", "art1"),
+      ArchiveModel.AlbumInfo("alb2", "Crisis", "art2"),
+      ArchiveModel.AlbumInfo("alb3", "Love over Gold", "art1")
+    )
+    val helper = new ControllerTestHelper
+
+    helper.expectArchiveRequestData(QueryArtistUrl, ArchiveModel.ItemsResult(artists))
+      .expectArchiveRequestData(QueryAlbumUrl, ArchiveModel.ItemsResult(albums))
+      .expectArchiveRequestData(QueryMediumUrl, TestMediumDetails)
+      .passSelectedMedium(RockMedium.id)
+      .handleArchiveRequest()
+
+    helper.expectAlbumsInTable(albums)
+
+  it should "clear the albums table if no medium is selected" in :
+    val artists = List(ArchiveModel.ArtistInfo("art1", "Dire Straits"))
+    val albums = List(ArchiveModel.AlbumInfo("alb1", "Brothers in Arms", "art1"))
+    val helper = new ControllerTestHelper
+
+    helper.expectArchiveRequestData(QueryArtistUrl, ArchiveModel.ItemsResult(artists))
+      .expectArchiveRequestData(QueryAlbumUrl, ArchiveModel.ItemsResult(albums))
+      .expectArchiveRequestData(QueryMediumUrl, TestMediumDetails)
+      .passSelectedMedium(RockMedium.id)
+      .handleArchiveRequest()
+
+    helper.simulateMediumSelection(None)
+
+    helper.expectAlbumTableEmpty()
+
+  it should "ignore the albums for a no longer selected medium" in :
+    val rockArtists = List(ArchiveModel.ArtistInfo("art1", "Dire Straits"))
+    val rockAlbums = List(ArchiveModel.AlbumInfo("alb1", "Brothers in Arms", "art1"))
+    val classicArtists = List(ArchiveModel.ArtistInfo("art2", "Beethoven"))
+    val classicAlbums = List(ArchiveModel.AlbumInfo("alb2", "Symphony No 9", "art2"))
+    val classicUrl = mediumUrl(ClassicMedium)
+    val classicDetails = ArchiveModel.MediumDetails(
+      overview = ClassicMedium,
+      description = "Classics",
+      orderMode = None,
+      archiveName = "Some-Archive"
+    )
+    val helper = new ControllerTestHelper
+
+    helper.expectArchiveRequestData(QueryArtistUrl, ArchiveModel.ItemsResult(rockArtists))
+      .expectArchiveRequestData(QueryAlbumUrl, ArchiveModel.ItemsResult(rockAlbums))
+      .expectArchiveRequestData(QueryMediumUrl, TestMediumDetails)
+      .expectArchiveRequestData(classicUrl + "/artists", ArchiveModel.ItemsResult(classicArtists))
+      .expectArchiveRequestData(classicUrl + "/albums", ArchiveModel.ItemsResult(classicAlbums))
+      .expectArchiveRequestData(classicUrl, classicDetails)
+      .passSelectedMedium(RockMedium.id)
+      .passSelectedMedium(ClassicMedium.id)
+      .handleArchiveRequest()
+
+    helper.albumTableModel.isEmpty shouldBe true
+
   it should "load the songs of a newly selected album into the table" in :
     val songs = List(
       MediaMetadata(
@@ -885,8 +946,14 @@ class ControllerSpec extends AnyFlatSpec, Matchers, MockitoSugar:
     /** The model for the artist table control. */
     val artistTableModel: util.ArrayList[AnyRef] = new util.ArrayList[AnyRef]
 
-    /** The handler for the table. */
+    /** The handler for the table with songs for an artist. */
     private val artistTableHandler: TableHandler = createTableHandler(artistTableModel)
+
+    /** The model for the albums table control. */
+    val albumTableModel: util.ArrayList[AnyRef] = new util.ArrayList[AnyRef]
+
+    /** The handler for the albums table. */
+    private val albumTableHandler = createTableHandler(albumTableModel)
 
     /** The loader for the songs of an album. */
     private val songsLoader = createSongsLoader(QueryAlbumUrlPattern, SongsLoader.ResAlbumLoading)
@@ -1124,6 +1191,37 @@ class ControllerSpec extends AnyFlatSpec, Matchers, MockitoSugar:
       this
 
     /**
+      * Checks that the table for albums contains exactly the given albums.
+      * The table model is expected to contain [[AlbumData]] instances for
+      * all albums in the given order. In addition, it is checked that the
+      * table handler has been notified about the expected number of
+      * updates of the table data.
+      *
+      * @param albums     the expected albums
+      * @param numUpdates the expected number of notifications about changes of
+      *                   the table data
+      * @return this test helper
+      */
+    def expectAlbumsInTable(albums: Iterable[ArchiveModel.AlbumInfo],
+                            numUpdates: Int = 1): ControllerTestHelper =
+      albumTableModel.size() should be(albums.size)
+      forEvery(albums.zip(albumTableModel.asScala)):
+        case (album, entry) =>
+          entry shouldBe a[AlbumData]
+          entry.asInstanceOf[AlbumData].albumInfo should be(album)
+      verify(albumTableHandler, Mockito.times(numUpdates)).tableDataChanged()
+      this
+
+    /**
+      * Checks that the album table is empty.
+      *
+      * @return this test helper
+      */
+    def expectAlbumTableEmpty(): ControllerTestHelper =
+      albumTableModel shouldBe empty
+      this
+
+    /**
       * Creates the configuration acting as tree model.
       *
       * @return the tree model configuration
@@ -1206,7 +1304,8 @@ class ControllerSpec extends AnyFlatSpec, Matchers, MockitoSugar:
         artistSongsLoader,
         comboMedia,
         artistTreeHandler,
-        artistTableHandler
+        artistTableHandler,
+        albumTableHandler
       )
       c.initialize()
       verify(archiveService).addChangeListener(c)

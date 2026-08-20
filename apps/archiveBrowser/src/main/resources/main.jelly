@@ -20,7 +20,7 @@
     application.
 -->
 <j:jelly xmlns:j="jelly:core" xmlns:di="diBuilder" xmlns:f="formBuilder"
-  xmlns:a="actionBuilder" xmlns:w="windowBuilder">
+         xmlns:a="actionBuilder" xmlns:w="windowBuilder">
 
   <!-- A transformer for durations. -->
   <di:bean name="durationTransformer"
@@ -31,8 +31,8 @@
 
   <!-- The action for application shutdown -->
   <a:action name="exitAction" textres="EXIT_ACTION_TEXT"
-    tooltipres="EXIT_ACTION_TOOLTIP" mnemonicres="EXIT_ACTION_MNEMO"
-    resgrp="application" taskBean="exitTask"/>
+            tooltipres="EXIT_ACTION_TOOLTIP" mnemonicres="EXIT_ACTION_MNEMO"
+            resgrp="application" taskBean="exitTask"/>
 
   <!-- The main menu -->
   <a:menubar name="mainMenu">
@@ -56,9 +56,12 @@
   <!-- The model of the artist song table. -->
   <di:bean name="artistSongsTableModel" beanClassName="java.util.ArrayList"/>
 
+  <!-- The model of the albums table. -->
+  <di:bean name="albumsTableModel" beanClassName="java.util.ArrayList"/>
+
   <!-- The model for the media combo box. -->
   <di:bean name="mediaComboModel"
-    beanClassName="de.oliver_heger.linedj.apps.archive.browser.EmptyMediumListModel"/>
+           beanClassName="de.oliver_heger.linedj.apps.archive.browser.EmptyMediumListModel"/>
 
   <!-- Message bus registration -->
   <di:bean name="LineDJ_messageBusRegistration"
@@ -87,7 +90,7 @@
       <f:borderconstr name="NORTH"/>
     </a:toolbar>
 
-    <!-- The main panel -->
+    <!-- The main panel. -->
     <f:panel>
       <f:borderconstr name="CENTER"/>
       <f:borderlayout canShrink="true"/>
@@ -103,54 +106,80 @@
         </f:combo>
       </f:panel>
 
-      <f:splitter orientation="horizontal" resizeWeight="0.25">
+      <f:tabbedpane>
         <f:borderconstr name="CENTER"/>
-        <f:tree name="treeArtists" model="artistsTreeModel" editable="false"
-                scrollWidth="2cm" scrollHeight="3cm" multiSelection="false"
-                rootVisible="true">
-        </f:tree>
+        <f:tab titleres="tab_artists">
+          <f:panel>
+            <f:borderlayout/>
+            <f:splitter orientation="horizontal" resizeWeight="0.25">
+              <f:borderconstr name="CENTER"/>
+              <f:tree name="treeArtists" model="artistsTreeModel" editable="false"
+                      scrollWidth="2cm" scrollHeight="3cm" multiSelection="false"
+                      rootVisible="true">
+              </f:tree>
 
-        <f:table name="tableArtistSongs" model="artistSongsTableModel" multiSelection="true">
-          <f:borderconstr name="CENTER"/>
-          <f:column name="artist" percentWidth="35"
-                    headerres="tcol_song_artist">
-          </f:column>
-          <f:column name="title" percentWidth="40" headerres="tcol_song_title"
-                    columnClass="String"/>
-          <f:column name="trackNumber" percentWidth="10" headerres="tcol_song_track"/>
-          <f:column name="duration" percentWidth="15" headerres="tcol_song_duration">
-            <f:transformer type="write" beanName="durationTransformer"/>
-          </f:column>
-        </f:table>
-      </f:splitter>
+              <f:table name="tableArtistSongs" model="artistSongsTableModel" multiSelection="true">
+                <f:borderconstr name="CENTER"/>
+                <f:column name="artist" percentWidth="35"
+                          headerres="tcol_song_artist">
+                </f:column>
+                <f:column name="title" percentWidth="40" headerres="tcol_song_title"
+                          columnClass="String"/>
+                <f:column name="trackNumber" percentWidth="10" headerres="tcol_song_track"/>
+                <f:column name="duration" percentWidth="15" headerres="tcol_song_duration">
+                  <f:transformer type="write" beanName="durationTransformer"/>
+                </f:column>
+              </f:table>
+            </f:splitter>
+          </f:panel>
+        </f:tab>
+
+        <f:tab titleres="tab_albums">
+          <f:panel>
+            <f:borderlayout/>
+            <f:splitter orientation="horizontal" resizeWeight="0.25">
+              <f:borderconstr name="CENTER"/>
+              <f:table name="tableAlbums" model="albumsTableModel">
+                <f:borderconstr name="CENTER"/>
+                <f:column name="title" percentWidth="40" headerres="tcol_song_title"
+                          columnClass="String"/>
+                <f:column name="artist" percentWidth="35"
+                          headerres="tcol_song_artist"/>
+              </f:table>
+
+              <f:panel/>
+            </f:splitter>
+          </f:panel>
+        </f:tab>
+      </f:tabbedpane>
     </f:panel>
 
     <!-- Status line -->
     <f:panel>
       <f:borderconstr name="SOUTH"/>
       <f:borderlayout canShrink="false"/>
-        <f:label name="mediaLoadingIndicator">
-          <f:icon resource="loading.gif"/>
-          <f:borderconstr name="WEST"/>
-        </f:label>
-        <f:statictext name="txtStatusLine">
-          <f:borderconstr name="CENTER"/>
-        </f:statictext>
+      <f:label name="mediaLoadingIndicator">
+        <f:icon resource="loading.gif"/>
+        <f:borderconstr name="WEST"/>
+      </f:label>
+      <f:statictext name="txtStatusLine">
+        <f:borderconstr name="CENTER"/>
+      </f:statictext>
     </f:panel>
 
     <!-- The controller for the status line. -->
     <di:bean name="statusLineController"
-      beanClassName="de.oliver_heger.linedj.apps.archive.browser.StatusLineController">
+             beanClassName="de.oliver_heger.linedj.apps.archive.browser.StatusLineController">
       <di:constructor>
         <di:param refName="jguiraffe.applicationContext"/>
         <di:param refName="comp:txtStatusLine"/>
         <di:param refName="widget:mediaLoadingIndicator"/>
       </di:constructor>
     </di:bean>
-    
+
     <!-- The loader for songs on a specific album. -->
     <di:bean name="albumSongsLoader"
-      beanClassName="de.oliver_heger.linedj.apps.archive.browser.SongsLoader">
+             beanClassName="de.oliver_heger.linedj.apps.archive.browser.SongsLoader">
       <di:constructor>
         <di:param refName="archiveService"/>
         <di:param refName="LineDJ_ExecutionContext"/>
@@ -163,7 +192,7 @@
 
     <!-- The loader for songs from a specific artist. -->
     <di:bean name="artistSongsLoader"
-      beanClassName="de.oliver_heger.linedj.apps.archive.browser.SongsLoader">
+             beanClassName="de.oliver_heger.linedj.apps.archive.browser.SongsLoader">
       <di:constructor>
         <di:param refName="archiveService"/>
         <di:param refName="LineDJ_ExecutionContext"/>
@@ -176,13 +205,14 @@
 
     <!-- The controller of the main window. -->
     <di:bean name="mediaController"
-      beanClassName="de.oliver_heger.linedj.apps.archive.browser.Controller">
+             beanClassName="de.oliver_heger.linedj.apps.archive.browser.Controller">
       <di:constructor>
         <di:param refName="albumSongsLoader"/>
         <di:param refName="artistSongsLoader"/>
         <di:param refName="comp:comboMedia"/>
         <di:param refName="comp:treeArtists"/>
         <di:param refName="comp:tableArtistSongs"/>
+        <di:param refName="comp:tableAlbums"/>
       </di:constructor>
 
       <di:methodInvocation method="initialize"/>
@@ -209,7 +239,7 @@
 
   <!-- The action task for quitting the application -->
   <di:bean name="exitTask"
-    beanClassName="net.sf.jguiraffe.gui.app.ApplicationShutdownActionTask">
+           beanClassName="net.sf.jguiraffe.gui.app.ApplicationShutdownActionTask">
   </di:bean>
 
 </j:jelly>
