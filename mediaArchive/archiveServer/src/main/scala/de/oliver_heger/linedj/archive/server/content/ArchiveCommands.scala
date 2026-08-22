@@ -190,6 +190,17 @@ object ArchiveCommands:
     case GetSongsForAlbum(mediumID: Checksums.MediumChecksum,
                           albumID: String,
                           replyTo: ActorRef[GetMediumDataResponse[MediaMetadata]])
+
+    /**
+      * A command to query the IDs of all songs contained on a specific medium.
+      * This can be used to get an overview over all songs without providing
+      * details.
+      *
+      * @param mediumID the ID of the desired medium
+      * @param replyTo  the reference to the actor to receive the response
+      */
+    case GetSongIDs(mediumID: Checksums.MediumChecksum,
+                    replyTo: ActorRef[GetMediumDataResponse[String]])
   end ReadMediumContentCommand
 
   /**

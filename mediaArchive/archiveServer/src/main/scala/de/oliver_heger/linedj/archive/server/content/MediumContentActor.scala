@@ -259,6 +259,10 @@ private object MediumContentActor:
             managers.songsByAlbum ! MediumContentManagerCommand.GetDataFor(albumID, req, replyTo)
             Behaviors.same
 
+          case req@ArchiveCommands.ReadMediumContentCommand.GetSongIDs(_, replyTo) =>
+            replyTo ! ArchiveCommands.GetMediumDataResponse(req, Some(songs.map(_.checksum)))
+            Behaviors.same
+
       handleCommand(Nil)
 
   /**

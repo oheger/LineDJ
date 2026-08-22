@@ -83,7 +83,6 @@ object ArchiveContentActor:
       *
       * @param fileActorFactory the factory to create the actor that manages
       *                         media files
-      *
       * @return the [[Behavior]] for the new actor instance
       */
     def apply(fileActorFactory: MediaFileActor.Factory = MediaFileActor.behavior): Behavior[ArchiveContentCommand]
@@ -186,6 +185,9 @@ object ArchiveContentActor:
             handleMediumRequest(req, mediumID, replyTo, mediaContent)
 
           case req@ArchiveCommands.ReadMediumContentCommand.GetAlbumsForArtist(mediumID, _, replyTo) =>
+            handleMediumRequest(req, mediumID, replyTo, mediaContent)
+
+          case req@ArchiveCommands.ReadMediumContentCommand.GetSongIDs(mediumID, replyTo) =>
             handleMediumRequest(req, mediumID, replyTo, mediaContent)
 
           case c: InternalArchiveContentCommand.ConstructDownloadInfo =>

@@ -597,6 +597,28 @@ class ArchiveContentActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpec
     val expectedResult = ArchiveCommands.GetMediumDataResponse[ArchiveModel.AlbumInfo](albumRequest, None)
     probe.expectMessage(expectedResult)
 
+  it should "return the song IDs contained on a specific medium" in :
+    val contentActor = testKit.spawn(ArchiveContentActor.behavior())
+    val probe = testKit.createTestProbe[ArchiveCommands.GetMediumDataResponse[String]]()
+    val mediumID = propagateTestMedium(contentActor)
+
+    val songsRequest = ArchiveCommands.ReadMediumContentCommand.GetSongIDs(mediumID, probe.ref)
+    contentActor ! songsRequest
+
+    val expectedSongIDs = unassignedSong.checksum :: createSongData().map(_.checksum).toList
+    val response = probe.expectMessageType[ArchiveCommands.GetMediumDataResponse[String]]
+    response.optResult.value should contain theSameElementsAs expectedSongIDs
+
+  it should "return an undefined result when querying the song IDs on a non-existing medium" in :
+    val contentActor = testKit.spawn(ArchiveContentActor.behavior())
+    val probe = testKit.createTestProbe[ArchiveCommands.GetMediumDataResponse[String]]()
+
+    val songsRequest = ArchiveCommands.ReadMediumContentCommand.GetSongIDs(Checksums.MediumChecksum("?"), probe.ref)
+    contentActor ! songsRequest
+
+    val expectedResult = ArchiveCommands.GetMediumDataResponse[String](songsRequest, None)
+    probe.expectMessage(expectedResult)
+
   it should "forward incoming messages about media files to the file actor" in :
     val testMedium = createMedium(17)
     val song = createMetadata("someArtist", "someAlbum", "someTitle", 3)
