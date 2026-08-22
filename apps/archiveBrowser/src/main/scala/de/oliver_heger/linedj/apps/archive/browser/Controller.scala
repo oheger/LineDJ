@@ -135,13 +135,15 @@ end Controller
   * @param treeArtists       the handler for the tree with artist info
   * @param tabArtistSongs    the table for the songs in the artist view
   * @param tabAlbums         the table for the albums on a medium
+  * @param tabAlbumSongs     the table for the songs of the selected album
   */
 class Controller(songsLoader: SongsLoader,
                  artistSongsLoader: SongsLoader,
                  comboMedia: ListComponentHandler,
                  treeArtists: TreeHandler,
                  tabArtistSongs: TableHandler,
-                 tabAlbums: TableHandler)
+                 tabAlbums: TableHandler,
+                 tabAlbumSongs: TableHandler)
   extends ArchiveStateMonitor.ArchiveChangeListener[ArchiveModel.MediaOverview], MessageBusListener,
     ArchiveModel.ArchiveJsonSupport:
 
@@ -196,6 +198,7 @@ class Controller(songsLoader: SongsLoader,
     treeArtists.getModel.clear()
     tabArtistSongs.getModel.clear()
     tabAlbums.getModel.clear()
+    tabAlbumSongs.getModel.clear()
     songsLoader.mediumSelectionChanged()
     artistSongsLoader.mediumSelectionChanged()
     optSelectedMedium = optMediumID
@@ -244,6 +247,23 @@ class Controller(songsLoader: SongsLoader,
       case None =>
         tabArtistSongs.getModel.clear()
         tabArtistSongs.tableDataChanged()
+
+  /**
+    * Notifies this controller about a change in the selection of the table
+    * with the albums of the current medium. This means that the songs of the
+    * newly selected album need to be displayed in the associated songs
+    * table. The songs loader shared with the artist view is used, so that
+    * cached data can be reused.
+    *
+    * @param optAlbumID the optional ID of the selected album
+    */
+  private[browser] def albumSelected(optAlbumID: Option[AlbumID]): Unit =
+    optAlbumID match
+      case Some(albumID) =>
+        songsLoader.fetchSongs(optSelectedMedium.map(_.checksum), albumID.id, tabAlbumSongs)
+      case None =>
+        tabAlbumSongs.getModel.clear()
+        tabAlbumSongs.tableDataChanged()
 
   /**
     * Updates the combobox with media to contain exactly the given data. This

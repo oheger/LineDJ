@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.apps.archive.browser
 
 import de.oliver_heger.linedj.shared.archive.metadata.Checksums
-import net.sf.jguiraffe.gui.builder.components.model.{ListComponentHandler, TreeHandler}
+import net.sf.jguiraffe.gui.builder.components.model.{ListComponentHandler, TableHandler, TreeHandler}
 import net.sf.jguiraffe.gui.builder.event.{FormChangeEvent, FormChangeListener}
 
 /**
@@ -41,3 +41,12 @@ class SelectionChangeHandler(controller: Controller) extends FormChangeListener:
           .filter(_.isInstanceOf[Controller.SongOwnerID])
           .map(_.asInstanceOf[Controller.SongOwnerID])
         controller.artistAlbumSelected(selection)
+
+      case table: TableHandler =>
+        val selectedIndex = table.getSelectedIndex
+        val optAlbumID = if selectedIndex >= 0 then
+          val albumData = table.getModel.get(selectedIndex).asInstanceOf[AlbumData]
+          Some(Controller.AlbumID(albumData.albumInfo.id))
+        else
+          None
+        controller.albumSelected(optAlbumID)

@@ -16,14 +16,17 @@
 
 package de.oliver_heger.linedj.apps.archive.browser
 
+import de.oliver_heger.linedj.archive.server.model.ArchiveModel
 import de.oliver_heger.linedj.shared.archive.metadata.Checksums
-import net.sf.jguiraffe.gui.builder.components.model.{ListComponentHandler, TreeHandler, TreeNodePath}
+import net.sf.jguiraffe.gui.builder.components.model.{ListComponentHandler, TableHandler, TreeHandler, TreeNodePath}
 import net.sf.jguiraffe.gui.builder.event.FormChangeEvent
 import org.apache.commons.configuration.tree.ConfigurationNode
 import org.mockito.Mockito.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
+
+import java.util
 
 /**
   * Test class for [[SelectionChangeHandler]].
@@ -110,3 +113,30 @@ class SelectionChangeHandlerSpec extends AnyFlatSpec, Matchers, MockitoSugar:
     handler.elementChanged(event)
 
     verify(controller).artistAlbumSelected(None)
+
+  it should "notify the controller when an album is selected in the albums table" in :
+    val controller = mock[Controller]
+    val tabHandler = mock[TableHandler]
+    val tableModel = new util.ArrayList[AnyRef]
+    tableModel.add(AlbumData(ArchiveModel.AlbumInfo("alb1", "Album1", "art1"), "Artist1"))
+    tableModel.add(AlbumData(ArchiveModel.AlbumInfo("alb2", "Album2", "art2"), "Artist2"))
+    tableModel.add(AlbumData(ArchiveModel.AlbumInfo("alb3", "Album3", "art3"), "Artist3"))
+    doReturn(tableModel).when(tabHandler).getModel
+    doReturn(1).when(tabHandler).getSelectedIndex
+    val event = new FormChangeEvent("someSource", tabHandler, "someName")
+
+    val handler = new SelectionChangeHandler(controller)
+    handler.elementChanged(event)
+
+    verify(controller).albumSelected(Some(Controller.AlbumID("alb2")))
+
+  it should "notify the controller when the selection in the albums table is reset" in :
+    val controller = mock[Controller]
+    val tabHandler = mock[TableHandler]
+    doReturn(-1).when(tabHandler).getSelectedIndex
+    val event = new FormChangeEvent("someSource", tabHandler, "someName")
+
+    val handler = new SelectionChangeHandler(controller)
+    handler.elementChanged(event)
+
+    verify(controller).albumSelected(None)

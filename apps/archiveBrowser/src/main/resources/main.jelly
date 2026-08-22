@@ -59,6 +59,9 @@
   <!-- The model of the albums table. -->
   <di:bean name="albumsTableModel" beanClassName="java.util.ArrayList"/>
 
+  <!-- The model of the table with the songs of an album. -->
+  <di:bean name="albumSongsTableModel" beanClassName="java.util.ArrayList"/>
+
   <!-- The model for the media combo box. -->
   <di:bean name="mediaComboModel"
            beanClassName="de.oliver_heger.linedj.apps.archive.browser.EmptyMediumListModel"/>
@@ -147,7 +150,18 @@
                           headerres="tcol_song_artist"/>
               </f:table>
 
-              <f:panel/>
+              <f:table name="tableAlbumSongs" model="albumSongsTableModel" multiSelection="true">
+                <f:borderconstr name="CENTER"/>
+                <f:column name="artist" percentWidth="35"
+                          headerres="tcol_song_artist">
+                </f:column>
+                <f:column name="title" percentWidth="40" headerres="tcol_song_title"
+                          columnClass="String"/>
+                <f:column name="trackNumber" percentWidth="10" headerres="tcol_song_track"/>
+                <f:column name="duration" percentWidth="15" headerres="tcol_song_duration">
+                  <f:transformer type="write" beanName="durationTransformer"/>
+                </f:column>
+              </f:table>
             </f:splitter>
           </f:panel>
         </f:tab>
@@ -213,6 +227,7 @@
         <di:param refName="comp:treeArtists"/>
         <di:param refName="comp:tableArtistSongs"/>
         <di:param refName="comp:tableAlbums"/>
+        <di:param refName="comp:tableAlbumSongs"/>
       </di:constructor>
 
       <di:methodInvocation method="initialize"/>
@@ -234,6 +249,7 @@
 
   <a:eventListener component="comboMedia" eventType="CHANGE" beanName="mediaSelectionChangeListener"/>
   <a:eventListener component="treeArtists" eventType="CHANGE" beanName="mediaSelectionChangeListener"/>
+  <a:eventListener component="tableAlbums" eventType="CHANGE" beanName="mediaSelectionChangeListener"/>
 
   <!-- Action tasks and commands -->
 

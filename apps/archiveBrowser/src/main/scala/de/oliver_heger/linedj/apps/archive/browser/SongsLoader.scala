@@ -73,12 +73,26 @@ object SongsLoader:
   private[browser] case class SongsLoadError(id: String,
                                              exception: Throwable,
                                              sender: AnyRef)
+
+  /**
+    * An internally used data class to manage a request for the songs of an
+    * entity. The songs are to be displayed in the referenced table. There is
+    * a single instance per managed table; when a new selection is made for
+    * this table, its instance is replaced.
+    *
+    * @param table    the table in which the songs are to be shown
+    * @param entityID the ID of the entity the songs belong to
+    */
+  private case class SongRequest(table: TableHandler, entityID: String)
 end SongsLoader
 
 /**
   * An internally used helper class to load specific songs from an archive
-  * server that are then added to a table model. The songs are cached by the ID
+  * server that are then added to table models. The songs are cached by the ID
   * of the owning entity as long as there is no change in the selected medium.
+  * Multiple tables can be served concurrently: for each table, the loader
+  * keeps track of the entity whose songs are currently requested, so that
+  * results of requests that became outdated in the meantime are ignored.
   * All methods are expected to be called in the event dispatch thread. Songs
   * are requested asynchronously; by using the message bus, the synchronization
   * with the UI thread is done.
@@ -115,31 +129,39 @@ private class SongsLoader(val archiveService: ArchiveService,
   /** The cache with songs that have already been loaded for entities. */
   private var songCache = Map.empty[String, List[MediaMetadata]]
 
-  /** The ID of the entity whose songs are currently requested. */
-  private var optCurrentID: Option[String] = None
-
-  /** The table handler to be populated with the songs of the current entity. */
-  private var optCurrentTable: Option[TableHandler] = None
+  /**
+    * A list with data about the requests for songs that are currently in
+    * progress. This list can contain an entry per served table, so that
+    * multiple requests can be handled concurrently, e.g. when the songs of
+    * different albums are displayed in different tables. Entries are removed
+    * when their response has been processed or when a table is served from
+    * the cache; therefore, this list contains exactly the loads that await
+    * their response.
+    */
+  private var songRequests = List.empty[SongRequest]
 
   /**
     * @inheritdoc This implementation processes results of requests for songs.
-    *             The loaded songs are cached; if the result belongs to the
-    *             currently requested entity, the table is populated. Errors
-    *             are reported via the status line controller.
+    *             The loaded songs are cached and all tables that are waiting
+    *             for this result are populated. The handled requests are then
+    *             removed from the list of current requests. Errors are
+    *             reported via the status line controller if the affected
+    *             entity is still requested.
     */
   override def receive: Receive =
-    case msg@SongsLoaded(id, songs, loader) if loader eq this =>
+    case SongsLoaded(id, songs, loader) if loader eq this =>
       statusController.loadOperationEnds()
       songCache += id -> songs
-      if optCurrentID.contains(id) then
-        optCurrentTable.foreach: table =>
-          populateTable(songs, table)
+      songRequests.filter(_.entityID == id).foreach: request =>
+        populateTable(songs, request.table)
+      songRequests = songRequests.filterNot(_.entityID == id)
 
     case error: SongsLoadError if error.sender eq this =>
       statusController.loadOperationEnds()
-      if optCurrentID.contains(error.id) then
+      if songRequests.exists(_.entityID == error.id) then
         val statusMessage = new Message(null, Controller.ResErrorLoading, error.exception.getMessage)
         statusController.setStatusMessage(statusMessage)
+      songRequests = songRequests.filterNot(_.entityID == error.id)
 
   /**
     * Requests the songs for the entity with the given ID from this loader and
@@ -147,8 +169,11 @@ private class SongsLoader(val archiveService: ArchiveService,
     * [[urlPattern]], the ID is interpreted either as an artist ID or album ID.
     * If no medium is currently selected, this method has no effect. If the
     * requested songs have already been loaded before, the provided table can
-    * be populated directly. Otherwise, they are fetched now, and the table is
-    * filled when the request completes.
+    * be populated directly; its registration for pending requests is removed
+    * in this case, so that it cannot be updated by outdated responses. If a
+    * request for the same entity is already in progress, the table is only
+    * registered to receive the expected result. Otherwise, a new request is
+    * sent now, and the table is filled when the response arrives.
     *
     * @param optMediumChecksum the optional checksum of the current medium
     * @param id                the ID of the owning entity
@@ -157,23 +182,25 @@ private class SongsLoader(val archiveService: ArchiveService,
   def fetchSongs(optMediumChecksum: Option[String], id: String, table: TableHandler): Unit =
     optMediumChecksum match
       case Some(mediumChecksum) =>
-        optCurrentID = Some(id)
-        optCurrentTable = Some(table)
         table.getModel.clear()
         songCache.get(id) match
           case Some(songs) =>
+            removeSongRequest(table)
             populateTable(songs, table)
           case None =>
-            statusController.loadOperationStarts()
-            statusController.setStatusMessage(new Message(null, loadingResource, id))
-            val url = urlPattern.replace(MediumIDPlaceholder, mediumChecksum) + s"/$id/songs"
-            val future = archiveService.queryData[ArchiveModel.ItemsResult[MediaMetadata]](url)
-            future.onComplete:
-              case Success(result) =>
-                messageBus.publish(SongsLoaded(id, result.items, sender = this))
-              case Failure(exception) =>
-                log.error("Failed to load songs for entity '{}'.", id, exception)
-                messageBus.publish(SongsLoadError(id, exception, sender = this))
+            val alreadyLoading = songRequests.exists(_.entityID == id)
+            updateSongRequest(table, id)
+            if !alreadyLoading then
+              statusController.loadOperationStarts()
+              statusController.setStatusMessage(new Message(null, loadingResource, id))
+              val url = urlPattern.replace(MediumIDPlaceholder, mediumChecksum) + s"/$id/songs"
+              val future = archiveService.queryData[ArchiveModel.ItemsResult[MediaMetadata]](url)
+              future.onComplete:
+                case Success(result) =>
+                  messageBus.publish(SongsLoaded(id, result.items, sender = this))
+                case Failure(exception) =>
+                  log.error("Failed to load songs for entity '{}'.", id, exception)
+                  messageBus.publish(SongsLoadError(id, exception, sender = this))
       case None =>
 
   /**
@@ -182,8 +209,29 @@ private class SongsLoader(val archiveService: ArchiveService,
     */
   def mediumSelectionChanged(): Unit =
     songCache = Map.empty
-    optCurrentID = None
-    optCurrentTable = None
+    songRequests = List.empty
+
+  /**
+    * Replaces the request for songs that is managed for the given table by a
+    * new one for the entity with the given ID. Results of outdated requests
+    * for this table that arrive later are ignored automatically.
+    *
+    * @param table the table whose selection has changed
+    * @param id    the ID of the newly selected entity
+    */
+  private def updateSongRequest(table: TableHandler, id: String): Unit =
+    songRequests = songRequests.filterNot(_.table eq table) :+ SongRequest(table, id)
+
+  /**
+    * Removes the entry for the given table from the list of managed song
+    * requests. This is used when a table is served from the cache. There is
+    * no pending load for this table anymore; in particular, it must not be
+    * updated by responses for entities it had selected before.
+    *
+    * @param table the table to be removed from the request list
+    */
+  private def removeSongRequest(table: TableHandler): Unit =
+    songRequests = songRequests.filterNot(_.table eq table)
 
   /**
     * Populates the given table with the given songs.
