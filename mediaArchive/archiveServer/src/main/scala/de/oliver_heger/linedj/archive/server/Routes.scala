@@ -137,6 +137,17 @@ object Routes extends ArchiveModel.ArchiveJsonSupport:
               complete(StatusCodes.NotFound)
 
     /**
+      * Returns a route to query the IDs of all songs contained on a medium.
+      *
+      * @param mediumID the ID of the medium
+      * @return the route
+      */
+    def mediumSongsRoute(mediumID: String): Route =
+      get:
+        handleMediumQuery(mediumID): replyTo =>
+          ArchiveCommands.ReadMediumContentCommand.GetSongIDs(Checksums.MediumChecksum(mediumID), replyTo)
+
+    /**
       * Returns routes to query information about the artists of a medium.
       *
       * @param mediumID the ID of the medium
@@ -265,7 +276,9 @@ object Routes extends ArchiveModel.ArchiveJsonSupport:
               pathPrefix("artists"):
                 mediumArtistsRoutes(mediumID),
               pathPrefix("albums"):
-                mediumAlbumRoutes(mediumID)
+                mediumAlbumRoutes(mediumID),
+              pathPrefix("songids"):
+                mediumSongsRoute(mediumID)
             )
         ),
       pathPrefix("files" / Segment): fileID =>

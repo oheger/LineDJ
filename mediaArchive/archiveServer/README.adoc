@@ -37,6 +37,9 @@ The `Route` created by the base `Controller` implementation provides a number of
 | /media/\{id}/albums
 | Returns an object with the list of albums contained on the specified medium. Each album is listed with its name and ID.
 
+| /media/\{id}/songids
+| Returns an object with a list of the IDs of all songs that are contained on this medium. No details about songs are returned; they have to be queried separately.
+
 | /media/\{id}/artists/\{artistID}/songs
 | Returns an object with the songs of the given artist contained on the specified medium. For songs, different properties are available, provided that they were defined in the metadata of the corresponding media file. This includes the ID, the title, the album, the inception year, the track number on the album, the playback duration and some more.
 

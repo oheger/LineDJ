@@ -494,6 +494,30 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with BeforeAndAfterE
     Get(s"/api/archive/media/${TestMediumID.checksum}/artists/someArtist/albums") ~> testRoute(contentActor) ~> check:
       status should be(StatusCodes.NotFound)
 
+  it should "define a route to query the song IDs of a medium" in :
+    val songIDs = List("song1", "song2", "anotherSong")
+    val contentBehavior = Behaviors.receiveMessagePartial[ArchiveContentActor.ArchiveContentCommand]:
+      case req@ArchiveCommands.ReadMediumContentCommand.GetSongIDs(id, replyTo) =>
+        id should be(TestMediumID)
+        replyTo ! ArchiveCommands.GetMediumDataResponse(req, Some(songIDs))
+        Behaviors.stopped
+
+    val contentActor = testKit.spawn(contentBehavior)
+    Get(s"/api/archive/media/${TestMediumID.checksum}/songids") ~> testRoute(contentActor) ~> check:
+      status should be(StatusCodes.OK)
+      val songData = responseAs[ArchiveModel.ItemsResult[String]]
+      songData.items should contain theSameElementsInOrderAs songIDs
+
+  it should "handle a request for the song IDs of an unknown medium" in :
+    val contentBehavior = Behaviors.receiveMessagePartial[ArchiveContentActor.ArchiveContentCommand]:
+      case req@ArchiveCommands.ReadMediumContentCommand.GetSongIDs(id, replyTo) =>
+        replyTo ! ArchiveCommands.GetMediumDataResponse(req, None)
+        Behaviors.stopped
+
+    val contentActor = testKit.spawn(contentBehavior)
+    Get(s"/api/archive/media/${TestMediumID.checksum}/songids") ~> testRoute(contentActor) ~> check:
+      status should be(StatusCodes.NotFound)
+
   it should "define a route to query information about a media file" in :
     val fileInfo = ArchiveModel.MediaFileInfo(
       metadata = MediaMetadata(title = Some("Test song"), size = 10000, checksum = TestMediaFileID),
