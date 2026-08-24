@@ -219,6 +219,7 @@ lazy val LineDJ = (project in file("."))
   archiveStartup,
   archiveUnion,
   audioPlatform,
+  audioPlatformNew,
   audioPlayerShell,
   audioPlayerUI,
   cloudAccess,
@@ -711,7 +712,7 @@ lazy val archiveBrowser = (project in file("apps/archiveBrowser"))
     ),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
-  ).dependsOn(shared % "compile->compile;test->test", platform % "compile->compile;test->test", audioPlatform)
+  ).dependsOn(shared % "compile->compile;test->test", platform % "compile->compile;test->test", audioPlatformNew)
 
 /**
   * Project for the playlist editor client application. This application
@@ -1121,6 +1122,30 @@ lazy val audioPlatform = (project in file("audioPlatform"))
       Map("Service-Component" -> "OSGI-INF/*.xml")
   ).dependsOn(shared % "compile->compile;test->test", platform % "compile->compile;test->test", playerEngine,
       playerEngineConfig)
+
+/**
+  * Project for the new audio platform. This project provides basic services
+  * for playing media files. It is going to replace the legacy audio platform
+  * project.
+  */
+lazy val audioPlatformNew = (project in file("audioPlatformNew"))
+  .enablePlugins(SbtOsgi)
+  .settings(defaultSettings)
+  .settings(OSGi.osgiSettings)
+  .settings(
+    name := "linedj-audio-platform2",
+    libraryDependencies ++= osgiDependencies,
+    OsgiKeys.exportPackage := Seq(
+      "!de.oliver_heger.linedj.platform.audio2.impl.*",
+      "de.oliver_heger.linedj.platform.audio2.*"
+    ),
+    OsgiKeys.privatePackage := Seq(
+      "de.oliver_heger.linedj.platform.audio2.impl.*"
+    ),
+    OsgiKeys.additionalHeaders :=
+      Map("Service-Component" -> "OSGI-INF/*.xml")
+  ).dependsOn(shared % "compile->compile;test->test", platform % "compile->compile;test->test", playerEngine,
+    playerEngineConfig)
 
 /**
   * Project for the persistent playlist handler. This module keeps track on
