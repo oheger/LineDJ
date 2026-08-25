@@ -18,13 +18,13 @@ package de.oliver_heger.linedj.apps.archive.login
 
 import com.github.cloudfiles.core.http.Secret
 import de.oliver_heger.linedj.archive.server.cloud.model.CloudArchiveModel
+import de.oliver_heger.linedj.platform.ActionTestHelper
 import de.oliver_heger.linedj.platform.archiveclient.{ArchiveService, ArchiveStateMonitor, LoginService}
 import de.oliver_heger.linedj.platform.comm.MessageBus
-import net.sf.jguiraffe.gui.builder.action.{ActionStore, FormAction}
 import net.sf.jguiraffe.gui.builder.components.model.TableHandler
 import net.sf.jguiraffe.gui.builder.event.FormChangeEvent
 import net.sf.jguiraffe.gui.builder.window.WindowEvent
-import org.mockito.ArgumentMatchers.{any, anyBoolean}
+import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.{doReturn, verify, verifyNoInteractions, when}
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
@@ -65,7 +65,7 @@ end LoginControllerSpec
 /**
   * Test class for [[LoginController]].
   */
-class LoginControllerSpec extends AnyFlatSpec, Matchers, MockitoSugar:
+class LoginControllerSpec extends AnyFlatSpec, Matchers, MockitoSugar, ActionTestHelper:
 
   import LoginControllerSpec.*
 
@@ -176,11 +176,6 @@ class LoginControllerSpec extends AnyFlatSpec, Matchers, MockitoSugar:
     * dependencies.
     */
   private class ControllerTestHelper:
-    /**
-      * Holds states of actions set explicitly through the mock action manager.
-      */
-    private var actionStates = Map.empty[String, Boolean]
-
     /** The mock for the message bus. */
     private val messageBus = mock[MessageBus]
 
@@ -274,7 +269,7 @@ class LoginControllerSpec extends AnyFlatSpec, Matchers, MockitoSugar:
       * @return this test helper
       */
     def checkActionEnabled(name: String, enabled: Boolean): ControllerTestHelper =
-      actionStates(name) shouldBe enabled
+      isActionEnabled(name) shouldBe enabled
       this
 
     /**
@@ -418,24 +413,6 @@ class LoginControllerSpec extends AnyFlatSpec, Matchers, MockitoSugar:
       handler
 
     /**
-      * Creates a mock action that can track its enabled state. The passed in
-      * action store mock is configured to return this action.
-      *
-      * @param name  the name of the action
-      * @param store the action store
-      * @return the mock action
-      */
-    private def createAction(name: String, store: ActionStore): FormAction =
-      val action = mock[FormAction]
-      when(action.setEnabled(anyBoolean())).thenAnswer((invocation: InvocationOnMock) => {
-        val state = invocation.getArguments.head.asInstanceOf[Boolean]
-        actionStates += name -> state
-        null
-      })
-      when(store.getAction(name)).thenReturn(action)
-      action
-
-    /**
       * Creates a mock for the status helper.
       *
       * @return the mock status helper
@@ -457,11 +434,10 @@ class LoginControllerSpec extends AnyFlatSpec, Matchers, MockitoSugar:
       * @return the test controller
       */
     private def createController(): LoginController =
-      val actionStore = mock[ActionStore]
-      createAction("actionEnterCredential", actionStore)
+      createAction("actionEnterCredential")
       new LoginController(
         messageBus,
-        actionStore,
+        createActionStore(),
         loginService,
         archiveService,
         handlerArchives,
