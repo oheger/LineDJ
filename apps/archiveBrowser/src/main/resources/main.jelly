@@ -34,6 +34,37 @@
             tooltipres="EXIT_ACTION_TOOLTIP" mnemonicres="EXIT_ACTION_MNEMO"
             resgrp="application" taskBean="exitTask"/>
 
+  <!-- Actions for adding specific songs from the selected medium to the playlist. -->
+  <a:action name="addMediumAction" textres="act_addmedium_text" tooltipres="act_addmedium_tip"
+            mnemonicres="act_addmedium_mnemo" taskBean="exitTask">
+    <f:icon resource="medium.png"/>
+  </a:action>
+
+  <a:action name="addArtistAction" textres="act_addartist_text" tooltipres="act_addartist_tip"
+            mnemonicres="act_addartist_mnemo" taskBean="exitTask">
+    <f:icon resource="artist.png"/>
+  </a:action>
+
+  <a:action name="addAlbumAction" textres="act_addalbum_text" tooltipres="act_addalbum_tip"
+            mnemonicres="act_addalbum_mnemo" taskBean="exitTask">
+    <f:icon resource="album.png"/>
+  </a:action>
+
+  <a:action name="addAlbumSongsAction" textres="act_addsongs_text" tooltipres="act_addsongs_tip"
+            mnemonicres="act_addsongs_mnemo" taskBean="exitTask">
+    <f:icon resource="songs.png"/>
+  </a:action>
+
+  <a:action name="addArtistAlbumAction" textres="act_addalbum_text" tooltipres="act_addalbum_tip"
+            mnemonicres="act_addalbum_mnemo" taskBean="exitTask">
+    <f:icon resource="album.png"/>
+  </a:action>
+
+  <a:action name="addArtistAlbumSongsAction" textres="act_addsongs_text" tooltipres="act_addsongs_tip"
+            mnemonicres="act_addsongs_mnemo" taskBean="exitTask">
+    <f:icon resource="songs.png"/>
+  </a:action>
+
   <!-- The main menu -->
   <a:menubar name="mainMenu">
     <a:menu textres="menu_file_text" mnemonicres="menu_file_mnemo">
@@ -244,6 +275,7 @@
            beanClassName="de.oliver_heger.linedj.apps.archive.browser.SelectionChangeHandler">
     <di:constructor>
       <di:param refName="mediaController"/>
+      <di:param refName="ACTION_STORE"/>
     </di:constructor>
   </di:bean>
 
