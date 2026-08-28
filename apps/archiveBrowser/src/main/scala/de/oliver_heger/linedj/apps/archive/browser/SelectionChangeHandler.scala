@@ -111,6 +111,8 @@ class SelectionChangeHandler(controller: Controller, actionStore: ActionStore) e
           .filter(_.isInstanceOf[Controller.SongOwnerID])
           .map(_.asInstanceOf[Controller.SongOwnerID])
         controller.artistAlbumSelected(selection)
+        enableAction(AddArtistAction, selection.isDefined)
+        enableAction(AddArtistAlbumAction, selection.exists(_.isInstanceOf[Controller.AlbumID]))
 
       case table: TableHandler =>
         e.getName match

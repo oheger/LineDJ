@@ -269,3 +269,56 @@ class SelectionChangeHandlerSpec extends AnyFlatSpec, Matchers, MockitoSugar, Ac
     handler.elementChanged(event)
 
     isActionEnabled(SelectionChangeHandler.AddArtistAlbumSongsAction) shouldBe false
+
+  it should "enable the artist-related actions if an album is selected in the artist treeview" in :
+    val treeHandler = mock[TreeHandler]
+    initSelectedPath(treeHandler, Controller.AlbumID("someAlbum"))
+    val event = new FormChangeEvent("someSource", treeHandler, "treeArtists")
+
+    val handler = createHandler(mock)
+    actionStore.getAction(SelectionChangeHandler.AddArtistAlbumAction).setEnabled(false)
+    actionStore.getAction(SelectionChangeHandler.AddArtistAction).setEnabled(false)
+    handler.elementChanged(event)
+
+    isActionEnabled(SelectionChangeHandler.AddArtistAlbumAction) shouldBe true
+    isActionEnabled(SelectionChangeHandler.AddArtistAction) shouldBe true
+
+  it should "enable the add artist action if an artist is selected in the artist treeview" in :
+    val treeHandler = mock[TreeHandler]
+    initSelectedPath(treeHandler, Controller.ArtistID("someArtist"))
+    val event = new FormChangeEvent("someSource", treeHandler, "treeArtists")
+
+    val handler = createHandler(mock)
+    actionStore.getAction(SelectionChangeHandler.AddArtistAlbumAction).setEnabled(true)
+    actionStore.getAction(SelectionChangeHandler.AddArtistAction).setEnabled(false)
+    handler.elementChanged(event)
+
+    isActionEnabled(SelectionChangeHandler.AddArtistAlbumAction) shouldBe false
+    isActionEnabled(SelectionChangeHandler.AddArtistAction) shouldBe true
+
+  it should "enable the add artist action if an artist without albums is selected in the artist treeview" in :
+    val treeHandler = mock[TreeHandler]
+    initSelectedPath(treeHandler, Controller.ArtistWithoutAlbumsID("someArtist"))
+    val event = new FormChangeEvent("someSource", treeHandler, "treeArtists")
+
+    val handler = createHandler(mock)
+    actionStore.getAction(SelectionChangeHandler.AddArtistAlbumAction).setEnabled(true)
+    actionStore.getAction(SelectionChangeHandler.AddArtistAction).setEnabled(false)
+    handler.elementChanged(event)
+
+    isActionEnabled(SelectionChangeHandler.AddArtistAlbumAction) shouldBe false
+    isActionEnabled(SelectionChangeHandler.AddArtistAction) shouldBe true
+
+  it should "disable the artist-related actions if the selection in the artist treeview is reset" in :
+    val treeHandler = mock[TreeHandler]
+    doReturn(null).when(treeHandler).getSelectedPath
+    val event = new FormChangeEvent("someSource", treeHandler, "treeArtists")
+
+    val handler = createHandler(mock)
+    actionStore.getAction(SelectionChangeHandler.AddArtistAlbumAction).setEnabled(true)
+    actionStore.getAction(SelectionChangeHandler.AddArtistAlbumSongsAction).setEnabled(true)
+    actionStore.getAction(SelectionChangeHandler.AddArtistAction).setEnabled(true)
+    handler.elementChanged(event)
+
+    isActionEnabled(SelectionChangeHandler.AddArtistAlbumAction) shouldBe false
+    isActionEnabled(SelectionChangeHandler.AddArtistAction) shouldBe false
