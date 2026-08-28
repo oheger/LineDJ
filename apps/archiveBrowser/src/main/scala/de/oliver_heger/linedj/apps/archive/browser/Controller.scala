@@ -69,6 +69,15 @@ object Controller:
   private[browser] case class ArtistID(override val id: String) extends SongOwnerID
 
   /**
+    * An internally used data class to represent the ID of an artist who does
+    * not have any albums. If such an artist is selected, their songs are shown
+    * in the artist songs table.
+    *
+    * @param id the alphanumeric artist ID
+    */
+  private[browser] case class ArtistWithoutAlbumsID(override val id: String) extends SongOwnerID
+
+  /**
     * An internally used data class to represent the ID of an album.
     *
     * @param id the alphanumeric album ID
@@ -239,14 +248,14 @@ class Controller(songsLoader: SongsLoader,
     */
   private[browser] def artistAlbumSelected(optOwnerID: Option[SongOwnerID]): Unit =
     optOwnerID match
-      case Some(ownerID) =>
-        val loader = ownerID match
-          case _: AlbumID => songsLoader
-          case _: ArtistID => artistSongsLoader
-        loader.fetchSongs(optSelectedMedium.map(_.checksum), ownerID.id, tabArtistSongs)
+      case Some(_: ArtistID) =>
+        clearArtistSongsTable()
+      case Some(ArtistWithoutAlbumsID(id)) =>
+        artistSongsLoader.fetchSongs(optSelectedMedium.map(_.checksum), id, tabArtistSongs)
+      case Some(AlbumID(id)) =>
+        songsLoader.fetchSongs(optSelectedMedium.map(_.checksum), id, tabArtistSongs)
       case None =>
-        tabArtistSongs.getModel.clear()
-        tabArtistSongs.tableDataChanged()
+        clearArtistSongsTable()
 
   /**
     * Notifies this controller about a change in the selection of the table
@@ -264,6 +273,13 @@ class Controller(songsLoader: SongsLoader,
       case None =>
         tabAlbumSongs.getModel.clear()
         tabAlbumSongs.tableDataChanged()
+
+  /**
+    * Clears the table with the songs of the current artist.
+    */
+  private def clearArtistSongsTable(): Unit =
+    tabArtistSongs.getModel.clear()
+    tabArtistSongs.tableDataChanged()
 
   /**
     * Updates the combobox with media to contain exactly the given data. This
@@ -314,7 +330,18 @@ class Controller(songsLoader: SongsLoader,
     MediumData(details, artistResult.items, albumResult.items, albumsByArtist)
 
   /**
-    * Populate the UI elements with the data for a newly selected medium.
+    * Populates the UI elements with the data for a newly selected medium.
+    *
+    * The tree view for artists and their albums is defined by a hierarchical
+    * configuration structure. Here, the node values are IDs of entities 
+    * represented by specific classes. That way, the code that reacts on 
+    * selection changes can determine, what is currently selected and fetch the
+    * correct data. The following cases need to be distinguished:
+    *  - The ID of an album; then the songs of this album are displayed in the
+    *    artist songs table.
+    *  - The ID of an artist with no associated albums; then all the songs of
+    *    this artist are displayed in the artist songs table.
+    *  - The ID of an artist; then the artist songs table remains empty.
     *
     * Note that the artist node has to be added before its albums. Otherwise,
     * JGUIraffe's change handler reports the (new) artist node as the node
@@ -331,12 +358,12 @@ class Controller(songsLoader: SongsLoader,
         val artistKey = artistInfo.artistName
         mediumData.albumsByArtist.get(ArtistID(artistInfo.id)) match
           case Some(albums) =>
-            treeArtists.getModel.addProperty(artistKey, artistInfo.artistName)
+            treeArtists.getModel.addProperty(artistKey, ArtistID(artistInfo.id))
             albums.foreach: album =>
               val configKey = s"$artistKey|${album.albumName}"
               treeArtists.getModel.addProperty(configKey, AlbumID(album.id))
           case None =>
-            treeArtists.getModel.addProperty(artistKey, ArtistID(artistInfo.id))
+            treeArtists.getModel.addProperty(artistKey, ArtistWithoutAlbumsID(artistInfo.id))
       treeArtists.clearSelection()
       val rootPath = new TreeNodePath(treeArtists.getModel.getRoot)
       treeArtists.collapse(rootPath)

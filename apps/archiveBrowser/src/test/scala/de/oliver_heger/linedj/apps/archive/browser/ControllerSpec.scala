@@ -173,13 +173,13 @@ class ControllerSpec extends AnyFlatSpec, Matchers, MockitoSugar:
     direStraitsConfig.getKeys.asScala.toList should contain theSameElementsAs direStraitsAlbums
     val mikeOldfieldConfig = helper.artistTreeModel.configurationAt("Mike Oldfield")
     mikeOldfieldConfig.getKeys.asScala.toList should contain theSameElementsAs mikeOldfieldAlbums
-    helper.artistTreeModel.getProperty("Dire Straits") should be("Dire Straits")
+    helper.artistTreeModel.getProperty("Dire Straits") should be(Controller.ArtistID("art1"))
     helper.artistTreeModel.getProperty("Dire Straits|Brothers in Arms") should be(Controller.AlbumID("alb1"))
     helper.artistTreeModel.getProperty("Dire Straits|Love over Gold") should be(Controller.AlbumID("alb4"))
-    helper.artistTreeModel.getProperty("Mike Oldfield") should be("Mike Oldfield")
+    helper.artistTreeModel.getProperty("Mike Oldfield") should be(Controller.ArtistID("art2"))
     helper.artistTreeModel.getProperty("Mike Oldfield|Tubular Bells I") should be(Controller.AlbumID("alb5"))
     helper.artistTreeModel.configurationAt("Never released").getKeys.asScala.toList should contain only ""
-    helper.artistTreeModel.getProperty("Never released") should be(Controller.ArtistID("art3"))
+    helper.artistTreeModel.getProperty("Never released") should be(Controller.ArtistWithoutAlbumsID("art3"))
 
     helper.verifyArtistTreeReset()
 
@@ -631,7 +631,7 @@ class ControllerSpec extends AnyFlatSpec, Matchers, MockitoSugar:
         s"/api/archive/media/${RockMedium.id.checksum}/artists/art1/songs",
         ArchiveModel.ItemsResult(songs)
       )
-      .passSelectedArtistArtist(Controller.ArtistID("art1"))
+      .passSelectedArtistArtist(Controller.ArtistWithoutAlbumsID("art1"))
       .handleArchiveRequest()
 
     helper.expectSongsInArtistTable(songs)
@@ -658,10 +658,10 @@ class ControllerSpec extends AnyFlatSpec, Matchers, MockitoSugar:
         s"/api/archive/media/${RockMedium.id.checksum}/artists/art1/songs",
         ArchiveModel.ItemsResult(songs)
       )
-      .passSelectedArtistArtist(Controller.ArtistID("art1"))
+      .passSelectedArtistArtist(Controller.ArtistWithoutAlbumsID("art1"))
       .handleArchiveRequest()
       .simulateArtistAlbumSelection(None)
-      .passSelectedArtistArtist(Controller.ArtistID("art1"))
+      .passSelectedArtistArtist(Controller.ArtistWithoutAlbumsID("art1"))
 
     helper.expectSongsInArtistTable(songs, numUpdates = 3)
 
@@ -702,8 +702,8 @@ class ControllerSpec extends AnyFlatSpec, Matchers, MockitoSugar:
       )
       .passSelectedMedium(RockMedium.id)
       .handleArchiveRequest()
-      .passSelectedArtistArtist(Controller.ArtistID("art1"))
-      .passSelectedArtistArtist(Controller.ArtistID("art2"))
+      .passSelectedArtistArtist(Controller.ArtistWithoutAlbumsID("art1"))
+      .passSelectedArtistArtist(Controller.ArtistWithoutAlbumsID("art2"))
       .handleArchiveRequest()
 
     helper.artistTableModel.isEmpty shouldBe true
@@ -722,7 +722,7 @@ class ControllerSpec extends AnyFlatSpec, Matchers, MockitoSugar:
       .expectArchiveRequest(s"/api/archive/media/${RockMedium.id.checksum}/artists/art1/songs", failedFuture)
       .passSelectedMedium(RockMedium.id)
       .handleArchiveRequest()
-      .passSelectedArtistArtist(Controller.ArtistID("art1"))
+      .passSelectedArtistArtist(Controller.ArtistWithoutAlbumsID("art1"))
       .handleArchiveRequest()
 
     helper.artistTableModel.isEmpty shouldBe true
@@ -750,7 +750,7 @@ class ControllerSpec extends AnyFlatSpec, Matchers, MockitoSugar:
         s"/api/archive/media/${RockMedium.id.checksum}/artists/art1/songs",
         ArchiveModel.ItemsResult(songs)
       )
-      .passSelectedArtistArtist(Controller.ArtistID("art1"))
+      .passSelectedArtistArtist(Controller.ArtistWithoutAlbumsID("art1"))
 
     helper.activeLoadOperations should be(1)
     helper.currentStatusMessage should be(Some(Message(null, SongsLoader.ResArtistLoading, "art1")))
@@ -777,7 +777,7 @@ class ControllerSpec extends AnyFlatSpec, Matchers, MockitoSugar:
         s"/api/archive/media/${RockMedium.id.checksum}/artists/art1/songs",
         ArchiveModel.ItemsResult(songs)
       )
-      .passSelectedArtistArtist(Controller.ArtistID("art1"))
+      .passSelectedArtistArtist(Controller.ArtistWithoutAlbumsID("art1"))
       .handleArchiveRequest()
 
     helper.activeLoadOperations should be(0)
@@ -1462,7 +1462,7 @@ class ControllerSpec extends AnyFlatSpec, Matchers, MockitoSugar:
       * @param artistID the ID of the selected artist
       * @return this test helper
       */
-    def passSelectedArtistArtist(artistID: Controller.ArtistID): ControllerTestHelper =
+    def passSelectedArtistArtist(artistID: Controller.SongOwnerID): ControllerTestHelper =
       simulateArtistAlbumSelection(Some(artistID))
 
     /**
@@ -1517,6 +1517,7 @@ class ControllerSpec extends AnyFlatSpec, Matchers, MockitoSugar:
       * @param songs      the expected songs
       * @param numUpdates the expected number of notifications about changes of
       *                   the table data
+      *
       * @return this test helper
       */
     def expectSongsInArtistTable(songs: Iterable[MediaMetadata],
@@ -1531,6 +1532,7 @@ class ControllerSpec extends AnyFlatSpec, Matchers, MockitoSugar:
       * @param songs      the expected songs
       * @param numUpdates the expected number of notifications about changes of
       *                   the table data
+      *
       * @return this test helper
       */
     def expectSongsInAlbumTable(songs: Iterable[MediaMetadata],
@@ -1573,6 +1575,7 @@ class ControllerSpec extends AnyFlatSpec, Matchers, MockitoSugar:
       * @param albums     the expected albums
       * @param numUpdates the expected number of notifications about changes of
       *                   the table data
+      *
       * @return this test helper
       */
     def expectAlbumsInTable(albums: Iterable[ArchiveModel.AlbumInfo],
