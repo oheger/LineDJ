@@ -50,13 +50,13 @@ object SelectionChangeHandler:
     * The name of the action that adds the currently selected songs in the
     * albums table to the playlist.
     */
-  final val AddAlbumSongsAction = "addSongsAction"
+  final val AddAlbumSongsAction = "addAlbumSongsAction"
 
   /**
     * The name of the action that adds the currently selected songs in the
     * artist album table to the playlist.
     */
-  final val AddArtistAlbumSongsAction = "addArtistAlbumSongs"
+  final val AddArtistAlbumSongsAction = "addArtistAlbumSongsAction"
 
   /** A list with the names of all actions for adding songs to the playlist. */
   private val AllAddActions = List(

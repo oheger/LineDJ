@@ -36,32 +36,32 @@
 
   <!-- Actions for adding specific songs from the selected medium to the playlist. -->
   <a:action name="addMediumAction" textres="act_addmedium_text" tooltipres="act_addmedium_tip"
-            mnemonicres="act_addmedium_mnemo" taskBean="exitTask">
+            mnemonicres="act_addmedium_mnemo" enabled="false" taskBean="addMediumTask">
     <f:icon resource="medium.png"/>
   </a:action>
 
   <a:action name="addArtistAction" textres="act_addartist_text" tooltipres="act_addartist_tip"
-            mnemonicres="act_addartist_mnemo" taskBean="exitTask">
+            mnemonicres="act_addartist_mnemo" enabled="false" taskBean="addArtistTask">
     <f:icon resource="artist.png"/>
   </a:action>
 
   <a:action name="addAlbumAction" textres="act_addalbum_text" tooltipres="act_addalbum_tip"
-            mnemonicres="act_addalbum_mnemo" taskBean="exitTask">
+            mnemonicres="act_addalbum_mnemo" enabled="false" taskBean="addAlbumTask">
     <f:icon resource="album.png"/>
   </a:action>
 
-  <a:action name="addAlbumSongsAction" textres="act_addsongs_text" tooltipres="act_addsongs_tip"
-            mnemonicres="act_addsongs_mnemo" taskBean="exitTask">
+  <a:action name="addAlbumSongsAction" textres="act_addsongs_album_text" tooltipres="act_addsongs_album_tip"
+            mnemonicres="act_addsongs_album_mnemo" enabled="false" taskBean="addAlbumSongsTask">
     <f:icon resource="songs.png"/>
   </a:action>
 
-  <a:action name="addArtistAlbumAction" textres="act_addalbum_text" tooltipres="act_addalbum_tip"
-            mnemonicres="act_addalbum_mnemo" taskBean="exitTask">
+  <a:action name="addArtistAlbumAction" textres="act_addalbum_artist_text" tooltipres="act_addalbum_artist_tip"
+            mnemonicres="act_addalbum_artist_mnemo" enabled="false" taskBean="addArtistAlbumTask">
     <f:icon resource="album.png"/>
   </a:action>
 
-  <a:action name="addArtistAlbumSongsAction" textres="act_addsongs_text" tooltipres="act_addsongs_tip"
-            mnemonicres="act_addsongs_mnemo" taskBean="exitTask">
+  <a:action name="addArtistAlbumSongsAction" textres="act_addsongs_artist_text" tooltipres="act_addsongs_artist_tip"
+            mnemonicres="act_addsongs_artist_mnemo" enabled="false" taskBean="addArtistAlbumSongsTask">
     <f:icon resource="songs.png"/>
   </a:action>
 
@@ -69,6 +69,15 @@
   <a:menubar name="mainMenu">
     <a:menu textres="menu_file_text" mnemonicres="menu_file_mnemo">
       <a:menuitem actionName="exitAction" acceleratorDef="ALT X"/>
+    </a:menu>
+    <a:menu textres="menu_add_text" mnemonicres="menu_add_mnemo">
+      <a:menuitem actionName="addMediumAction"/>
+      <a:menuitem actionName="addArtistAction"/>
+      <a:menuitem actionName="addArtistAlbumAction"/>
+      <a:menuitem actionName="addAlbumAction"/>
+      <a:separator/>
+      <a:menuitem actionName="addArtistAlbumSongsAction"/>
+      <a:menuitem actionName="addAlbumSongsAction"/>
     </a:menu>
   </a:menubar>
 
@@ -119,10 +128,6 @@
   <w:frame titleres="main_title" menu="mainMenu">
     <f:icon resource="app_icon.png"/>
     <f:borderlayout canShrink="false"/>
-    <!-- A toolbar at the top of the window's content -->
-    <a:toolbar>
-      <f:borderconstr name="NORTH"/>
-    </a:toolbar>
 
     <!-- The main panel. -->
     <f:panel>
@@ -145,6 +150,15 @@
         <f:tab titleres="tab_artists">
           <f:panel>
             <f:borderlayout/>
+            <!-- The toolbar for the Artists tab. -->
+            <a:toolbar>
+              <f:borderconstr name="NORTH"/>
+              <a:toolbutton actionName="addMediumAction"/>
+              <a:toolbutton actionName="addArtistAction"/>
+              <a:toolbutton actionName="addArtistAlbumAction"/>
+              <a:separator/>
+              <a:toolbutton actionName="addArtistAlbumSongsAction"/>
+            </a:toolbar>
             <f:splitter orientation="horizontal" resizeWeight="0.25">
               <f:borderconstr name="CENTER"/>
               <f:tree name="treeArtists" model="artistsTreeModel" editable="false"
@@ -171,6 +185,14 @@
         <f:tab titleres="tab_albums">
           <f:panel>
             <f:borderlayout/>
+            <!-- The toolbar for the Albums tab. -->
+            <a:toolbar>
+              <f:borderconstr name="NORTH"/>
+              <a:toolbutton actionName="addMediumAction"/>
+              <a:toolbutton actionName="addAlbumAction"/>
+              <a:separator/>
+              <a:toolbutton actionName="addAlbumSongsAction"/>
+            </a:toolbar>
             <f:splitter orientation="horizontal" resizeWeight="0.25">
               <f:borderconstr name="CENTER"/>
               <f:table name="tableAlbums" model="albumsTableModel">
@@ -282,6 +304,8 @@
   <a:eventListener component="comboMedia" eventType="CHANGE" beanName="mediaSelectionChangeListener"/>
   <a:eventListener component="treeArtists" eventType="CHANGE" beanName="mediaSelectionChangeListener"/>
   <a:eventListener component="tableAlbums" eventType="CHANGE" beanName="mediaSelectionChangeListener"/>
+  <a:eventListener component="tableAlbumSongs" eventType="CHANGE" beanName="mediaSelectionChangeListener"/>
+  <a:eventListener component="tableArtistSongs" eventType="CHANGE" beanName="mediaSelectionChangeListener"/>
 
   <!-- Action tasks and commands -->
 
@@ -290,4 +314,55 @@
            beanClassName="net.sf.jguiraffe.gui.app.ApplicationShutdownActionTask">
   </di:bean>
 
+  <!-- Action tasks for adding songs to the playlist. -->
+  <di:bean name="addMediumTask" beanClassName="de.oliver_heger.linedj.apps.archive.browser.AppendMediumSongsTask">
+    <di:constructor>
+      <di:param refName="archiveService"/>
+      <di:param refName="LineDJ_ExecutionContext"/>
+      <di:param refName="LineDJ_MessageBus"/>
+      <di:param refName="comp:comboMedia"/>
+    </di:constructor>
+  </di:bean>
+
+  <di:bean name="addArtistTask" beanClassName="de.oliver_heger.linedj.apps.archive.browser.AppendArtistSongsTask">
+    <di:constructor>
+      <di:param refName="archiveService"/>
+      <di:param refName="LineDJ_ExecutionContext"/>
+      <di:param refName="LineDJ_MessageBus"/>
+      <di:param refName="comp:treeArtists"/>
+      <di:param refName="comp:comboMedia"/>
+    </di:constructor>
+  </di:bean>
+
+  <di:bean name="addAlbumTask" beanClassName="de.oliver_heger.linedj.apps.archive.browser.AppendTableSongsTask">
+    <di:constructor>
+      <di:param refName="LineDJ_MessageBus"/>
+      <di:param refName="comp:tableAlbumSongs"/>
+      <di:param value="false"/>
+    </di:constructor>
+  </di:bean>
+
+  <di:bean name="addAlbumSongsTask" beanClassName="de.oliver_heger.linedj.apps.archive.browser.AppendTableSongsTask">
+    <di:constructor>
+      <di:param refName="LineDJ_MessageBus"/>
+      <di:param refName="comp:tableAlbumSongs"/>
+      <di:param value="true"/>
+    </di:constructor>
+  </di:bean>
+
+  <di:bean name="addArtistAlbumTask" beanClassName="de.oliver_heger.linedj.apps.archive.browser.AppendTableSongsTask">
+    <di:constructor>
+      <di:param refName="LineDJ_MessageBus"/>
+      <di:param refName="comp:tableArtistSongs"/>
+      <di:param value="false"/>
+    </di:constructor>
+  </di:bean>
+
+  <di:bean name="addArtistAlbumSongsTask" beanClassName="de.oliver_heger.linedj.apps.archive.browser.AppendTableSongsTask">
+    <di:constructor>
+      <di:param refName="LineDJ_MessageBus"/>
+      <di:param refName="comp:tableArtistSongs"/>
+      <di:param value="true"/>
+    </di:constructor>
+  </di:bean>
 </j:jelly>
