@@ -87,3 +87,34 @@ class AppendArtistSongsTask(archiveService: ArchiveService,
         messageBus.publish(command)
       case Failure(exception) =>
         log.error("Failed to load songs for artist at '{}'.", artistUrl, exception)
+
+/**
+  * An action task implementation to publish a command on the message bus that
+  * adds all songs of the currently selected medium to the current playlist. The
+  * command determines the selected medium and requests all song IDs contained
+  * on this medium from the [[ArchiveService]] (since these songs have not been
+  * loaded to any UI control).
+  *
+  * @param archiveService   the archive service
+  * @param executionContext the execution context
+  * @param messageBus       the message bus
+  * @param mediumList       the handler for the list of media
+  */
+class AppendMediumSongsTask(archiveService: ArchiveService,
+                            executionContext: ExecutionContext,
+                            messageBus: MessageBus,
+                            mediumList: ListComponentHandler) extends Runnable, ArchiveModel.ArchiveJsonSupport:
+  private given ExecutionContext = executionContext
+
+  /** The logger. */
+  private val log = LogManager.getLogger(getClass)
+
+  override def run(): Unit =
+    val mediumID = mediumList.getData.asInstanceOf[Checksums.MediumChecksum]
+    val mediumUrl = s"/api/archive/media/${mediumID.checksum}/songids"
+    archiveService.queryData[ArchiveModel.ItemsResult[String]](mediumUrl) onComplete :
+      case Success(value) =>
+        val command = AudioPlayerCommands.AppendPlaylist(value.items)
+        messageBus.publish(command)
+      case Failure(exception) =>
+        log.error("Failed to load songs for medium at '{}'.", mediumUrl, exception)

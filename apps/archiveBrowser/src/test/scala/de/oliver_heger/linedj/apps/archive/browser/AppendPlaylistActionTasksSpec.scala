@@ -204,3 +204,41 @@ class AppendPlaylistActionTasksSpec extends AnyFlatSpec, Matchers, MockitoSugar:
 
     val expectedCommand = AudioPlayerCommands.AppendPlaylist(songs.map(_.metadata.checksum))
     bus.expectMessageType[AudioPlayerCommands] should be(expectedCommand)
+
+  "AppendMediumSongsTask" should "append all songs of the currently selected medium" in :
+    val songIDs = (1 to 12).map(i => s"medium-song-$i").toList
+    val songsResult = ArchiveModel.ItemsResult(songIDs)
+    val mediumUrl = s"/api/archive/media/${TestMediumID.checksum}/songids"
+    val archiveService = mock[ArchiveService]
+    doReturn(Future.successful(songsResult)).when(archiveService).queryData(argEq(mediumUrl))(using any())
+    val bus = new MessageBusTestImpl
+
+    val task = AppendMediumSongsTask(
+      archiveService,
+      ExecutionContext.global,
+      bus,
+      createMediumListHandler()
+    )
+    task.run()
+
+    val expectedCommand = AudioPlayerCommands.AppendPlaylist(songIDs)
+    bus.expectMessageType[AudioPlayerCommands] should be(expectedCommand)
+
+  it should "handle a failed request to the archive service" in :
+    val songsResult = ArchiveModel.ItemsResult(List("some-song-id"))
+    val archiveService = mock[ArchiveService]
+    doReturn(Future.failed(new IllegalStateException("Test exception")), Future.successful(songsResult))
+      .when(archiveService).queryData(any())(using any())
+    val bus = new MessageBusTestImpl
+
+    val task = AppendMediumSongsTask(
+      archiveService,
+      ExecutionContext.global,
+      bus,
+      createMediumListHandler()
+    )
+    task.run()
+
+    bus.expectNoMessage(100.millis)
+    task.run()
+    bus.expectMessageType[AudioPlayerCommands]
