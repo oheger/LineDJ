@@ -16,9 +16,16 @@
 
 package de.oliver_heger.linedj.apps.archive.browser
 
+import de.oliver_heger.linedj.archive.server.model.ArchiveModel
+import de.oliver_heger.linedj.platform.archiveclient.ArchiveService
 import de.oliver_heger.linedj.platform.audio2.AudioPlayerCommands
 import de.oliver_heger.linedj.platform.comm.MessageBus
-import net.sf.jguiraffe.gui.builder.components.model.TableHandler
+import de.oliver_heger.linedj.shared.archive.metadata.{Checksums, MediaMetadata}
+import net.sf.jguiraffe.gui.builder.components.model.{ListComponentHandler, TableHandler, TreeHandler}
+import org.apache.logging.log4j.LogManager
+
+import scala.concurrent.ExecutionContext
+import scala.util.{Failure, Success}
 
 /**
   * An action task implementation to publish a command on the message bus that
@@ -42,3 +49,41 @@ class AppendTableSongsTask(messageBus: MessageBus,
       data.asInstanceOf[SongData].metadata.checksum
     val command = AudioPlayerCommands.AppendPlaylist(songIDs.toList)
     messageBus.publish(command)
+
+/**
+  * An action task implementation to publish a command on the message bus that
+  * adds all songs of a specific artist to the current playlist. The command
+  * determines the selected medium and the selected artist. It then fetches the
+  * songs of this artist from the [[ArchiveService]] (since these songs have 
+  * not been loaded to any UI control).
+  *
+  * @param archiveService   the archive service
+  * @param executionContext the execution context
+  * @param messageBus       the message bus
+  * @param artistTree       the handler for the artists tree
+  * @param mediumList       the handler for the list of media
+  */
+class AppendArtistSongsTask(archiveService: ArchiveService,
+                            executionContext: ExecutionContext,
+                            messageBus: MessageBus,
+                            artistTree: TreeHandler,
+                            mediumList: ListComponentHandler) extends Runnable, ArchiveModel.ArchiveJsonSupport:
+  private given ExecutionContext = executionContext
+
+  /** The logger. */
+  private val log = LogManager.getLogger(getClass)
+
+  override def run(): Unit =
+    val mediumID = mediumList.getData.asInstanceOf[Checksums.MediumChecksum]
+    val selectedPath = artistTree.getSelectedPath
+    val artistPath = selectedPath.getTargetNode.getValue match
+      case _: Controller.AlbumID => selectedPath.parentPath()
+      case _ => selectedPath
+    val artistID = artistPath.getTargetNode.getValue.asInstanceOf[Controller.SongOwnerID]
+    val artistUrl = s"/api/archive/media/${mediumID.checksum}/artists/${artistID.id}/songs"
+    archiveService.queryData[ArchiveModel.ItemsResult[MediaMetadata]](artistUrl) onComplete :
+      case Success(value) =>
+        val command = AudioPlayerCommands.AppendPlaylist(value.items.map(_.checksum))
+        messageBus.publish(command)
+      case Failure(exception) =>
+        log.error("Failed to load songs for artist at '{}'.", artistUrl, exception)

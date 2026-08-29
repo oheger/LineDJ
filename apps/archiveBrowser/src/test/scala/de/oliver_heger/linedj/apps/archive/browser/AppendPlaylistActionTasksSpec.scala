@@ -16,18 +16,27 @@
 
 package de.oliver_heger.linedj.apps.archive.browser
 
+import de.oliver_heger.linedj.archive.server.model.ArchiveModel
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
+import de.oliver_heger.linedj.platform.archiveclient.ArchiveService
 import de.oliver_heger.linedj.platform.audio2.AudioPlayerCommands
-import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
-import net.sf.jguiraffe.gui.builder.components.model.TableHandler
+import de.oliver_heger.linedj.shared.archive.metadata.{Checksums, MediaMetadata}
+import net.sf.jguiraffe.gui.builder.components.model.{ListComponentHandler, TableHandler, TreeHandler, TreeNodePath}
+import org.apache.commons.configuration.tree.DefaultConfigurationNode
+import org.mockito.ArgumentMatchers.{any, eq as argEq}
 import org.mockito.Mockito.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import java.util
+import scala.concurrent.duration.DurationInt
+import scala.concurrent.{ExecutionContext, Future}
 
 object AppendPlaylistActionTasksSpec:
+  /** The ID of a test medium. */
+  private val TestMediumID = Checksums.MediumChecksum("test-medium-id")
+
   /**
     * Generates the ID of a test song based on a provided index.
     *
@@ -92,4 +101,106 @@ class AppendPlaylistActionTasksSpec extends AnyFlatSpec, Matchers, MockitoSugar:
     val expectedCommand = AudioPlayerCommands.AppendPlaylist(
       List(testSongID(1), testSongID(3), testSongID(4), testSongID(6), testSongID(8), testSongID(9), testSongID(15))
     )
+    bus.expectMessageType[AudioPlayerCommands] should be(expectedCommand)
+
+  /**
+    * Creates an initialized mock for a list handler that is prepared to return
+    * the test medium ID as selected element.
+    *
+    * @return the mock for the list handler
+    */
+  private def createMediumListHandler(): ListComponentHandler =
+    val handler = mock[ListComponentHandler]
+    doReturn(TestMediumID).when(handler).getData
+    handler
+
+  /**
+    * Creates an initialized mock for a tree handler that is prepared to return
+    * a specific selected path.
+    *
+    * @param selectedPath the selected path to return
+    * @return the mock for the tree handler
+    */
+  private def createTreeHandler(selectedPath: TreeNodePath): TreeHandler =
+    val handler = mock[TreeHandler]
+    doReturn(selectedPath).when(handler).getSelectedPath
+    handler
+
+  "AppendArtistSongsTask" should "append the songs of the currently selected artist" in :
+    val artistID = Controller.ArtistID("selected-artist")
+    val artistUrl = s"/api/archive/media/${TestMediumID.checksum}/artists/${artistID.id}/songs"
+    val songs = generateTestSongs(8)
+    val songsResult = ArchiveModel.ItemsResult(songs.map(_.metadata).toList)
+    val root = new DefaultConfigurationNode("root")
+    val node = new DefaultConfigurationNode("Some Artist", artistID)
+    node.setParentNode(root)
+    val path = new TreeNodePath(node)
+    val treeHandler = createTreeHandler(path)
+    val archiveService = mock[ArchiveService]
+    doReturn(Future.successful(songsResult)).when(archiveService).queryData(argEq(artistUrl))(using any())
+    val bus = new MessageBusTestImpl
+
+    val task = AppendArtistSongsTask(
+      archiveService,
+      ExecutionContext.global,
+      bus,
+      treeHandler,
+      createMediumListHandler()
+    )
+    task.run()
+
+    val expectedCommand = AudioPlayerCommands.AppendPlaylist(songs.map(_.metadata.checksum))
+    bus.expectMessageType[AudioPlayerCommands] should be(expectedCommand)
+
+  it should "handle a failed request to the archive service" in :
+    val artistID = Controller.ArtistWithoutAlbumsID("selected-artist")
+    val songs = generateTestSongs(4)
+    val songsResult = ArchiveModel.ItemsResult(songs.map(_.metadata).toList)
+    val node = new DefaultConfigurationNode("Some Artist", artistID)
+    val path = new TreeNodePath(node)
+    val treeHandler = createTreeHandler(path)
+    val archiveService = mock[ArchiveService]
+    doReturn(Future.failed(new IllegalStateException("Test exception")), Future.successful(songsResult))
+      .when(archiveService).queryData(any())(using any())
+    val bus = new MessageBusTestImpl
+
+    val task = AppendArtistSongsTask(
+      archiveService,
+      ExecutionContext.global,
+      bus,
+      treeHandler,
+      createMediumListHandler()
+    )
+    task.run()
+
+    bus.expectNoMessage(100.millis)
+    task.run()
+    bus.expectMessageType[AudioPlayerCommands]
+
+  it should "append the songs of the artist who owns the currently selected album" in :
+    val artistID = Controller.ArtistID("selected-artist")
+    val artistUrl = s"/api/archive/media/${TestMediumID.checksum}/artists/${artistID.id}/songs"
+    val songs = generateTestSongs(10)
+    val songsResult = ArchiveModel.ItemsResult(songs.map(_.metadata).toList)
+    val rootNode = new DefaultConfigurationNode("root")
+    val artistNode = new DefaultConfigurationNode("Dire Straits", artistID)
+    artistNode.setParentNode(rootNode)
+    val albumNode = new DefaultConfigurationNode("Brothers in Arms", Controller.AlbumID("sel-album"))
+    albumNode.setParentNode(artistNode)
+    val path = new TreeNodePath(albumNode)
+    val treeHandler = createTreeHandler(path)
+    val archiveService = mock[ArchiveService]
+    doReturn(Future.successful(songsResult)).when(archiveService).queryData(argEq(artistUrl))(using any())
+    val bus = new MessageBusTestImpl
+
+    val task = AppendArtistSongsTask(
+      archiveService,
+      ExecutionContext.global,
+      bus,
+      treeHandler,
+      createMediumListHandler()
+    )
+    task.run()
+
+    val expectedCommand = AudioPlayerCommands.AppendPlaylist(songs.map(_.metadata.checksum))
     bus.expectMessageType[AudioPlayerCommands] should be(expectedCommand)
