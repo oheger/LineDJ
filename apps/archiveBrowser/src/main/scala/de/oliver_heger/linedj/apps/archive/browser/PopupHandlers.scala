@@ -37,3 +37,20 @@ class ArtistPopupHandler extends PopupMenuHandler:
       builder.addAction(actionStore.getAction(SelectionChangeHandler.AddArtistAlbumSongsAction))
 
     builder.create()
+
+/**
+  * A [[PopupMenuHandler]] implementation for the albums view. This handler
+  * constructs a popup menu for the actions related to albums and their songs.
+  */
+class AlbumPopupHandler extends PopupMenuHandler:
+  override def constructPopup(builder: PopupMenuBuilder, compData: ComponentBuilderData): Unit =
+    val actionStore = compData.getBeanContext.getBean(ActionBuilder.KEY_ACTION_STORE).asInstanceOf[ActionStore]
+    builder.addAction(actionStore.getAction(SelectionChangeHandler.AddMediumAction))
+    builder.addAction(actionStore.getAction(SelectionChangeHandler.AddAlbumAction))
+
+    val addSongsAction = actionStore.getAction(SelectionChangeHandler.AddAlbumSongsAction)
+    if addSongsAction.isEnabled then
+      builder.addSeparator()
+      builder.addAction(actionStore.getAction(SelectionChangeHandler.AddAlbumSongsAction))
+
+    builder.create()

@@ -54,6 +54,28 @@ class PopupHandlersSpec extends AnyFlatSpec, Matchers:
         SelectionChangeHandler.AddArtistAlbumAction
       )
 
+  "An AlbumPopupHandler" should "add all album-related actions" in :
+    val helper = new PopupHandlerTestHelper
+
+    helper.invokeHandler(new AlbumPopupHandler)
+      .verifyActionsAdded(
+        expectSeparator = true,
+        SelectionChangeHandler.AddMediumAction,
+        SelectionChangeHandler.AddAlbumAction,
+        SelectionChangeHandler.AddAlbumSongsAction
+      )
+
+  it should "only add the add songs action if it is enabled" in :
+    val helper = new PopupHandlerTestHelper
+
+    helper.disableAction(SelectionChangeHandler.AddAlbumSongsAction)
+      .invokeHandler(new AlbumPopupHandler)
+      .verifyActionsAdded(
+        expectSeparator = false,
+        SelectionChangeHandler.AddMediumAction,
+        SelectionChangeHandler.AddAlbumAction
+      )
+
   /**
     * A test helper class managing the actions and an action store and the
     * required objects to invoke a popup handler.

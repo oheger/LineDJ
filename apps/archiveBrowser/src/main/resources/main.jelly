@@ -128,6 +128,9 @@
   <di:bean name="artistPopupHandler"
            beanClassName="de.oliver_heger.linedj.apps.archive.browser.ArtistPopupHandler"/>
 
+  <di:bean name="albumPopupHandler"
+           beanClassName="de.oliver_heger.linedj.apps.archive.browser.AlbumPopupHandler"/>
+
   <!-- The main window -->
   <w:frame titleres="main_title" menu="mainMenu">
     <f:icon resource="app_icon.png"/>
@@ -207,6 +210,7 @@
                           columnClass="String"/>
                 <f:column name="artist" percentWidth="35"
                           headerres="tcol_song_artist"/>
+                <a:popup beanName="albumPopupHandler"/>
               </f:table>
 
               <f:table name="tableAlbumSongs" model="albumSongsTableModel" multiSelection="true">
@@ -220,6 +224,7 @@
                 <f:column name="duration" percentWidth="15" headerres="tcol_song_duration">
                   <f:transformer type="write" beanName="durationTransformer"/>
                 </f:column>
+                <a:popup beanName="albumPopupHandler"/>
               </f:table>
             </f:splitter>
           </f:panel>
