@@ -182,7 +182,7 @@ class SelectionChangeHandlerSpec extends AnyFlatSpec, Matchers, MockitoSugar, Ac
     tableModel.add(AlbumData(ArchiveModel.AlbumInfo("alb2", "Album2", "art2"), "Artist2"))
     tableModel.add(AlbumData(ArchiveModel.AlbumInfo("alb3", "Album3", "art3"), "Artist3"))
     doReturn(tableModel).when(tabHandler).getModel
-    doReturn(1).when(tabHandler).getSelectedIndex
+    doReturn(Array(1)).when(tabHandler).getSelectedIndices
     val event = new FormChangeEvent("someSource", tabHandler, "tableAlbums")
 
     val handler = createHandler(controller)
@@ -193,7 +193,7 @@ class SelectionChangeHandlerSpec extends AnyFlatSpec, Matchers, MockitoSugar, Ac
   it should "notify the controller when the selection in the albums table is reset" in :
     val controller = mock[Controller]
     val tabHandler = mock[TableHandler]
-    doReturn(-1).when(tabHandler).getSelectedIndex
+    doReturn(Array.empty[Int]).when(tabHandler).getSelectedIndices
     val event = new FormChangeEvent("someSource", tabHandler, "tableAlbums")
 
     val handler = createHandler(controller)
@@ -206,7 +206,7 @@ class SelectionChangeHandlerSpec extends AnyFlatSpec, Matchers, MockitoSugar, Ac
     val tableModel = new util.ArrayList[AnyRef]
     tableModel.add(AlbumData(ArchiveModel.AlbumInfo("alb1", "Album1", "art1"), "Artist1"))
     doReturn(tableModel).when(tabHandler).getModel
-    doReturn(0).when(tabHandler).getSelectedIndex
+    doReturn(Array(0)).when(tabHandler).getSelectedIndices
     val event = new FormChangeEvent("someSource", tabHandler, "tableAlbums")
 
     val handler = createHandler(mock)
@@ -217,7 +217,7 @@ class SelectionChangeHandlerSpec extends AnyFlatSpec, Matchers, MockitoSugar, Ac
 
   it should "disable the add album action when the selection in the albums table is reset" in :
     val tabHandler = mock[TableHandler]
-    doReturn(-1).when(tabHandler).getSelectedIndex
+    doReturn(Array(1, 2)).when(tabHandler).getSelectedIndices
     val event = new FormChangeEvent("someSource", tabHandler, "tableAlbums")
 
     val handler = createHandler(mock)

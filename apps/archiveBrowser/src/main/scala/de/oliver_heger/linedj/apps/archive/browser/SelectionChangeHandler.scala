@@ -117,9 +117,9 @@ class SelectionChangeHandler(controller: Controller, actionStore: ActionStore) e
       case table: TableHandler =>
         e.getName match
           case TableAlbums =>
-            val selectedIndex = table.getSelectedIndex
-            val optAlbumID = if selectedIndex >= 0 then
-              val albumData = table.getModel.get(selectedIndex).asInstanceOf[AlbumData]
+            val selection = table.getSelectedIndices
+            val optAlbumID = if selection.length == 1 then
+              val albumData = table.getModel.get(selection.head).asInstanceOf[AlbumData]
               enableAction(AddAlbumAction, enabled = true)
               Some(Controller.AlbumID(albumData.albumInfo.id))
             else
