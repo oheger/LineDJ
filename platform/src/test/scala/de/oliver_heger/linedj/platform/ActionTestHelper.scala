@@ -24,11 +24,11 @@ import org.mockito.stubbing.Answer
 import org.scalatestplus.mockito.MockitoSugar
 
 /**
-  * A test helper trait that simplifies usage of of ''FormAction'' objects.
+  * A test helper trait that simplifies usage of [[FormAction]] objects.
   *
   * Using this trait makes it easy to create mock actions that are able to
   * record their enabled state. It is also possible to create a mock
-  * ''ActionStore'' that allows access to all mock actions.
+  * [[ActionStore]] that allows access to all mock actions.
   */
 trait ActionTestHelper:
   this: MockitoSugar =>
@@ -43,17 +43,21 @@ trait ActionTestHelper:
     * Creates a mock action that is able to record its enabled state. The
     * action is stored in the map managed by this trait.
     *
-    * @param name the name of the action
+    * @param name    the name of the action
+    * @param enabled the initial enabled state of this action
     * @return the mock action
     */
-  def createAction(name: String): FormAction =
+  def createAction(name: String, enabled: Boolean = true): FormAction =
     val action = mock[FormAction]
-    doAnswer((invocation: InvocationOnMock) => {
+    doAnswer((invocation: InvocationOnMock) =>
       val enabled = invocation.getArguments.head.asInstanceOf[Boolean]
       actionStates += (name -> enabled)
       null
-    }).when(action).setEnabled(anyBoolean())
-    actionStates += (name -> true)
+    ).when(action).setEnabled(anyBoolean())
+    doAnswer((invocation: InvocationOnMock) =>
+      actionStates(name)
+    ).when(action).isEnabled
+    actionStates += (name -> enabled)
     actions += (name -> action)
     action
 
@@ -73,7 +77,7 @@ trait ActionTestHelper:
     * @param names the names of the actions to be created
     */
   def createActions(names: String*): Unit =
-    names foreach createAction
+    names.foreach(n => createAction(n))
 
   /**
     * Resets the enabled states of all managed action mocks to the specified
@@ -92,6 +96,6 @@ trait ActionTestHelper:
     */
   def createActionStore(): ActionStore =
     val store = mock[ActionStore]
-    when(store.getAction(anyString())).thenAnswer((invocation: InvocationOnMock) => 
+    when(store.getAction(anyString())).thenAnswer((invocation: InvocationOnMock) =>
       actions(invocation.getArguments.head.asInstanceOf[String]))
     store
