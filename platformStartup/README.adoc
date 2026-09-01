@@ -7,7 +7,7 @@ Many modules of the LineDJ platform make use of an _actor system_ to implement t
 
 The _Platform startup_ module creates the actor system and registers it as a service in the OSGi registry. This is a precondition for the platform to start up successfully.
 
-In addition, the module can load a central configuration file with settings for the platform as a whole (in contrast to the application-specific configuration files). It makes the configuration available as a service of type xref:src/main/scala/de/oliver_heger/linedj/platform/startup/ConfigService.scala[ConfigService]; interested modules can declare a dependency on this service.
+In addition, the module can load a central configuration file with settings for the platform as a whole (in contrast to the application-specific configuration files). It makes the configuration available as a service of type xref:src/main/scala/de/oliver_heger/linedj/platform/startup/ConfigService.scala[ConfigService]; interested modules can declare a dependency on this service. Note that this service is always present. If there is no platform configuration file or the file cannot be parsed, the service is still registered with an empty configuration.
 
 == Configuration
 A couple of configuration options are supported to customize the actor system and the platform. Some of these options have to be set as system properties. They override default settings from the Apache Pekko reference configuration or define the configuration file to be loaded.

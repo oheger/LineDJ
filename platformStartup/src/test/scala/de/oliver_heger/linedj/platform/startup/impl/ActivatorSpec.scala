@@ -76,14 +76,14 @@ class ActivatorSpec extends AnyFlatSpec with Matchers with MockitoSugar:
 
     verify(helper.bundleContext, never()).addBundleListener(any())
 
-  it should "not register a config service if no config file is specified" in :
+  it should "register a config service with an empty configuration if no config file is specified" in :
     val spiFlyBundle = createBundle("org.apache.aries.spifly.dynamic.bundle")
     val helper = new ActivatorTestHelper
 
     helper.initExistingBundles(Array(spiFlyBundle))
       .start()
-      .stop()
-      .verifyNoConfigServiceRegistration()
+
+    helper.registeredConfigService.config.isEmpty should be(true)
 
   it should "register a config service if a config file is specified" in :
     val spiFlyBundle = createBundle("org.apache.aries.spifly.dynamic.bundle")
@@ -96,14 +96,15 @@ class ActivatorSpec extends AnyFlatSpec with Matchers with MockitoSugar:
     val configService = helper.registeredConfigService
     configService.config.getString("platform.actorSystemName") should be("testActorSystem")
 
-  it should "not register a config service if the config file cannot be loaded" in :
+  it should "register a config service with an empty configuration if the config file cannot be loaded" in :
     val spiFlyBundle = createBundle("org.apache.aries.spifly.dynamic.bundle")
     val helper = new ActivatorTestHelper
 
     helper.initExistingBundles(Array(spiFlyBundle))
       .setSystemProperty(Activator.PropConfigFile, "non-existing-config.xml")
       .start()
-      .verifyNoConfigServiceRegistration()
+
+    helper.registeredConfigService.config.isEmpty should be(true)
 
   it should "obtain properties from the configuration" in :
     val spiFlyBundle = createBundle("org.apache.aries.spifly.dynamic.bundle")
@@ -288,15 +289,6 @@ class ActivatorSpec extends AnyFlatSpec with Matchers with MockitoSugar:
       val captService = ArgumentCaptor.forClass(classOf[ConfigService])
       verify(bundleContext).registerService(argEq(classOf[ConfigService]), captService.capture(), argEq(null))
       captService.getValue
-
-    /**
-      * Verifies that no registration for a config service was done.
-      *
-      * @return this test helper
-      */
-    def verifyNoConfigServiceRegistration(): ActivatorTestHelper =
-      verify(bundleContext, never()).registerService(argEq(classOf[ConfigService]), any[ConfigService](), argEq(null))
-      this
 
     /**
       * Expects that a task was scheduled on the executor service with the

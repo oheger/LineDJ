@@ -149,12 +149,10 @@ end ClientManagementApplication
   * service is registered when the actors implementing the media facade
   * interface have been retrieved.
   *
-  * This application declares an optional dependency to the [[ConfigService]]
-  * which manages the platform configuration. It then exposes the platform
-  * configuration via the [[ClientApplicationContext]] interface. If the
-  * service is not available, an empty platform configuration is returned.
-  */
-class ClientManagementApplication extends Application with ClientApplicationContext with ApplicationSyncStartup:
+  * This application declares a dependency to the [[ConfigService]] which
+  * manages the platform configuration. It then exposes the platform
+  * configuration via the [[ClientApplicationContext]] interface.
+  */class ClientManagementApplication extends Application with ClientApplicationContext with ApplicationSyncStartup:
 
   import ClientManagementApplication._
 

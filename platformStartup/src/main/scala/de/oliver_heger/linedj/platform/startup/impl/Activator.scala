@@ -113,8 +113,17 @@ object Activator:
     finally
       Thread.currentThread().setContextClassLoader(ccl)
 
+    createConfigService(platformConfig)
+
+  /**
+    * Creates a [[ConfigService]] that exposes the given configuration.
+    *
+    * @param configuration the configuration to expose
+    * @return the service
+    */
+  private def createConfigService(configuration: ImmutableHierarchicalConfiguration): ConfigService =
     new ConfigService:
-      override val config: ImmutableHierarchicalConfiguration = platformConfig
+      override val config: ImmutableHierarchicalConfiguration = configuration
 end Activator
 
 /**
@@ -140,11 +149,12 @@ end Activator
   * have a dependency on this actor system. They can start automatically as
   * soon as this object becomes available.
   *
-  * In addition, this class checks for the presence of a system property that
-  * defines the name or path to a platform configuration file. If this
-  * property is defined and the configuration file can be loaded, it is exposed
-  * as a [[ConfigService]] registration.
-  */
+* In addition, this class registers a [[ConfigService]] that exposes the
+   * platform configuration. If a system property defines the name or path of
+   * a platform configuration file and this file can be loaded, the resulting
+   * configuration is exposed. Otherwise, an empty configuration is exposed, so
+   * that clients always find a config service and can use default settings.
+   */
 class Activator extends BundleActivator with SystemPropertyAccess:
 
   import Activator.*
@@ -162,20 +172,17 @@ class Activator extends BundleActivator with SystemPropertyAccess:
   private val actorSystemRegistration = new AtomicReference[ServiceRegistration[ActorSystem]]
 
   /**
-    * Stores the optional registration for the config service which is
-    * initialized if a configuration file is specified. Note that this field is
-    * accessed only in the OSGi thread; therefore, no special synchronization
-    * is needed.
+    * Stores the registration for the config service. The service is always
+    * registered when the activator is started.
     */
-  private var configRegistration: Option[ServiceRegistration[ConfigService]] = None
+  private val configRegistration = new AtomicReference[ServiceRegistration[ConfigService]]
 
   override def start(context: BundleContext): Unit =
     println("Starting LineDJ ActorSystem activator.")
 
-    val optConfigService = fetchConfigService
-    configRegistration = optConfigService.map: service =>
-      context.registerService(classOf[ConfigService], service, null)
-    val platformConfig = fetchPlatformConfig(optConfigService)
+    val configService = fetchConfigService
+    configRegistration.set(context.registerService(classOf[ConfigService], configService, null))
+    val platformConfig = fetchPlatformConfig(configService)
 
     executorService.set(createExecutor())
     if isSpiFlyBundleActive(context) then
@@ -191,7 +198,7 @@ class Activator extends BundleActivator with SystemPropertyAccess:
     shutdownExecutorService()
     removeBundleListener(context)
     safeCleanup(actorSystemRegistration)(_.unregister())
-    configRegistration.foreach(_.unregister())
+    safeCleanup(configRegistration)(_.unregister())
 
   /**
     * Returns the [[OsgiActorSystemFactory]] to create the actor system.
@@ -270,32 +277,38 @@ class Activator extends BundleActivator with SystemPropertyAccess:
     safeCleanup(bundleListener)(context.removeBundleListener)
 
   /**
-    * Creates the [[ConfigService]] if a configuration file is defined in the
-    * system properties and the file can be loaded.
+    * Creates the [[ConfigService]] to be registered by this activator. If a
+    * configuration file is defined in the system properties and can be loaded,
+    * a service exposing the resulting configuration is created. Otherwise, a
+    * service with an empty configuration is created, so that it is always
+    * available.
     *
-    * @return an [[Option]] with the [[ConfigService]]
+    * @return the [[ConfigService]]
     */
-  private def fetchConfigService: Option[ConfigService] =
-    getSystemProperty(PropConfigFile) flatMap : name =>
-      loadPlatformConfigFile(name) match
-        case Failure(exception) =>
-          println(s"Failed to load platform configuration file '$name'.")
-          exception.printStackTrace()
-          None
-        case Success(value) =>
-          Some(value)
+  private def fetchConfigService: ConfigService =
+    getSystemProperty(PropConfigFile) match
+      case Some(name) =>
+        loadPlatformConfigFile(name) match
+          case Failure(exception) =>
+            println(s"Failed to load platform configuration file '$name'.")
+            exception.printStackTrace()
+            createConfigService(new BaseHierarchicalConfiguration)
+          case Success(value) =>
+            value
+      case None =>
+        createConfigService(new BaseHierarchicalConfiguration)
 
   /**
     * Obtains the section with the platform configuration from the given
-    * optional config service. If the service is undefined or the configuration
-    * does not have a platform section, and empty configuration is returned, so
-    * that default values for all properties are used.
+    * config service. If the configuration does not have a platform section,
+    * an empty configuration is returned, so that default values for all
+    * properties are used.
     *
-    * @param optConfigService an [[Option]] with the [[ConfigService]]
+    * @param configService the [[ConfigService]]
     * @return the platform configuration
     */
-  private def fetchPlatformConfig(optConfigService: Option[ConfigService]): ImmutableHierarchicalConfiguration =
-    optConfigService.flatMap(svc => Try(svc.config.immutableConfigurationAt(PlatformSection)).toOption)
+  private def fetchPlatformConfig(configService: ConfigService): ImmutableHierarchicalConfiguration =
+    Try(configService.config.immutableConfigurationAt(PlatformSection)).toOption
       .getOrElse(new BaseHierarchicalConfiguration)
 
   /**

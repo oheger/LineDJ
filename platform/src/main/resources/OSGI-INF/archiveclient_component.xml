@@ -27,7 +27,6 @@
 
   <reference interface="de.oliver_heger.linedj.platform.startup.ConfigService"
              name="configService"
-             policy="dynamic"
              bind="initConfigService"
   />
 </component>
