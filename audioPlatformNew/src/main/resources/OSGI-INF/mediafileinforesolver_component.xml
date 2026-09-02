@@ -32,4 +32,7 @@
              name="clientContext" bind="initClientContext"/>
   <reference interface="de.oliver_heger.linedj.platform.archiveclient.ArchiveService"
              name="archiveService" bind="initArchiveService"/>
+  <reference interface="de.oliver_heger.linedj.platform.startup.ConfigService"
+             name="configService"
+             bind="initConfigService"/>
 </component>

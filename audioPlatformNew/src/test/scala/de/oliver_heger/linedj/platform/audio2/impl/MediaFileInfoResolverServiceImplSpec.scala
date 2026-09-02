@@ -19,11 +19,14 @@ import de.oliver_heger.linedj.archive.server.model.ArchiveModel
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.app.ClientApplicationContext
 import de.oliver_heger.linedj.platform.archiveclient.ArchiveService
-import de.oliver_heger.linedj.shared.actors.{ActorFactory, TrackingActorFactory}
+import de.oliver_heger.linedj.platform.startup.ConfigService
+import de.oliver_heger.linedj.shared.actors.{ActorFactory, CachingActor, TrackingActorFactory}
 import de.oliver_heger.linedj.shared.archive.media.MediaFileUri
 import de.oliver_heger.linedj.shared.archive.metadata.{Checksums, MediaMetadata}
+import org.apache.commons.configuration2.BaseHierarchicalConfiguration
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
+import org.apache.pekko.actor.typed.Behavior
 import org.apache.pekko.testkit.TestKit
 import org.mockito.ArgumentMatchers.{any, eq as argEq}
 import org.mockito.Mockito.*
@@ -34,7 +37,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import java.util.concurrent.atomic.AtomicReference
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Success, Try}
 
 /**
@@ -116,7 +119,8 @@ class MediaFileInfoResolverServiceImplSpec(testSystem: ActorSystem) extends Test
     val fileInfo = createFileInfos(8)
     val helper = new ResolverServiceTestHelper
 
-    helper.expectFileInfoRequest(fileInfo)
+    helper.activate()
+      .expectFileInfoRequests(fileInfo)
       .resolveFileIDs(fileInfo.keySet)
       .expectFutureMessage()
       .resolvedResult should be(Success(fileInfo))
@@ -127,7 +131,8 @@ class MediaFileInfoResolverServiceImplSpec(testSystem: ActorSystem) extends Test
     val fileInfo = createFileInfos(8)
     val helper = new ResolverServiceTestHelper
 
-    helper.expectFileInfoRequest(fileInfo)
+    helper.activate()
+      .expectFileInfoRequests(fileInfo)
       .resolveFileIDs(fileInfo.keySet)
       .expectFutureMessage()
       .resolveFileIDs(fileInfo.keySet)
@@ -137,12 +142,55 @@ class MediaFileInfoResolverServiceImplSpec(testSystem: ActorSystem) extends Test
     helper.verifyIDsRequested(fileInfo.keySet)
       .deactivate()
 
+  it should "limit the size of the cache if configured" in :
+    val fileInfo = createFileInfos(4)
+    val helper = new ResolverServiceTestHelper
+
+    helper.initConfigService(Map(MediaFileInfoResolverServiceImpl.PropertyCacheSize -> Integer.valueOf(2)))
+      .activate()
+      .expectFileInfoRequests(fileInfo)
+      .resolveFileIDs(List(createFileID(0), createFileID(1)))
+      .expectFutureMessage()
+      .resolveFileIDs(fileInfo.keySet)
+      .expectFutureMessage()
+      .resolveFileIDs(List(createFileID(0), createFileID(1)))
+      .expectFutureMessage()
+      .resolvedResult should be(Success(Map(
+      createFileID(0) -> fileInfo(createFileID(0)),
+      createFileID(1) -> fileInfo(createFileID(1))
+    )))
+
+    // With a cache size of 2, adding the IDs 2 and 3 evicts the initially
+    // fetched IDs 0 and 1; thus, they have to be queried again.
+    helper.verifyIDsRequested(List(createFileID(0), createFileID(1)), occurrence = 2)
+      .verifyIDsRequested(List(createFileID(2), createFileID(3)))
+      .deactivate()
+
+  it should "evaluate the parallelism property from the configuration" in :
+    val helper = new ResolverServiceTestHelper
+
+    helper.initConfigService(Map(MediaFileInfoResolverServiceImpl.PropertyQueryParallelism -> Integer.valueOf(3)))
+      .activate()
+
+    helper.parallelLimit should be(Some(3))
+    helper.deactivate()
+
+  it should "not impose a parallelism limit if not configured" in :
+    val helper = new ResolverServiceTestHelper
+
+    helper.activate()
+
+    helper.parallelLimit should be(None)
+    helper.deactivate()
+
   it should "handle a failure to resolve a file ID" in :
     val helper = new ResolverServiceTestHelper
 
-    helper.expectFileInfoRequest(createFileInfos(4))
+    helper.activate()
+      .expectFileInfoRequests(createFileInfos(4))
       .resolveFileIDs(List(createFileID(1), createFileID(2), "some-other-ID", createFileID(3)))
       .expectFutureMessage()
+      .deactivate()
       .resolvedResult.isFailure shouldBe true
 
   it should "handle a deactivate call if no caching actor is available" in :
@@ -150,6 +198,23 @@ class MediaFileInfoResolverServiceImplSpec(testSystem: ActorSystem) extends Test
 
     // Can only test that no exception is thrown.
     resolver.deactivate(mock)
+
+  it should "evaluate the timeout property from the configuration" in :
+
+    given ExecutionContext = system.dispatcher
+
+    val fileID = createFileID(42)
+    val futInfo = Future:
+      Thread.sleep(1000)
+      createFileInfo(42)
+    val helper = new ResolverServiceTestHelper
+
+    helper.initConfigService(Map(MediaFileInfoResolverServiceImpl.PropertyCacheQueryTimeout -> "100ms"))
+      .activate()
+      .expectFileInfoRequest(fileID, futInfo)
+      .resolveFileIDs(List(fileID))
+      .expectFutureMessage()
+      .resolvedResult.isFailure shouldBe true
 
   /**
     * A test helper class that manages a service to be tested and its
@@ -164,6 +229,23 @@ class MediaFileInfoResolverServiceImplSpec(testSystem: ActorSystem) extends Test
 
     /** The actor factory used by this test class. */
     private val actorFactory = new TrackingActorFactory(implicitly)
+
+    /**
+      * Stores the parallelism limit that was passed to the caching actor
+      * factory during activation.
+      */
+    private val refParallelism = new AtomicReference[Option[Int]]
+
+    /**
+      * A stub for the caching actor factory that delegates to the default
+      * factory, but records the parallelism limit of the last invocation.
+      */
+    private val cachingActorFactory = new CachingActor.Factory:
+      override def apply[K, V](resolver: CachingActor.KeyResolverFunc[K, V],
+                               store: CachingActor.Store[K, V] = CachingActor.mapStore[K, V],
+                               parallelLimit: Option[Int] = None): Behavior[CachingActor.CacheCommand[K, V]] =
+        refParallelism.set(parallelLimit)
+        CachingActor.newInstance(resolver, store, parallelLimit)
 
     /** The service to be tested. */
     private val resolver = createResolver()
@@ -192,6 +274,40 @@ class MediaFileInfoResolverServiceImplSpec(testSystem: ActorSystem) extends Test
       refResult.get().getOrElse(fail("No resolver result available."))
 
     /**
+      * Activates the service under test. This is done explicitly by the test
+      * cases so that they have the chance to configure dependencies before the
+      * actual activation.
+      *
+      * @return this test helper
+      */
+    def activate(): ResolverServiceTestHelper =
+      resolver.activate(mock)
+      this
+
+    /**
+      * Initializes the configuration service of the service under test with a
+      * configuration that is created from the given properties. The
+      * configuration is exposed by a mock [[ConfigService]] which is passed to
+      * the resolver. This method must be called before [[activate]] to take
+      * effect.
+      *
+      * @param properties a map with configuration properties
+      * @return this test helper
+      */
+    def initConfigService(properties: Map[String, AnyRef]): ResolverServiceTestHelper =
+      val configService = createConfigService(properties)
+      resolver.initConfigService(configService)
+      this
+
+    /**
+      * Records the parallelism limit passed to the caching actor factory by
+      * the last activation.
+      *
+      * @return an [[Option]] with the last parallelism limit
+      */
+    def parallelLimit: Option[Int] = refParallelism.get()
+
+    /**
       * Prepares the mock for the archive service to answer requests for the
       * given file IDs with the corresponding _MediaFileInfo_ objects. For
       * each entry in the map a request against the archive server REST API
@@ -200,27 +316,39 @@ class MediaFileInfoResolverServiceImplSpec(testSystem: ActorSystem) extends Test
       * @param fileInfo a map with file IDs and the info objects to return
       * @return this test helper
       */
-    def expectFileInfoRequest(fileInfo: Map[String, ArchiveModel.MediaFileInfo]): ResolverServiceTestHelper =
+    def expectFileInfoRequests(fileInfo: Map[String, ArchiveModel.MediaFileInfo]): ResolverServiceTestHelper =
       doReturn(Future.failed(new IllegalArgumentException("Test exception: Cannot resolve ID.")))
         .when(archiveService).queryData[ArchiveModel.MediaFileInfo](any())(using any())
 
       fileInfo.foreach:
         case (fileId, info) =>
-          doReturn(Future.successful(info))
-            .when(archiveService)
-            .queryData[ArchiveModel.MediaFileInfo](argEq(s"/api/archive/files/$fileId/info"))(using any())
+          expectFileInfoRequest(fileId, Future.successful(info))
       this
 
     /**
-      * Verifies that the archive service has been invoked exactly once for each
-      * of the given file IDs.
+      * Prepares the mock for the archive service to answer a single request
+      * for a file ID with a specific result.
       *
-      * @param ids the IDs to check
+      * @param id      the file ID in question
+      * @param futInfo the [[Future]] with the query result
       * @return this test helper
       */
-    def verifyIDsRequested(ids: Iterable[String]): ResolverServiceTestHelper =
+    def expectFileInfoRequest(id: String, futInfo: Future[ArchiveModel.MediaFileInfo]): ResolverServiceTestHelper =
+      doReturn(futInfo).when(archiveService)
+        .queryData[ArchiveModel.MediaFileInfo](argEq(s"/api/archive/files/$id/info"))(using any())
+      this
+
+    /**
+      * Verifies that the archive service has been invoked exactly the
+      * specified number of times for each of the given file IDs.
+      *
+      * @param ids        the IDs to check
+      * @param occurrence the number of invocations to expect for each ID
+      * @return this test helper
+      */
+    def verifyIDsRequested(ids: Iterable[String], occurrence: Int = 1): ResolverServiceTestHelper =
       ids.foreach: id =>
-        verify(archiveService, times(1))
+        verify(archiveService, times(occurrence))
           .queryData[ArchiveModel.MediaFileInfo](argEq(s"/api/archive/files/$id/info"))(using any())
       this
 
@@ -261,13 +389,30 @@ class MediaFileInfoResolverServiceImplSpec(testSystem: ActorSystem) extends Test
       clientContext
 
     /**
-      * Creates the resolver service to be tested.
+      * Creates a [[ConfigService]] mock that returns a configuration populated
+      * from the properties in the specified map.
+      *
+      * @param properties the map with configuration properties
+      * @return the [[ConfigService]] mock returning this configuration
+      */
+    private def createConfigService(properties: Map[String, AnyRef]): ConfigService =
+      val config = new BaseHierarchicalConfiguration
+      properties.foreach:
+        case (key, value) => config.addProperty(key, value)
+      val configService = mock[ConfigService]
+      when(configService.config).thenReturn(config)
+      configService
+
+    /**
+      * Creates the resolver service to be tested. Note that the service is
+      * not activated; activation must be triggered by the test cases relying
+      * on [[activate]].
       *
       * @return the test service instance
       */
     private def createResolver(): MediaFileInfoResolverServiceImpl =
-      val resolver = new MediaFileInfoResolverServiceImpl
+      val resolver = new MediaFileInfoResolverServiceImpl(cachingActorFactory)
       resolver.initClientContext(createClientContext())
       resolver.initArchiveService(archiveService)
-      resolver.activate(mock)
+      resolver.initConfigService(createConfigService(Map.empty))
       resolver
