@@ -21,7 +21,7 @@ import de.oliver_heger.linedj.player.engine.AudioStreamFactory.AudioStreamPlayba
 import java.io.InputStream
 import javax.sound.sampled.{AudioFormat, AudioInputStream, AudioSystem}
 import scala.annotation.tailrec
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
 object AudioStreamFactory:
@@ -208,3 +208,45 @@ trait AsyncAudioStreamFactory:
     */
   def playbackDataForAsync(uri: String): Future[AudioStreamPlaybackData]
 end AsyncAudioStreamFactory
+
+/**
+  * An implementation of [[AsyncAudioStreamFactory]] that wraps a number of
+  * other [[AsyncAudioStreamFactory]] objects. When asked for an
+  * [[AudioStreamPlaybackData]], this implementation queries its child
+  * factories in the given order and returns the first [[Future]] result that
+  * is not a failed result with an
+  * [[AsyncAudioStreamFactory.UnsupportedUriException]]. Only if none of the
+  * child factories can handle the URL, a failed [[Future]] with this specific
+  * exception type is returned.
+  *
+  * @param factories a list with the child factories
+  * @param ec        the execution context
+  */
+class CompositeAsyncAudioStreamFactory(val factories: Iterable[AsyncAudioStreamFactory])
+                                      (using ec: ExecutionContext) extends AsyncAudioStreamFactory:
+  override def playbackDataForAsync(uri: String): Future[AudioStreamPlaybackData] =
+    playbackDataFromChild(uri, factories.toList)
+
+  /**
+    * Queries the child factories for an [[AudioStreamPlaybackData]] for the
+    * given file URI. The factories are queried in the order in which they
+    * appear in the list. The [[Future]] returned by the first child that can
+    * handle the URI is returned. If a child fails with an
+    * [[AsyncAudioStreamFactory.UnsupportedUriException]], the next child is
+    * queried. Only if none of the factories can handle the URI, a failed
+    * [[Future]] with this exception type is returned. Any other failure of a
+    * child factory is propagated.
+    *
+    * @param uri            the URI of the audio file
+    * @param childFactories the remaining child factories to query
+    * @return a [[Future]] with the playback data
+    */
+  private def playbackDataFromChild(uri: String,
+                                    childFactories: List[AsyncAudioStreamFactory]):
+  Future[AudioStreamPlaybackData] =
+    childFactories match
+      case factory :: tail =>
+        factory.playbackDataForAsync(uri).recoverWith:
+          case _: AsyncAudioStreamFactory.UnsupportedUriException => playbackDataFromChild(uri, tail)
+      case Nil =>
+        Future.failed(new AsyncAudioStreamFactory.UnsupportedUriException(uri))
