@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.platform.audio2.impl
 
 import de.oliver_heger.linedj.platform.archiveclient.ArchiveService
 import de.oliver_heger.linedj.player.engine.AudioStreamFactory.AudioStreamPlaybackData
-import de.oliver_heger.linedj.player.engine.stream.{AudioStreamPlayerStage, LineWriterStage}
+import de.oliver_heger.linedj.player.engine.stream.{AudioStreamPlayerStage, LineWriterStage, PausePlaybackStage}
 import de.oliver_heger.linedj.player.engine.{AsyncAudioStreamFactory, AudioStreamFactory, CompositeAsyncAudioStreamFactory}
 import org.apache.pekko.actor as classics
 import org.apache.pekko.actor.typed.Behavior
@@ -26,6 +26,7 @@ import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import org.apache.pekko.actor.typed.scaladsl.adapter.*
 import org.apache.pekko.http.scaladsl.model.HttpRequest
 import org.apache.pekko.http.scaladsl.model.headers.`Content-Disposition`
+import org.apache.pekko.stream.KillSwitches
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
 
 import javax.sound.sampled.AudioFormat
@@ -89,6 +90,11 @@ object AudioPlayerActor:
       * for sufficient data to fill buffers.)
       */
     case ClosePlaylist
+
+    /**
+      * A command to stop an actor instance.
+      */
+    case Stop
   end AudioPlayerCommand
 
   /**
@@ -224,13 +230,19 @@ object AudioPlayerActor:
 
       given ExecutionContext = context.executionContext
 
+      val pauseActor = context.spawn(
+        PausePlaybackStage.pausePlaybackActor(PausePlaybackStage.PlaybackState.PlaybackPossible),
+        "pausePlaybackActor"
+      )
+      val playlistKillSwitch = KillSwitches.shared("stopPlaylist")
+
       val playlistStreamConfig = AudioStreamPlayerStage.AudioStreamPlayerConfig(
         sourceResolverFunc = resolveAudioSource,
         sinkProviderFunc = audioStreamSink,
         audioStreamFactory = audioStreamFactoryImpl,
-        optPauseActor = None,
+        optPauseActor = Some(pauseActor),
         optLineCreatorFunc = Some(config.lineCreatorFunc),
-        optKillSwitch = None
+        optKillSwitch = Some(playlistKillSwitch)
       )
       val source = Source.queue[String](1000)
       val sink = Sink.foreach[AudioStreamPlayerStage.PlaylistStreamResult[String, Any]]: result =>
@@ -261,13 +273,21 @@ object AudioPlayerActor:
             playlistQueue.complete()
             Behaviors.same
 
+          case AudioPlayerCommand.StopPlayback =>
+            pauseActor ! PausePlaybackStage.StopPlayback
+            Behaviors.same
+
+          case AudioPlayerCommand.StartPlayback =>
+            pauseActor ! PausePlaybackStage.StartPlayback
+            Behaviors.same
+
+          case AudioPlayerCommand.Stop =>
+            playlistKillSwitch.shutdown()
+            Behaviors.stopped
+
           case InternalCommand.CreateAudioStream(uri, promiseResult) =>
             audioStreamFactory.playbackDataForAsync(uri).onComplete: triedSource =>
               promiseResult.complete(triedSource)
             Behaviors.same
 
-          // TODO: Handle further commands
-          case _ => Behaviors.same
-
       handleAudioPlayerCommand(CompositeAsyncAudioStreamFactory(Nil))
-      

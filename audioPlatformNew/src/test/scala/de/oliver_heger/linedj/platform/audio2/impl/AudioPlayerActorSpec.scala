@@ -18,14 +18,14 @@ package de.oliver_heger.linedj.platform.audio2.impl
 
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.platform.archiveclient.ArchiveService
-import de.oliver_heger.linedj.player.engine.{AsyncAudioStreamFactory, AudioStreamFactory}
 import de.oliver_heger.linedj.player.engine.AudioStreamFactory.AudioStreamPlaybackData
 import de.oliver_heger.linedj.player.engine.stream.AudioEncodingStage.AudioStreamHeader
 import de.oliver_heger.linedj.player.engine.stream.{AudioStreamPlayerStage, LineWriterStage}
+import de.oliver_heger.linedj.player.engine.{AsyncAudioStreamFactory, AudioStreamFactory}
 import org.apache.pekko.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
 import org.apache.pekko.actor.typed.ActorRef
-import org.apache.pekko.http.scaladsl.model.headers.{ContentDispositionTypes, `Content-Disposition`}
 import org.apache.pekko.http.scaladsl.model.*
+import org.apache.pekko.http.scaladsl.model.headers.{ContentDispositionTypes, `Content-Disposition`}
 import org.apache.pekko.util.ByteString
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.when
@@ -60,6 +60,9 @@ object AudioPlayerActorSpec:
 
   /** A timeout value when reading from a queue. */
   private val QueueTimeout = 3.seconds
+
+  /** A timeout when expecting that no event is received. */
+  private val NoEventTimeout = 200.millis
 
   /** ID for a test media file. */
   private val TestFileID = "test-media-file-id"
@@ -116,6 +119,31 @@ class AudioPlayerActorSpec extends ScalaTestWithActorTestKit, AnyFlatSpecLike, M
     helper.checkPlaylistResult:
       case AudioStreamPlayerStage.PlaylistStreamResult.AudioStreamFailure(source, _) =>
         source should be(TestFileID)
+
+  it should "pause playback until start is received" in :
+    val helper = new PlayerActorTestHelper
+
+    helper.expectRequest(TestFileID, TestFileUri, TestData)
+      .sendCommand(AudioPlayerActor.AudioPlayerCommand.StopPlayback)
+      .sendCommand(AudioPlayerActor.AudioPlayerCommand.AddAudioStreamFactory(helper.audioStreamFactory))
+      .sendCommand(AudioPlayerActor.AudioPlayerCommand.AppendToPlaylist(TestFileID))
+      .sendCommand(AudioPlayerActor.AudioPlayerCommand.ClosePlaylist)
+
+    helper.checkPlaylistResult:
+      case AudioStreamPlayerStage.PlaylistStreamResult.AudioStreamStart(source, ks) =>
+        source should be(TestFileID)
+        ks should not be null
+    helper.expectNoPlaylistResult()
+      .sendCommand(AudioPlayerActor.AudioPlayerCommand.StartPlayback)
+      .checkPlaylistResult:
+        case AudioStreamPlayerStage.PlaylistStreamResult.AudioStreamEnd(source, _) =>
+          source should be(TestFileID)
+
+  it should "handle the Stop command" in :
+    val helper = new PlayerActorTestHelper
+
+    helper.sendCommand(AudioPlayerActor.AudioPlayerCommand.Stop)
+      .verifyActorTerminated()
 
   /**
     * A test helper class that manages the audio player actor to be tested and
@@ -200,6 +228,14 @@ class AudioPlayerActorSpec extends ScalaTestWithActorTestKit, AnyFlatSpecLike, M
       pf(result)
 
     /**
+      * Checks that no playlist result is received within the timeout.
+      */
+    def expectNoPlaylistResult(): PlayerActorTestHelper =
+      val result = queuePlaylistResult.poll(NoEventTimeout.toMillis, TimeUnit.MILLISECONDS)
+      result should be(null)
+      this
+
+    /**
       * Returns all played audio chunks that are currently available in the
       * queue without waiting for further chunks. This is useful to verify the
       * data reported by the progress callback after playback has completed.
@@ -213,6 +249,16 @@ class AudioPlayerActorSpec extends ScalaTestWithActorTestKit, AnyFlatSpecLike, M
         buffer += optChunk
         optChunk = queuePlayedChunk.poll()
       buffer.toList
+
+    /**
+      * Checks whether the test actor instance has terminated.
+      *
+      * @return this test helper
+      */
+    def verifyActorTerminated(): PlayerActorTestHelper =
+      val probeDeathCheck = testKit.createDeadLetterProbe()
+      probeDeathCheck.expectTerminated(testActor)
+      this
 
     /**
       * Returns the function that creates the mock [[SourceDataLine]] for a given
