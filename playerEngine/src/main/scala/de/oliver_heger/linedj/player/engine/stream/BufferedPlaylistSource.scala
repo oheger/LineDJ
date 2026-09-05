@@ -399,7 +399,7 @@ object BufferedPlaylistSource:
                 createAndFillBufferFile()
                 startNextSourceIfPossible()
               case Nil =>
-                completeIfDone()
+                if !completeIfDone() then createAndFillBufferFile()
           }
         )
 
@@ -425,12 +425,26 @@ object BufferedPlaylistSource:
           * @return a flag whether this stage is now complete
           */
         private def completeIfDone(): Boolean =
-          if playlistFinished && !sourceInProgress && !bufferFileWriteInProgress && dataBuffer.isEmpty then
+          if playlistFinished && !sourceInProgress && !bufferFileWriteInProgress && dataBuffer.isEmpty &&
+            !pendingDataAvailable then
             log.info("Playlist source finished after processing {} source(s).", sourcesProcessed)
             completeStage()
             true
           else
             false
+
+        /**
+          * Returns a flag whether the bridge actor still contains data that has
+          * not been written to a buffer file. This is the case when bytes have
+          * already been received from upstream for which no buffer file has been
+          * created yet. Note that bytes of a data source that is still
+          * downloaded are not counted here; in this case, [[sourceInProgress]]
+          * is set, so they also cannot get stuck.
+          *
+          * @return a flag whether there is still buffered data to be written
+          */
+        private def pendingDataAvailable: Boolean =
+          bytesProcessed > bufferFileCount.toLong * config.bufferFileSize
 
         /**
           * Push the given data downstream. This is done directly if possible,
@@ -540,7 +554,8 @@ object BufferedPlaylistSource:
           * contains already two files), no immediate action is triggered.
           */
         private def createAndFillBufferFile(): Unit =
-          if !bufferFileWriteInProgress && (dataBuffer.isEmpty || config.bufferFullSources) && sourceInProgress then
+          if !bufferFileWriteInProgress && (dataBuffer.isEmpty || config.bufferFullSources) &&
+            (sourceInProgress || pendingDataAvailable) then
             bufferFileWriteInProgress = true
             val startOffset = bufferFileCount * config.bufferFileSize
             bufferFileCount += 1
@@ -1528,10 +1543,13 @@ object BufferedPlaylistSource:
                                                      bufferFileSize: Long):
   (List[BufferedSource[SRC]], List[BufferedSource[SRC]]) =
     val bufferFileEndOffset = bufferFileNo * bufferFileSize
-    val (contained, overflow) = sourcesInFile.span(_.endOffset < bufferFileEndOffset)
+    val (contained, overflow) = sourcesInFile.span(_.endOffset <= bufferFileEndOffset)
     if overflow.isEmpty then
       val actSources = optCurrentSource.fold(contained) { src =>
-        contained :+ src
+        if src.startOffset < bufferFileEndOffset then
+          contained :+ src
+        else
+          contained
       }
       (actSources, Nil)
     else

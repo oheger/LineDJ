@@ -1,0 +1,275 @@
+= Refactoring proposal: actor as single source of truth for the buffered audio source
+
+:source-highlighter: source-highlighter
+:icons: font
+:toc: left
+:toclevels: 2
+
+This document captures findings from stabilizing the buffered audio-source pipeline
+in the new audio platform. It records *why the current design is fragile*, what was
+fixed to date, and a concrete proposal for a follow-up refactoring so that the work
+can be picked up later without re-deriving the context.
+
+== Motivation and background
+
+The buffered audio source fills audio data from upstream (the playlist) into
+temporary buffer files, and then reads them back to expose per-source audio streams
+to playback. Buffering is a workaround for sources whose size is unknown up front and
+which may be delivered faster than they are consumed; the buffer decouples the two.
+
+Two bugs were found and fixed during stabilization. Both share a *root cause: race
+conditions between concurrently-running components that each decide on possibly stale
+data*.
+
+* *Fill-stage race (fixed)*: `sourceInProgress` was cleared as soon as the download
+  finished, blocking further buffer-file creation and letting the stage complete with
+  unwritten bridge-actor bytes stranded.
+* *Boundary metadata race (fixed)*: a source ending exactly on a buffer-file boundary
+  was recorded with `endOffset = -1` instead of its real end offset, so the read side
+  never learned the true size and a chunk of data at the boundary was dropped.
+
+Both fixes (see below) work and are covered by deterministic regression tests, but the
+underlying design remains fragile. This document proposes to harden it by making the
+bridge actor the single source of truth.
+
+== Where the code lives
+
+* Source: `playerEngine/src/main/scala/de/oliver_heger/linedj/player/engine/stream/BufferedPlaylistSource.scala`
+* Fill tests:
+  `playerEngine/src/test/scala/de/oliver_heger/linedj/player/engine/stream/BufferedPlaylistSourceSpec.scala`
+* Actor wiring (new audio platform):
+  `audioPlatformNew/src/main/scala/de/oliver_heger/linedj/platform/audio2/impl/AudioPlayerActor.scala`
+* Actor tests:
+  `audioPlatformNew/src/test/scala/de/oliver_heger/linedj/platform/audio2/impl/AudioPlayerActorSpec.scala`
+
+Key commands (see also `AGENTS.md`):
+
+[source,sh]
+----
+sbt "playerEngine/testOnly *BufferedPlaylistSourceSpec"
+sbt "audioPlatformNew/testOnly *AudioPlayerActorSpec"
+----
+
+Both are expected green: `BufferedPlaylistSourceSpec` 40/40, `AudioPlayerActorSpec` 5/5.
+Note `-Xfatal-warnings` is on: any deprecation/unused-import warning fails the build.
+
+== Current architecture: three overlapping state machines
+
+The pipeline is built from two `GraphStage` implementations around a shared
+`sourceSinkBridgeActor` (a Pekko typed actor). All three maintain *parallel,
+independent* bookkeeping, which is the source of the fragility.
+
+=== 1. Fill side: `FillBufferFlowStage`
+
+* Decides when to open/close buffer files (`createAndFillBufferFile`, the
+  `dataBuffer.isEmpty || config.bufferFullSources` gate, and the "two active files"
+  invariant).
+* Tracks its own counters: `bufferFileCount`, `bytesProcessed`, `sourcesProcessed`,
+  the list `sourcesInCurrentBufferFile`, and `currentSource`.
+* On file completion it re-corrects its source list via
+  `correctSourcesInCurrentBufferFile` because a source's completion event may race
+  with the file's completion event.
+* Guards completion with `completeIfDone` and the derived `pendingDataAvailable`
+  (`bytesProcessed > bufferFileCount * bufferFileSize`).
+
+=== 2. Read side: `ReadBufferFlowStage`
+
+* Decides which sources go to which buffer file on read-back
+  (`handleNextBufferFileConfig`, `skipSources`, `skipFile`, `readNextBufferFile`,
+  `pushNextSource`).
+* Maintains its own `bufferFileCount`, `sourceCount`, `inProgressCount`,
+  `bufferedSources`.
+* Uses `sourceSize(bufferedSource)` = `endOffset - startOffset`, or `-1` (unknown) if
+  `endOffset < 0`.
+
+=== 3. Bridge actor: `sourceSinkBridgeActor`
+
+* Owns `BridgeActorState`: `bufferFileSize`, `chunks`, `producer`, `consumer`,
+  `fileOverlap`, `bytesProcessed`, `currentProcessed`, `skipSource`, `fileCount`,
+  `sourceCount`, `sourceSizes`.
+* Handles messages: `AddDataChunk`, `GetNextDataChunk`, `PrepareReadBufferFile`,
+  `SourceCompleted`, `PlaylistEnd`, `StopBridgeActor`.
+* Computes chunk splitting (`addChunk`, split at `bufferFileSize` boundaries) and
+  read-file instructions (`handlePrepareReadBufferFile`).
+
+The three components coordinate through akka ask/response streams:
+`AddDataChunk`/`DataChunkProcessed`, `GetNextDataChunk`/`DataChunkResponse`,
+`PrepareReadBufferFile`/`NextBufferFileConfig`. Because file-open and file-close
+decisions live in the *stages* while the *actor* independently tracks file/source
+counters, decisions can be made on bytes that have already moved.
+
+== Why it is fragile
+
+* Decisions about *when a buffer file opens and what belongs to it* are split between
+  the fill stage and the actor's `addChunk` boundary logic. Two places must agree on
+  the "two active files" invariant and on offset bookkeeping.
+* The fill stage corrects its own bookkeeping *after the fact*
+  (`correctSourcesInCurrentBufferFile`), an explicit admission that its tracked state
+  can be stale when a file completes.
+* The read stage derives skips and overlaps from `fileOverlap`
+  (`msg.offsets.last.endOffset < 0`), coupling read behavior to the exact metadata
+  shape that the fill side happens to produce.
+* Counters (`bufferFileCount`, `sourceCount`, offsets, chunk lists) exist in *multiple*
+  places with no single owner, so a single wrong assumption manifests as a subtle
+  boundary error that only appears under timing-dependent conditions.
+* `correctSourcesInCurrentBufferFile` is parameterized by `optCurrentSource`, which is
+  evaluated lazily at call time — a place where stale `currentSource`/`bytesProcessed`
+  values can leak into finished-file metadata.
+
+== Fits fixed to date (context for the refactor)
+
+Both are described here so the refactor does not regress them.
+
+=== Fix A: fill-stage completion race
+
+* `pendingDataAvailable = bytesProcessed > bufferFileCount.toLong * config.bufferFileSize`
+* `completeIfDone` adds `&& !pendingDataAvailable`
+* `createAndFillBufferFile` gate: `(sourceInProgress || pendingDataAvailable)` (the
+  `dataBuffer.isEmpty || bufferFullSources` clause is kept, preserving the two-active
+  files invariant in default mode)
+* `onPull` `case Nil`: `if !completeIfDone() then createAndFillBufferFile()`
+
+=== Fix B: boundary metadata (`correctSourcesInCurrentBufferFile`)
+
+The `span` predicate was changed from `endOffset < bufferFileEndOffset` to
+`endOffset <= bufferFileEndOffset`:
+
+[source,scala]
+----
+val (contained, overflow) = sourcesInFile.span(_.endOffset <= bufferFileEndOffset)
+if overflow.isEmpty then
+  val actSources = optCurrentSource.fold(contained) { src =>
+    if src.startOffset < bufferFileEndOffset then
+      contained :+ src
+    else
+      contained
+  }
+  (actSources, Nil)
+else
+  val actSources = contained :+ overflow.head.copy(endOffset = -1)
+  (actSources, overflow)
+----
+
+Rationale:
+
+* A source whose *last* byte lands exactly on a boundary fully resides in the current
+  file and must be recorded as complete there (`endOffset = boundary`), not as
+  `endOffset = -1`.
+* The read side derives `fileOverlap` from `last.endOffset < 0`. With the old `<`
+  predicate, a boundary-aligned source was pushed into `overflow`, so the final file
+  carried `endOffset = -1`, the read side never learned the real size, and boundary
+  bytes were dropped (the `playedData()` gap in `AudioPlayerActorSpec`).
+* The `currentSource` is only appended when it actually contributed bytes to the file
+  (`startOffset < bufferFileEndOffset`) so that a source starting exactly at the next
+  boundary is not misattributed to the finished file.
+
+The change to `<=` also required updating the fill-metadata expectations in
+`BufferedPlaylistSourceSpec` ("should split sources over multiple buffer files when
+the limit is exceeded"): a source now appears *once* (in the file where it ends) with
+its real end offset, instead of being duplicated across adjacent files with `-1`.
+
+=== Regression test added
+
+`BufferedPlaylistSourceSpec` "write the complete data of a fast source into multiple
+buffer files" — a deterministic repro of the fill race (asserting that all bytes of a
+fast single source end up in multiple buffer files and are fully readable). See the
+test body for the exact harness (chunked source, slow sink via
+`Flow[ByteString].fold(...).mapAsync(1)(...)`, `bufferFullSources = true`,
+`Sink.queue` with `inputBuffer(1, 1)`).
+
+== Proposed refactor: actor as single source of truth
+
+Goal: reduce the stages to thin *event reporters* that send facts about the stream to
+the actor, and have the actor *command* the concrete next action. The actor then owns
+all file/source/offset decisions, and the stages do not infer anything.
+
+=== Design principle
+
+* *Stages report what happened* (source resolved, chunk of N bytes, source completed,
+  playlist end, end of a buffer file read).
+* *Actor decides and commands* (open buffer file `k` at offset `o`, write chunk, close
+  file, skip the first source, emit source `i` with size `s`, end of stream).
+* *No stage-held counters that mirror actor state.* All counters (`bufferFileCount`,
+  `sourceCount`, offsets, chunk/skip/overlap decisions) move into
+  `BridgeActorState`.
+
+=== Message set sketch (fill side)
+
+There is still a natural request-response, but the *actor* returns the instruction for
+the sink's next action rather than the sink deciding "create a new file".
+
+* `ProbeReady` / `Commands` (actor asks/decides what to do next)
+* `Commands.OpenBufferFile(index, startOffset)`
+* `Commands.WriteChunk(bytes)` / `Commands.CloseBufferFile` / `Commands.Wait`
+* `Commands.CompleteSource(...)` / `Commands.CompleteStage`
+
+=== Message set sketch (read side)
+
+* `ProbeNextAction` / `Commands`
+* `Commands.ReadBufferFile(index)`
+* `Commands.EmitSource(source, startOffset, size)` (size may be `-1` = unknown, set
+  later)
+* `Commands.SkipSource(count)` / `Commands.SkipFile`
+* `Commands.EndOfStream`
+
+The exact message set, ordering rules, and failure handling still need to be designed;
+this is the next step, not yet decided.
+
+=== What moves where (high-value targets)
+
+* File-creation gating and the "two active files" invariant: into the actor.
+* Corrected source metadata on file completion: into the actor (remove
+  `correctSourcesInCurrentBufferFile` guesswork from the fill stage).
+* Skip/overlap derivation: into the actor (the read stage stops inspecting
+  `endOffset < 0`).
+* Unified counters: a single `fileCount` + `sourceCount` + chunk list in
+  `BridgeActorState`.
+
+=== Testing strategy
+
+* Extract a deterministic, actor-only protocol test suite (Pekko `TestKit`/`TestProbe`)
+  that drives the actor directly with ordered commands and asserts the command/response
+  sequences — no real stream timing, so no flakiness.
+* Keep the existing end-to-end stream tests (`BufferedPlaylistSourceSpec`,
+  `AudioPlayerActorSpec`) as regression guards; both must stay green.
+
+=== Risks / cost
+
+* This is the most architecturally dense area of the player engine; it is *not* a quick
+  edit. `addChunk` splitting, the two-active-files invariant, source skipping, and
+  unknown-size sources that become known mid-stream must be replayed carefully.
+* Concurrency does not disappear: fill can pipeline (file 1 writing while file 2's
+  source streams) and consumers can cancel mid-source. The actor must serialize the
+  *decisions* while keeping chunk streaming concurrent.
+* Do not regress Fix A and Fix B above.
+* `-Xfatal-warnings`, indent-syntax (`-indent`), `-new-syntax`
+  (`if ... then ... else`), `given`/`using` (no `implicit`), no code comments unless
+  asked. Existing `BufferedSource`/`SourceInBuffer` types define the source
+  abstraction and should be preserved.
+
+== Suggested approach (safe path)
+
+1. Prototype the actor-as-owner protocol in an *isolated* `BufferedPlaylistSourceSpec`
+   test (or a small dedicated spec) proving the decision/command flow, without touching
+   the working stages yet.
+2. Once the protocol is proven, migrate `FillBufferFlowStage`/`ReadBufferFlowStage` to
+   the new protocol one side at a time, keeping both spec suites green at each step.
+3. Remove the now-dead correction logic and duplicate counters.
+4. Land the deterministic actor-protocol tests alongside the integration tests.
+
+== Open questions to resolve when picking this up
+
+* Should file creation stay client-pulled (`probeReady`) or be actor-pushed?
+* How to represent "unknown size that later becomes known" cleanly in the command set
+  (currently `endOffset = -1` + a promise, see `sourceSize`/`BridgeSource`).
+* How failures (buffer write/read errors) are propagated when the actor drives the
+  protocol.
+* Whether the two existing stage classes are replaced in place or a new stage is
+  introduced and the old one retired.
+
+== Status
+
+As of this note: `BufferedPlaylistSourceSpec` 40/40 and `AudioPlayerActorSpec` 5/5,
+both green, no known open bugs. The refactoring described here is *proposed but not
+started*. The work is intentionally parked until the functional work on the new audio
+platform is finished.

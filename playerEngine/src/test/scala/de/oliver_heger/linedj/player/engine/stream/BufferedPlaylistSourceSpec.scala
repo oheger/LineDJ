@@ -23,7 +23,7 @@ import de.oliver_heger.linedj.player.engine.stream.BufferedPlaylistSource.{Buffe
 import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.stream.Attributes
-import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
+import org.apache.pekko.stream.scaladsl.{FileIO, Flow, Keep, Sink, Source}
 import org.apache.pekko.testkit.TestKit
 import org.apache.pekko.util.ByteString
 import org.apache.pekko.{Done, NotUsed, actor as classic}
@@ -278,12 +278,11 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
             BufferedSource(1, sourceUrl(1), 0, 4096),
             BufferedSource(2, sourceUrl(2), 4096, 8192),
             BufferedSource(3, sourceUrl(3), 8192, 12288),
-            BufferedSource(4, sourceUrl(4), 12288, -1)
+            BufferedSource(4, sourceUrl(4), 12288, 16384)
           )
         ),
         BufferFileWritten(
           List(
-            BufferedSource(4, sourceUrl(4), 12288, 16384),
             BufferedSource(5, sourceUrl(5), 16384, 20480)
           )
         )
@@ -495,6 +494,59 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
       yield last) map { lastFile =>
         lastFile shouldBe empty
       }
+    }
+
+  it should "write the complete data of a fast source into multiple buffer files" in :
+    val bufferDir = createPathInDirectory("fastSourceBuffer")
+    val random = new Random(20260201120000L)
+    val bufferFileSize = 10000
+    val sourceData = IndexedSeq(ByteString(random.nextBytes(24000)))
+    val streamSource = AudioStreamPlayerStage.AudioStreamSource(sourceUrl(1),
+      chunkedSource(sourceData.head, 8000))
+    val resolverFunc: AudioStreamPlayerStage.SourceResolverFunc[Int] = _ =>
+      Future.successful(streamSource)
+    val slowBufferSink: BufferedPlaylistSource.BufferSinkFunc = path =>
+      Flow[ByteString].fold(ByteString.empty)(_ ++ _)
+        .mapAsync(1) { data =>
+          Future {
+            Thread.sleep(200)
+            data
+          }
+        }
+        .toMat(FileIO.toPath(path))(Keep.right)
+
+    val streamPlayerConfig = createStreamPlayerConfig(resolverFunc)
+    val bufferConfig = BufferedPlaylistSource.BufferedPlaylistSourceConfig(streamPlayerConfig = streamPlayerConfig,
+      bufferFolder = bufferDir,
+      bufferFileSize = bufferFileSize,
+      bufferSinkFunc = slowBufferSink,
+      bufferFullSources = true)
+    val sink = Sink.queue[BufferFileWritten[Int]](1).withAttributes(Attributes.inputBuffer(1, 1))
+    val queue = Source.single(1)
+      .via(new BufferedPlaylistSource.FillBufferFlowStage(bufferConfig))
+      .toMat(sink)(Keep.right)
+      .run()
+
+    def fetchNextFile(): Future[Assertion] =
+      queue.pull().map { optFile =>
+        optFile should not be empty
+      }
+
+    val lastFileSize = sourceData.head.size - 2 * bufferFileSize
+    val lastBufferFile = bufferDir.resolve("buffer03.dat")
+    (for
+      _ <- fetchNextFile()
+      _ <- fetchNextFile()
+      _ <- fetchNextFile()
+      last <- queue.pull()
+    yield last) map { last =>
+      last shouldBe empty
+      Files.isRegularFile(bufferDir.resolve("buffer01.dat")) shouldBe true
+      Files.size(bufferDir.resolve("buffer01.dat")) should be(bufferFileSize)
+      Files.isRegularFile(bufferDir.resolve("buffer02.dat")) shouldBe true
+      Files.size(bufferDir.resolve("buffer02.dat")) should be(bufferFileSize)
+      Files.isRegularFile(lastBufferFile) shouldBe true
+      Files.size(lastBufferFile) should be(lastFileSize)
     }
 
   it should "correctly fill the buffer with a fast consumer" in :

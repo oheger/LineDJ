@@ -32,6 +32,15 @@
 - **Tests are forked**: `ThisBuild / Test / fork := true`. Tests run in a separate JVM.
 - **No integration test separation**: Unit and integration tests live together in `src/test/`.
 
+## Known Refactor Opportunities
+
+- **Buffered audio source / actor-as-single-source-of-truth**: The file-based
+  buffering in `BufferedPlaylistSource.scala` coordinates three components (fill
+  stage, read stage, bridge actor) that each track parallel source/file counters,
+  which has caused race conditions. A proposed refactor to make the actor own all
+  decisions is recorded in `playerEngine/docs/buffered-source-refactor.adoc`
+  (context, already-fixed bugs, message-set sketch, and a safe migration path).
+
 ## Project Structure
 
 ~50+ subprojects. Key layers:
