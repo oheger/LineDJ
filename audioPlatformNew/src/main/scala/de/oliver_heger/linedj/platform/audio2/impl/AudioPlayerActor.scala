@@ -18,14 +18,16 @@ package de.oliver_heger.linedj.platform.audio2.impl
 
 import de.oliver_heger.linedj.platform.archiveclient.ArchiveService
 import de.oliver_heger.linedj.player.engine.AudioStreamFactory.AudioStreamPlaybackData
-import de.oliver_heger.linedj.player.engine.stream.{AudioStreamPlayerStage, LineWriterStage, PausePlaybackStage}
+import de.oliver_heger.linedj.player.engine.stream.{AudioStreamPlayerStage, BufferedPlaylistSource, LineWriterStage, PausePlaybackStage}
 import de.oliver_heger.linedj.player.engine.{AsyncAudioStreamFactory, AudioStreamFactory, CompositeAsyncAudioStreamFactory}
+import org.apache.pekko.Done
 import org.apache.pekko.actor as classics
 import org.apache.pekko.actor.typed.Behavior
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import org.apache.pekko.actor.typed.scaladsl.adapter.*
 import org.apache.pekko.http.scaladsl.model.HttpRequest
 import org.apache.pekko.http.scaladsl.model.headers.`Content-Disposition`
+import org.apache.pekko.stream.KillSwitch
 import org.apache.pekko.stream.KillSwitches
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
 
@@ -115,11 +117,47 @@ object AudioPlayerActor:
   end InternalCommand
 
   /**
-    * Type alias for a callback function that is invoked for the results of the
-    * playlist stream. This can be used to receive notifications when an audio
-    * source is started or completes.
+    * An enumeration class defining the lifecycle events of media files in the
+    * playlist. Events of this type are reported via the
+    * [[playlistEventCallback]] to let the outside world react on the playback
+    * of the individual media files.
     */
-  type PlaylistStreamResultCallback = AudioStreamPlayerStage.PlaylistStreamResult[String, Any] => Unit
+  enum PlaylistEvent:
+    /**
+      * A [[PlaylistEvent]] indicating that playback of a new media file has
+      * started. Instances have the ID of the media file and a [[KillSwitch]]
+      * that can be used to terminate (and thus skip) the ongoing stream.
+      *
+      * @param mediaFileID the ID of the affected media file
+      * @param killSwitch  the [[KillSwitch]] to terminate the stream
+      */
+    case MediaFileStarted(mediaFileID: String, killSwitch: KillSwitch)
+
+    /**
+      * A [[PlaylistEvent]] indicating that the playback of a media file has
+      * completed.
+      *
+      * @param mediaFileID the ID of the affected media file
+      */
+    case MediaFileEnded(mediaFileID: String)
+
+    /**
+      * A [[PlaylistEvent]] indicating that the playback of a media file has
+      * failed. Apart from the ID of the affected media file, the [[Throwable]]
+      * describing the failure is available.
+      *
+      * @param mediaFileID the ID of the affected media file
+      * @param exception   the exception that was thrown
+      */
+    case MediaFileFailed(mediaFileID: String, exception: Throwable)
+  end PlaylistEvent
+
+  /**
+    * Type alias for a callback function that is invoked for the events of the
+    * playlist. This can be used to receive notifications when a media file is
+    * started or completes playback, or fails.
+    */
+  type PlaylistEventCallback = PlaylistEvent => Unit
 
   /**
     * Type alias for a callback function that is invoked when a chunk of audio 
@@ -129,19 +167,32 @@ object AudioPlayerActor:
   type PlaybackProgressCallback = LineWriterStage.PlayedAudioChunk => Unit
 
   /**
+    * Type alias for a function that produces a configuration for a buffered
+    * source based on the provided configuration for the playlist stream. Such
+    * a function can be passed in the configuration of this actor. If it is
+    * defined, a buffered source is wrapped around the playlist source. This is
+    * recommended when media files are downloaded from an archive server to
+    * prevent timeouts.
+    */
+  type BufferFunc = AudioStreamPlayerStage.AudioStreamPlayerConfig[String, Any] =>
+    BufferedPlaylistSource.BufferedPlaylistSourceConfig[String, Any]
+
+  /**
     * A data class that holds the configuration settings supported by an actor
     * instance. An instance of this class must be passed to the factory to
     * create a new actor instance.
     *
     * @param archiveService   the archive service
-    * @param playlistCallback the callback for playlist results
+    * @param playlistCallback the callback for playlist events
     * @param progressCallback the callback for progressed audio data
     * @param lineCreatorFunc  the function to create the audio line
+    * @param optBufferFunc    the optional function to create a buffered source
     */
   final case class Config(archiveService: ArchiveService,
-                          playlistCallback: PlaylistStreamResultCallback,
+                          playlistCallback: PlaylistEventCallback,
                           progressCallback: PlaybackProgressCallback,
-                          lineCreatorFunc: LineWriterStage.LineCreatorFunc = LineWriterStage.DefaultLineCreatorFunc)
+                          lineCreatorFunc: LineWriterStage.LineCreatorFunc = LineWriterStage.DefaultLineCreatorFunc,
+                          optBufferFunc: Option[BufferFunc] = None)
 
   /**
     * A factory interface for creating a behavior for a new actor instance.
@@ -245,9 +296,41 @@ object AudioPlayerActor:
         optKillSwitch = Some(playlistKillSwitch)
       )
       val source = Source.queue[String](1000)
-      val sink = Sink.foreach[AudioStreamPlayerStage.PlaylistStreamResult[String, Any]]: result =>
-        config.playlistCallback(result)
-      val playlistQueue = AudioStreamPlayerStage.runPlaylistStream(playlistStreamConfig, source, sink)._1
+
+      /**
+        * Creates a [[Sink]] that converts [[AudioStreamPlayerStage.PlaylistStreamResult]]
+        * events to [[PlaylistEvent]] instances and forwards them to the
+        * configured callback. The `sourceId` function extracts the original
+        * media file ID from the stream's source type — in non-buffered mode
+        * the source is already the ID, in buffered mode it is wrapped in a
+        * [[BufferedPlaylistSource.SourceInBuffer]].
+        *
+        * @param sourceId function to extract the media file ID from the source
+        * @tparam SRC the source type of the playlist stream
+        * @return the sink for the playlist stream
+        */
+      def createPlaylistEventSink[SRC](sourceId: SRC => String):
+      Sink[AudioStreamPlayerStage.PlaylistStreamResult[SRC, Any], Future[Done]] =
+        Sink.foreach: result =>
+          val event = result match
+            case AudioStreamPlayerStage.PlaylistStreamResult.AudioStreamStart(source, killSwitch) =>
+              PlaylistEvent.MediaFileStarted(sourceId(source), killSwitch)
+            case AudioStreamPlayerStage.PlaylistStreamResult.AudioStreamEnd(source, _) =>
+              PlaylistEvent.MediaFileEnded(sourceId(source))
+            case AudioStreamPlayerStage.PlaylistStreamResult.AudioStreamFailure(source, exception) =>
+              PlaylistEvent.MediaFileFailed(sourceId(source), exception)
+          config.playlistCallback(event)
+
+      val playlistQueue = config.optBufferFunc match
+        case Some(bufferFunc) =>
+          val bufferConfig = bufferFunc(playlistStreamConfig)
+          val bufferedSource = BufferedPlaylistSource(bufferConfig, source)
+          val bufferedConfig = BufferedPlaylistSource.mapConfig(bufferConfig.streamPlayerConfig)
+          AudioStreamPlayerStage.runPlaylistStream(bufferedConfig, bufferedSource,
+            createPlaylistEventSink((src: BufferedPlaylistSource.SourceInBuffer[String]) => src.originalSource))._1
+        case None =>
+          AudioStreamPlayerStage.runPlaylistStream(playlistStreamConfig, source,
+            createPlaylistEventSink(identity[String]))._1
 
       /**
         * The main command handler function for this actor implementation.

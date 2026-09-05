@@ -20,27 +20,36 @@ import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.platform.archiveclient.ArchiveService
 import de.oliver_heger.linedj.player.engine.AudioStreamFactory.AudioStreamPlaybackData
 import de.oliver_heger.linedj.player.engine.stream.AudioEncodingStage.AudioStreamHeader
-import de.oliver_heger.linedj.player.engine.stream.{AudioStreamPlayerStage, LineWriterStage}
+import de.oliver_heger.linedj.player.engine.stream.{BufferedPlaylistSource, LineWriterStage}
 import de.oliver_heger.linedj.player.engine.{AsyncAudioStreamFactory, AudioStreamFactory}
-import org.apache.pekko.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
 import org.apache.pekko.actor.typed.ActorRef
+import org.apache.pekko.actor.typed.scaladsl.adapter.*
+import org.apache.pekko.actor as classic
 import org.apache.pekko.http.scaladsl.model.*
 import org.apache.pekko.http.scaladsl.model.headers.{ContentDispositionTypes, `Content-Disposition`}
 import org.apache.pekko.util.ByteString
+import org.apache.pekko.testkit.{TestKit, TestProbe}
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.when
 import org.mockito.invocation.InvocationOnMock
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.BeforeAndAfterEach
+import org.scalatest.concurrent.Eventually
+import org.scalatest.concurrent.PatienceConfiguration.{Interval, Timeout}
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.SpanSugar.convertIntToGrainOfTime
+import org.scalatest.time.{Millis, Seconds, Span}
 import org.scalatestplus.mockito.MockitoSugar
 
 import java.io.InputStream
-import java.nio.file.Paths
+import java.nio.file.{Files, Path, Paths}
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 import javax.sound.sampled.{AudioFormat, AudioInputStream, AudioSystem, SourceDataLine}
 import scala.concurrent.Future
+import scala.jdk.CollectionConverters.*
 
 object AudioPlayerActorSpec:
   /** The sample rate of the fixed audio format used by tests. */
@@ -80,7 +89,17 @@ end AudioPlayerActorSpec
 /**
   * Test class for [[AudioPlayerActor]].
   */
-class AudioPlayerActorSpec extends ScalaTestWithActorTestKit, AnyFlatSpecLike, Matchers, MockitoSugar:
+class AudioPlayerActorSpec(testSystem: classic.ActorSystem) extends AnyFlatSpecLike, BeforeAndAfterAll,
+  BeforeAndAfterEach, Matchers, MockitoSugar, FileTestHelper, Eventually:
+  def this() = this(classic.ActorSystem("AudioPlayerActorSpec"))
+
+  override protected def afterEach(): Unit =
+    tearDownTestFile()
+    super.afterEach()
+
+  override protected def afterAll(): Unit =
+    TestKit.shutdownActorSystem(testSystem)
+    super.afterAll()
 
   import AudioPlayerActorSpec.*
 
@@ -93,12 +112,12 @@ class AudioPlayerActorSpec extends ScalaTestWithActorTestKit, AnyFlatSpecLike, M
       .sendCommand(AudioPlayerActor.AudioPlayerCommand.ClosePlaylist)
 
     helper.checkPlaylistResult:
-      case AudioStreamPlayerStage.PlaylistStreamResult.AudioStreamStart(source, ks) =>
-        source should be(TestFileID)
+      case AudioPlayerActor.PlaylistEvent.MediaFileStarted(id, ks) =>
+        id should be(TestFileID)
         ks should not be null
     helper.checkPlaylistResult:
-      case AudioStreamPlayerStage.PlaylistStreamResult.AudioStreamEnd(source, _) =>
-        source should be(TestFileID)
+      case AudioPlayerActor.PlaylistEvent.MediaFileEnded(id) =>
+        id should be(TestFileID)
     helper.requestedUris() should contain only TestFileName
     helper.playedData().utf8String should be(TestData)
     helper.playedChunks().map(_.size).sum should be(TestData.length)
@@ -113,12 +132,12 @@ class AudioPlayerActorSpec extends ScalaTestWithActorTestKit, AnyFlatSpecLike, M
       .sendCommand(AudioPlayerActor.AudioPlayerCommand.ClosePlaylist)
 
     helper.checkPlaylistResult:
-      case AudioStreamPlayerStage.PlaylistStreamResult.AudioStreamStart(source, ks) =>
-        source should be(TestFileID)
+      case AudioPlayerActor.PlaylistEvent.MediaFileStarted(id, ks) =>
+        id should be(TestFileID)
         ks should not be null
     helper.checkPlaylistResult:
-      case AudioStreamPlayerStage.PlaylistStreamResult.AudioStreamFailure(source, _) =>
-        source should be(TestFileID)
+      case AudioPlayerActor.PlaylistEvent.MediaFileFailed(id, _) =>
+        id should be(TestFileID)
 
   it should "pause playback until start is received" in :
     val helper = new PlayerActorTestHelper
@@ -130,20 +149,50 @@ class AudioPlayerActorSpec extends ScalaTestWithActorTestKit, AnyFlatSpecLike, M
       .sendCommand(AudioPlayerActor.AudioPlayerCommand.ClosePlaylist)
 
     helper.checkPlaylistResult:
-      case AudioStreamPlayerStage.PlaylistStreamResult.AudioStreamStart(source, ks) =>
-        source should be(TestFileID)
+      case AudioPlayerActor.PlaylistEvent.MediaFileStarted(id, ks) =>
+        id should be(TestFileID)
         ks should not be null
     helper.expectNoPlaylistResult()
       .sendCommand(AudioPlayerActor.AudioPlayerCommand.StartPlayback)
       .checkPlaylistResult:
-        case AudioStreamPlayerStage.PlaylistStreamResult.AudioStreamEnd(source, _) =>
-          source should be(TestFileID)
+        case AudioPlayerActor.PlaylistEvent.MediaFileEnded(id) =>
+          id should be(TestFileID)
 
   it should "handle the Stop command" in :
     val helper = new PlayerActorTestHelper
 
     helper.sendCommand(AudioPlayerActor.AudioPlayerCommand.Stop)
       .verifyActorTerminated()
+
+  it should "support buffering the sources in the playlist" in:
+    val bufferTestData: String = FileTestHelper.TestData * 128
+    val bufferFileSize: Int = bufferTestData.length / 4
+    val deletedFiles = ConcurrentHashMap.newKeySet[Path]()
+    val bufferFunc: AudioPlayerActor.BufferFunc = streamConfig =>
+      BufferedPlaylistSource.BufferedPlaylistSourceConfig(
+        streamPlayerConfig = streamConfig,
+        bufferFolder = testDirectory,
+        bufferFileSize = bufferFileSize,
+        bufferDeleteFunc = path => deletedFiles.add(path)
+      )
+    val helper = new PlayerActorTestHelper
+
+    helper.initBufferFunc(bufferFunc)
+      .expectRequest(TestFileID, TestFileUri, bufferTestData)
+      .sendCommand(AudioPlayerActor.AudioPlayerCommand.AddAudioStreamFactory(helper.audioStreamFactory))
+      .sendCommand(AudioPlayerActor.AudioPlayerCommand.AppendToPlaylist(TestFileID))
+      .sendCommand(AudioPlayerActor.AudioPlayerCommand.ClosePlaylist)
+
+    helper.checkPlaylistResult:
+      case AudioPlayerActor.PlaylistEvent.MediaFileStarted(id, ks) =>
+        id should be(TestFileID)
+        ks should not be null
+    eventually(Timeout(Span(10, Seconds)), Interval(Span(100, Millis))):
+      deletedFiles.asScala should have size 4
+    val expectedFiles = (1 to 4).map(i => testDirectory.resolve(f"buffer$i%02d.dat"))
+    deletedFiles.asScala should contain theSameElementsAs expectedFiles
+    deletedFiles.asScala.foreach(path => Files.size(path) should be(bufferFileSize))
+    helper.playedData().utf8String should be(bufferTestData)
 
   /**
     * A test helper class that manages the audio player actor to be tested and
@@ -164,13 +213,16 @@ class AudioPlayerActorSpec extends ScalaTestWithActorTestKit, AnyFlatSpecLike, M
 
     /** A queue that receives playlist results from the test actor. */
     private val queuePlaylistResult =
-      new LinkedBlockingQueue[AudioStreamPlayerStage.PlaylistStreamResult[String, Any]]
+      new LinkedBlockingQueue[AudioPlayerActor.PlaylistEvent]
 
     /** A queue that receives the played audio chunks delivered by the progress callback. */
     private val queuePlayedChunk = new LinkedBlockingQueue[LineWriterStage.PlayedAudioChunk]
 
+    /** Holds the optional buffer function. */
+    private var optBufferFunc: Option[AudioPlayerActor.BufferFunc] = None
+
     /** The actor to be tested. */
-    private val testActor = createTestActor()
+    private lazy val testActor = createTestActor()
 
     /**
       * Prepares the mock archive service for a download request of the given
@@ -222,7 +274,7 @@ class AudioPlayerActorSpec extends ScalaTestWithActorTestKit, AnyFlatSpecLike, M
       *
       * @param pf the partial function performing checks on the result
       */
-    def checkPlaylistResult(pf: PartialFunction[AudioStreamPlayerStage.PlaylistStreamResult[String, Any], Unit]): Unit =
+    def checkPlaylistResult(pf: PartialFunction[AudioPlayerActor.PlaylistEvent, Unit]): Unit =
       val result = readFromQueue(queuePlaylistResult)
       if !pf.isDefinedAt(result) then fail("Unexpected playlist result: " + result)
       pf(result)
@@ -256,8 +308,19 @@ class AudioPlayerActorSpec extends ScalaTestWithActorTestKit, AnyFlatSpecLike, M
       * @return this test helper
       */
     def verifyActorTerminated(): PlayerActorTestHelper =
-      val probeDeathCheck = testKit.createDeadLetterProbe()
-      probeDeathCheck.expectTerminated(testActor)
+      val probeDeathCheck = TestProbe()(testSystem)
+      probeDeathCheck.watch(testActor.toClassic)
+      probeDeathCheck.expectTerminated(testActor.toClassic)
+      this
+
+    /**
+      * Allows setting a function for creating a buffered source. This method
+      * must be called before accessing the test actor.
+      * @param f the function to create the buffer config
+      * @return this test helper
+      */
+    def initBufferFunc(f: AudioPlayerActor.BufferFunc): PlayerActorTestHelper =
+      optBufferFunc = Some(f)
       this
 
     /**
@@ -345,15 +408,16 @@ class AudioPlayerActorSpec extends ScalaTestWithActorTestKit, AnyFlatSpecLike, M
       * @return the test actor instance
       */
     private def createTestActor(): ActorRef[AudioPlayerActor.AudioPlayerCommand] =
-      val playlistCallback: AudioPlayerActor.PlaylistStreamResultCallback = res =>
-        queuePlaylistResult.offer(res)
+      val playlistCallback: AudioPlayerActor.PlaylistEventCallback = event =>
+        queuePlaylistResult.offer(event)
       val progressCallback: AudioPlayerActor.PlaybackProgressCallback = chunk =>
         queuePlayedChunk.offer(chunk)
       val actorConfig = AudioPlayerActor.Config(
         archiveService = archiveService,
         playlistCallback = playlistCallback,
         progressCallback = progressCallback,
-        lineCreatorFunc = lineCreatorFunc()
+        lineCreatorFunc = lineCreatorFunc(),
+        optBufferFunc = optBufferFunc
       )
-      testKit.spawn(AudioPlayerActor.newInstance(actorConfig))
+      testSystem.spawnAnonymous(AudioPlayerActor.newInstance(actorConfig))
   end PlayerActorTestHelper
