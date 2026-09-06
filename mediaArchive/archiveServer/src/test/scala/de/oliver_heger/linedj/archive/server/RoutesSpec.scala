@@ -616,6 +616,30 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with BeforeAndAfterE
   it should "not skip metadata if the parameter has a non-true value" in :
     checkDownloadWithMetadata(s"/api/archive/files/$TestMediaFileID/download?stripMetadata=donotcare")
 
+  it should "drop the specified number of bytes when using the offset parameter" in :
+    val testPath = writeFileContent(createPathInDirectory("test.mp3"), FileTestHelper.TestData)
+    val resolver = resolverFunc(Some(testPath))
+    val contentBehavior = behaviorForDownloadRequest()
+    val offset = 10
+
+    val contentActor = testKit.spawn(contentBehavior)
+    val requestUri = s"/api/archive/files/$TestMediaFileID/download?offset=$offset"
+    Get(requestUri) ~> testRoute(contentActor, resolver = resolver) ~> check:
+      status should be(StatusCodes.OK)
+      val fileData = responseAs[String]
+      fileData should be(FileTestHelper.TestData.drop(offset))
+
+  it should "apply the offset parameter after stripping metadata" in :
+    val contentBehavior = behaviorForDownloadRequest()
+    val offset = 10
+
+    val contentActor = testKit.spawn(contentBehavior)
+    val requestUri = s"/api/archive/files/$TestMediaFileID/download?stripMetadata=true&offset=$offset"
+    Get(requestUri) ~> testRoute(contentActor, resolver = resolverFunc()) ~> check:
+      status should be(StatusCodes.OK)
+      val fileData = responseAs[String]
+      fileData should be(TestMp3Data.drop(offset))
+
   it should "support a custom route" in :
     val contentActor = testKit.spawn(ArchiveContentActor.behavior())
     val customRoute = pathPrefix("test"):

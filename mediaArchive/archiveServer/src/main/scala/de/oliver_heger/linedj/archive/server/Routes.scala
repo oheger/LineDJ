@@ -19,6 +19,7 @@ package de.oliver_heger.linedj.archive.server
 import de.oliver_heger.linedj.archive.server.content.ArchiveCommands
 import de.oliver_heger.linedj.archive.server.model.ArchiveModel
 import de.oliver_heger.linedj.extract.id3.stream.ID3SkipStage
+import de.oliver_heger.linedj.io.stream.DropBytesStage
 import de.oliver_heger.linedj.shared.archive.metadata.{Checksums, MediaMetadata}
 import org.apache.pekko.actor as classics
 import org.apache.pekko.actor.typed.scaladsl.AskPattern.Askable
@@ -35,6 +36,7 @@ import org.apache.pekko.util.{ByteString, Timeout}
 import java.nio.file.Paths
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
+import scala.util.Try
 
 /**
   * An object defining the routes supported by the archive server.
@@ -47,6 +49,15 @@ object Routes extends ArchiveModel.ArchiveJsonSupport:
     * metadata when downloading a media file.
     */
   private val ParamStripMetadata = "stripMetadata"
+
+  /**
+    * The name of the query parameter that defines an offset in bytes from the
+    * beginning of a media file to skip when downloading. This is used to
+    * resume playback at a specific position. If ID3 metadata is stripped, the
+    * offset is applied to the stream after the metadata removal, so that
+    * positions already refer to the stripped audio data.
+    */
+  private val ParamOffset = "offset"
 
   /**
     * Constant for the value of a boolean parameter that is interpreted as
@@ -224,30 +235,37 @@ object Routes extends ArchiveModel.ArchiveJsonSupport:
         path("download"):
           get:
             parameter(ParamStripMetadata.optional): optStrip =>
-              val futOptSource = for
-                downloadInfo <- contentActor.ask[ArchiveCommands.GetFileResponse[ArchiveModel.MediaFileDownloadInfo]]:
-                  ref => ArchiveCommands.ReadArchiveContentCommand.GetFileDownloadInfo(fileID, ref)
-                source <- resolveDownloadSource(fileID, downloadInfo.optResult)
-              yield source
-              onSuccess(futOptSource):
-                case Some((downloadInfo, source)) =>
-                  val strippedSource = if optStrip.exists(_.equalsIgnoreCase(ParamTrueValue)) then
-                    source.via(new ID3SkipStage)
-                  else
-                    source
-                  val fileName = Paths.get(downloadInfo.fileUri.path).getFileName.toString
-                  val response = HttpResponse(
-                    entity = HttpEntity(ContentTypes.`application/octet-stream`, strippedSource),
-                    headers = Seq(
-                      `Content-Disposition`(
-                        dispositionType = ContentDispositionTypes.attachment,
-                        params = Map("filename" -> fileName)
+              parameter(ParamOffset.optional): optOffset =>
+                val futOptSource = for
+                  downloadInfo <- contentActor.ask[ArchiveCommands.GetFileResponse[ArchiveModel.MediaFileDownloadInfo]]:
+                    ref => ArchiveCommands.ReadArchiveContentCommand.GetFileDownloadInfo(fileID, ref)
+                  source <- resolveDownloadSource(fileID, downloadInfo.optResult)
+                yield source
+                onSuccess(futOptSource):
+                  case Some((downloadInfo, source)) =>
+                    val optOffsetBytes = optOffset.flatMap(s => Try(s.toLong).toOption)
+                    val strippedSource = if optStrip.exists(_.equalsIgnoreCase(ParamTrueValue)) then
+                      source.via(new ID3SkipStage)
+                    else
+                      source
+                    val byteSkippedSource = optOffsetBytes match
+                      case Some(offsetBytes) if offsetBytes > 0 =>
+                        strippedSource.via(new DropBytesStage(offsetBytes))
+                      case _ =>
+                        strippedSource
+                    val fileName = Paths.get(downloadInfo.fileUri.path).getFileName.toString
+                    val response = HttpResponse(
+                      entity = HttpEntity(ContentTypes.`application/octet-stream`, byteSkippedSource),
+                      headers = Seq(
+                        `Content-Disposition`(
+                          dispositionType = ContentDispositionTypes.attachment,
+                          params = Map("filename" -> fileName)
+                        )
                       )
                     )
-                  )
-                  complete(response)
-                case None =>
-                  complete(StatusCodes.NotFound)
+                    complete(response)
+                  case None =>
+                    complete(StatusCodes.NotFound)
       )
 
     /**

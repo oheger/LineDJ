@@ -53,9 +53,12 @@ The `Route` created by the base `Controller` implementation provides a number of
 | Returns an object with information about the media file with the given ID. This includes the metadata known about this file and also the ID of the medium the file belongs to.
 
 | /files/\{fileID}/download
-| This endpoint can be used to download a media file with a specific ID. The result is an octet stream with the content of this file.
+a| This endpoint can be used to download a media file with a specific ID. The result is an octet stream with the content of this file.
 
-The endpoint supports an optional query parameter `stripMedatada`. If it is specified with a value of *true*, the content that is returned does not contain ID3v2 metadata. This can be useful if only the audio information is needed for playback.
+The endpoint supports some optional query parameters:
+
+* `stripMedatada`: If it is specified with a value of *true*, the content that is returned does not contain ID3v2 metadata. This can be useful if only the audio information is needed for playback.
+* `offset`: Allows specifying a number of bytes to be skipped from the beginning of the media file when downloading it. This is useful for instance when playback of this file is resumed at a specific position. Note that this parameter is evaluated after the `stripMetadata` flag; so when both parameters are provided, `offset` refers to the position of the actual audio data (with ID3 tag information already removed).
 |====
 
 The `/media` endpoint provides an easy means to check for changes in the content of the archive: The response contains an https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/ETag[ETag header] with a code corresponding to the latest update of the data in the archive. Clients can use this code in requests by specifying the https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/If-None-Match[If-None-Match header]. If there have been changes in the data, the endpoint returns the updated media information together with a new `ETag` header. Otherwise, it returns a response without a body with response status 304 Not Modified. Updated `ETag` headers are set in the responses as well.
