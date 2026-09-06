@@ -122,6 +122,25 @@ class AudioPlayerActorSpec(testSystem: classic.ActorSystem) extends AnyFlatSpecL
     helper.playedData().utf8String should be(TestData)
     helper.playedChunks().map(_.size).sum should be(TestData.length)
 
+  it should "pass an offset to the download request if defined" in :
+    val helper = new PlayerActorTestHelper
+    val offset = 42L
+
+    helper.expectRequest(TestFileID, TestFileUri, TestData, Some(offset))
+      .sendCommand(AudioPlayerActor.AudioPlayerCommand.AddAudioStreamFactory(helper.audioStreamFactory))
+      .sendCommand(AudioPlayerActor.AudioPlayerCommand.AppendToPlaylist(TestFileID, Some(offset)))
+      .sendCommand(AudioPlayerActor.AudioPlayerCommand.ClosePlaylist)
+
+    helper.checkPlaylistResult:
+      case AudioPlayerActor.PlaylistEvent.MediaFileStarted(id, ks) =>
+        id should be(TestFileID)
+        ks should not be null
+    helper.checkPlaylistResult:
+      case AudioPlayerActor.PlaylistEvent.MediaFileEnded(id) =>
+        id should be(TestFileID)
+    helper.requestedUris() should contain only TestFileName
+    helper.playedData().utf8String should be(TestData)
+
   it should "handle the removal of an audio stream factory" in :
     val helper = new PlayerActorTestHelper
 
@@ -237,7 +256,22 @@ class AudioPlayerActorSpec(testSystem: classic.ActorSystem) extends AnyFlatSpecL
       * @return this test helper
       */
     def expectRequest(fileID: String, fileUri: String, data: String): PlayerActorTestHelper =
-      val downloadRequest = HttpRequest(uri = downloadUri(fileID))
+      expectRequest(fileID, fileUri, data, None)
+
+    /**
+      * Prepares the mock archive service for a download request of the given
+      * media file requesting playback at a given offset. This variant is used
+      * to verify that an offset is passed to the archive server.
+      *
+      * @param fileID    the media file ID
+      * @param fileUri   the URI of the media file (used for the filename)
+      * @param data      the audio data to be returned
+      * @param optOffset the offset to be included in the request URI
+      * @return this test helper
+      */
+    def expectRequest(fileID: String, fileUri: String, data: String,
+                      optOffset: Option[Long]): PlayerActorTestHelper =
+      val downloadRequest = HttpRequest(uri = downloadUri(fileID, optOffset))
       when(archiveService.sendRequest(downloadRequest)).thenReturn(Future.successful(responseFor(fileUri, data)))
       this
 
@@ -382,12 +416,15 @@ class AudioPlayerActorSpec(testSystem: classic.ActorSystem) extends AnyFlatSpecL
 
     /**
       * Returns the URI of the download request for the given media file ID.
+      * If an offset is defined, it is appended as a query parameter.
       *
-      * @param fileID the media file ID
+      * @param fileID    the media file ID
+      * @param optOffset the optional offset to be included
       * @return the download request URI
       */
-    private def downloadUri(fileID: String): String =
-      FileIdPrefix + fileID + DownloadSuffix
+    private def downloadUri(fileID: String, optOffset: Option[Long] = None): String =
+      val offsetParameter = optOffset.fold("")(offset => s"&offset=$offset")
+      FileIdPrefix + fileID + DownloadSuffix + offsetParameter
 
     /**
       * Reads a value from a queue with a timeout. Fails if no value can be 

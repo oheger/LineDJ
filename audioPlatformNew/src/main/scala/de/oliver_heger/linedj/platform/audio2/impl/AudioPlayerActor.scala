@@ -71,8 +71,11 @@ object AudioPlayerActor:
       * no effect.
       *
       * @param mediaFileID the ID of the file to be appended
+      * @param optOffset   an optional offset (in bytes) in the media file at
+      *                    which playback should start; this can be used to
+      *                    resume playback of a playlist at a previous position
       */
-    case AppendToPlaylist(mediaFileID: String)
+    case AppendToPlaylist(mediaFileID: String, optOffset: Option[Long] = None)
 
     /**
       * A command to start playback if it has been paused.
@@ -98,6 +101,19 @@ object AudioPlayerActor:
       */
     case Stop
   end AudioPlayerCommand
+
+  /**
+    * A data class that represents an element of the playlist processed by
+    * this actor. In addition to the ID of the media file, an optional offset
+    * can be passed, which is used to resume playback of this file at a
+    * specific position.
+    *
+    * @param mediaFileID the ID of the media file
+    * @param optOffset   an optional offset (in bytes) at which playback of
+    *                    the media file should start
+    */
+  final case class PlaylistEntry(mediaFileID: String,
+                                 optOffset: Option[Long] = None)
 
   /**
     * An enumeration class defining the internal commands processed by the 
@@ -174,8 +190,8 @@ object AudioPlayerActor:
     * recommended when media files are downloaded from an archive server to
     * prevent timeouts.
     */
-  type BufferFunc = AudioStreamPlayerStage.AudioStreamPlayerConfig[String, Any] =>
-    BufferedPlaylistSource.BufferedPlaylistSourceConfig[String, Any]
+  type BufferFunc = AudioStreamPlayerStage.AudioStreamPlayerConfig[PlaylistEntry, Any] =>
+    BufferedPlaylistSource.BufferedPlaylistSourceConfig[PlaylistEntry, Any]
 
   /**
     * A data class that holds the configuration settings supported by an actor
@@ -251,18 +267,21 @@ object AudioPlayerActor:
 
       /**
         * Returns a source for the next media file in the playlist. This 
-        * function requests the media file with the given ID from the archive
-        * service.
+        * function requests the media file of the given playlist entry from the
+        * archive service. If an offset is defined for the entry, it is passed
+        * to the archive server as well, so that playback starts at this
+        * position.
         *
-        * @param id the ID of the media file to be played next
+        * @param entry the entry with the media file to be played next
         * @return an object with the content of this media file
         */
-      def resolveAudioSource(id: String): Future[AudioStreamPlayerStage.AudioStreamSource] =
-        val requestUri = ArchiveDownloadURIPrefix + id + ArchiveDownloadURISuffix
+      def resolveAudioSource(entry: PlaylistEntry): Future[AudioStreamPlayerStage.AudioStreamSource] =
+        val offsetSuffix = entry.optOffset.fold("")(offset => s"&offset=$offset")
+        val requestUri = ArchiveDownloadURIPrefix + entry.mediaFileID + ArchiveDownloadURISuffix + offsetSuffix
         config.archiveService.sendRequest(HttpRequest(uri = requestUri)).map: response =>
           val optFileName = response.header[`Content-Disposition`].flatMap(_.params.get("filename"))
           AudioStreamPlayerStage.AudioStreamSource(
-            optFileName.getOrElse(s"$id.mp3"),
+            optFileName.getOrElse(s"${entry.mediaFileID}.mp3"),
             response.entity.dataBytes
           )
 
@@ -271,10 +290,10 @@ object AudioPlayerActor:
         * is a sink which passes all chunk events from the audio line stage to
         * the callback function.
         *
-        * @param id the ID of the current media file
+        * @param entry the entry of the current media file
         * @return the [[Sink]] for the current audio stream
         */
-      def audioStreamSink(id: String): Sink[LineWriterStage.PlayedAudioChunk, Future[Any]] =
+      def audioStreamSink(entry: PlaylistEntry): Sink[LineWriterStage.PlayedAudioChunk, Future[Any]] =
         Sink.foreach[LineWriterStage.PlayedAudioChunk](chunk => config.progressCallback(chunk))
 
       given classics.ActorSystem = context.system.toClassic
@@ -295,7 +314,7 @@ object AudioPlayerActor:
         optLineCreatorFunc = Some(config.lineCreatorFunc),
         optKillSwitch = Some(playlistKillSwitch)
       )
-      val source = Source.queue[String](1000)
+      val source = Source.queue[PlaylistEntry](1000)
 
       /**
         * Creates a [[Sink]] that converts [[AudioStreamPlayerStage.PlaylistStreamResult]]
@@ -327,10 +346,12 @@ object AudioPlayerActor:
           val bufferedSource = BufferedPlaylistSource(bufferConfig, source)
           val bufferedConfig = BufferedPlaylistSource.mapConfig(bufferConfig.streamPlayerConfig)
           AudioStreamPlayerStage.runPlaylistStream(bufferedConfig, bufferedSource,
-            createPlaylistEventSink((src: BufferedPlaylistSource.SourceInBuffer[String]) => src.originalSource))._1
+            createPlaylistEventSink(
+              (src: BufferedPlaylistSource.SourceInBuffer[PlaylistEntry]) => src.originalSource.mediaFileID
+            ))._1
         case None =>
           AudioStreamPlayerStage.runPlaylistStream(playlistStreamConfig, source,
-            createPlaylistEventSink(identity[String]))._1
+            createPlaylistEventSink((entry: PlaylistEntry) => entry.mediaFileID))._1
 
       /**
         * The main command handler function for this actor implementation.
@@ -348,8 +369,8 @@ object AudioPlayerActor:
             val nextFactories = audioStreamFactory.factories.filterNot(_ == factory)
             handleAudioPlayerCommand(CompositeAsyncAudioStreamFactory(nextFactories))
 
-          case AudioPlayerCommand.AppendToPlaylist(mediaFileID) =>
-            playlistQueue.offer(mediaFileID)
+          case AudioPlayerCommand.AppendToPlaylist(mediaFileID, optOffset) =>
+            playlistQueue.offer(PlaylistEntry(mediaFileID, optOffset))
             Behaviors.same
 
           case AudioPlayerCommand.ClosePlaylist =>
