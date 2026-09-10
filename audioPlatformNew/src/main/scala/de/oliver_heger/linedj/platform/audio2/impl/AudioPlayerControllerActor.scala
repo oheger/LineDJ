@@ -25,6 +25,7 @@ import de.oliver_heger.linedj.player.engine.stream.LineWriterStage
 import org.apache.pekko.actor as classics
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import org.apache.pekko.actor.typed.{ActorRef, Behavior}
+import org.apache.pekko.stream.KillSwitch
 
 /**
   * An object providing an actor implementation to manage audio playback for 
@@ -62,16 +63,30 @@ object AudioPlayerControllerActor:
     * A data class representing the internal state that is managed by an actor
     * instance.
     *
-    * @param playerState      the state of audio player
-    * @param audioPlayerActor the actor managing the audio player engine
+    * @param playerState       the state of audio player
+    * @param audioPlayerActor  the actor managing the audio player engine
+    * @param playerActorCount  a counter to generate unique actor names
+    * @param currentKillSwitch stores a kill switch to cancel the current file
     */
   private case class AudioPlayerControllerState(playerState: AudioPlayerState,
-                                                audioPlayerActor: ActorRef[AudioPlayerActor.AudioPlayerCommand])
+                                                audioPlayerActor: ActorRef[AudioPlayerActor.AudioPlayerCommand],
+                                                playerActorCount: Int,
+                                                currentKillSwitch: Option[KillSwitch]):
+    /**
+      * Checks whether a current playlist exists and has been activated.
+      *
+      * @return a flag if a current playlist exists
+      */
+    def hasActivePlaylist: Boolean =
+      playerState.playlist.pendingSongs.nonEmpty && playerState.playlistActivated
+  end AudioPlayerControllerState
 
   /** Constant for the initial state of an actor instance. */
   private val InitialControllerState = AudioPlayerControllerState(
     playerState = AudioPlayerState.Initial,
-    audioPlayerActor = null
+    audioPlayerActor = null,
+    playerActorCount = 0,
+    currentKillSwitch = None
   )
 
   /**
@@ -104,7 +119,7 @@ object AudioPlayerControllerActor:
                                     configService: ConfigService,
                                     playlistService: PlaylistService[Playlist, String],
                                     audioPlayerFactory: AudioPlayerActor.Factory) =>
-    Behaviors.setup[AudioPlayerControllerCommand]: context =>
+    val behavior = Behaviors.setup[AudioPlayerInternalControllerCommand]: context =>
 
       /**
         * Returns the receiver function that listens for audio player commands
@@ -120,7 +135,7 @@ object AudioPlayerControllerActor:
       val messageBusID = messageBus.registerListener(createMessageBusReceiver())
       val audioPlayerConfig = AudioPlayerActor.Config(
         archiveService = archiveService,
-        playlistCallback = null,
+        playlistCallback = event => context.self ! event,
         progressCallback = null
       )
 
@@ -131,12 +146,30 @@ object AudioPlayerControllerActor:
         * @return the updated behavior
         */
       def handleControllerCommand(state: AudioPlayerControllerState): Behavior[AudioPlayerInternalControllerCommand] =
-        def stateWithPlayerActor(): AudioPlayerControllerState =
-          if state.audioPlayerActor != null then
+        /**
+          * Returns an [[AudioPlayerControllerState]] based on the current
+          * state and makes sure that the audio player actor has been
+          * initialized. It is created if necessary. If specified, a reset of
+          * the player engine is performed by stopping the current player actor
+          * and creating a new one.
+          *
+          * @param resetEngine flag whether the engine should be reset
+          * @return the state with a guaranteed player actor
+          */
+        def stateWithPlayerActor(resetEngine: Boolean = false): AudioPlayerControllerState =
+          val currentPlayerActor = if resetEngine then
+            assert(state.audioPlayerActor != null)
+            state.audioPlayerActor ! AudioPlayerActor.AudioPlayerCommand.Stop
+            null
+          else
+            state.audioPlayerActor
+          if currentPlayerActor != null then
             state
           else
-            val playerActor = context.spawn(audioPlayerFactory(audioPlayerConfig), AudioPlayerActorName)
-            state.copy(audioPlayerActor = playerActor)
+            val nextCount = state.playerActorCount + 1
+            context.log.info("Creating {}. audio player actor.", nextCount)
+            val playerActor = context.spawn(audioPlayerFactory(audioPlayerConfig), AudioPlayerActorName + nextCount)
+            state.copy(audioPlayerActor = playerActor, playerActorCount = nextCount)
 
         /**
           * Publishes the state contained in the given controller state on the
@@ -162,7 +195,7 @@ object AudioPlayerControllerActor:
         def handleSetPlaylist(cmd: AudioPlayerCommands.SetPlaylist,
                               controllerState: AudioPlayerControllerState):
         Behavior[AudioPlayerInternalControllerCommand] =
-          val nextState = stateWithPlayerActor()
+          val nextState = stateWithPlayerActor(resetEngine = state.hasActivePlaylist)
           cmd.playlist.pendingSongs.zipWithIndex foreach : (song, idx) =>
             val optOffset =
               if idx == 0 && cmd.positionOffset != 0 then Some(cmd.positionOffset)
@@ -185,6 +218,112 @@ object AudioPlayerControllerActor:
           publishPlayerState(updatedState)
           handleControllerCommand(updatedState)
 
+        /**
+          * Checks whether the file with the given ID is the current song in
+          * the playlist.
+          *
+          * @param mediaFileID     the file ID
+          * @param controllerState the current state
+          * @return a flag whether this is the current song
+          */
+        def isCurrentMediaFile(mediaFileID: String, controllerState: AudioPlayerControllerState): Boolean =
+          playlistService.currentSong(controllerState.playerState.playlist).contains(mediaFileID)
+
+        /**
+          * Handles an event about a completed media file by delegating to the
+          * common handler for the termination of media file playback.
+          *
+          * @param mediaFileID     the ID of the file whose playback has completed
+          * @param controllerState the current controller state
+          * @return the updated behavior
+          */
+        def handleMediaFileEnded(mediaFileID: String,
+                                 controllerState: AudioPlayerControllerState):
+        Behavior[AudioPlayerInternalControllerCommand] =
+          handleMediaFilePlaybackFinished(mediaFileID, controllerState)
+
+        /**
+          * Handles an event about a failed media file by delegating to the
+          * common handler for the termination of media file playback.
+          *
+          * @param mediaFileID     the ID of the file whose playback has failed
+          * @param controllerState the current controller state
+          * @return the updated behavior
+          */
+        def handleMediaFileFailed(mediaFileID: String,
+                                  controllerState: AudioPlayerControllerState):
+        Behavior[AudioPlayerInternalControllerCommand] =
+          handleMediaFilePlaybackFinished(mediaFileID, controllerState)
+
+        /**
+          * Common handler for events about the termination of the playback of
+          * a media file; this can happen either because playback completed or
+          * because it failed.
+          *
+          * @param mediaFileID     the ID of the affected file
+          * @param controllerState the current controller state
+          * @return the updated behavior
+          */
+        def handleMediaFilePlaybackFinished(mediaFileID: String,
+                                            controllerState: AudioPlayerControllerState):
+        Behavior[AudioPlayerInternalControllerCommand] =
+          if isCurrentMediaFile(mediaFileID, controllerState) then
+            val nextPlaylist = playlistService.moveForwards(controllerState.playerState.playlist).get
+            val nextState = controllerState.copy(
+              playerState = controllerState.playerState.copy(
+                playlist = nextPlaylist,
+                playbackActive =
+                  if playlistService.currentSong(nextPlaylist).isEmpty
+                    && controllerState.playerState.playlistClosed
+                    && controllerState.playerState.playbackActive
+                  then false
+                  else controllerState.playerState.playbackActive
+              )
+            )
+            publishPlayerState(nextState)
+            handleControllerCommand(nextState)
+          else
+            Behaviors.same
+
+        /**
+          * Handles an event about playback start on a new media file. The
+          * provided [[KillSwitch]] needs to be recorded, so that this source
+          * can be skipped.
+          *
+          * @param mediaFileID     the ID of the affected file
+          * @param killSwitch      the [[KillSwitch]]
+          * @param controllerState the current controller state
+          * @return the updated behavior
+          */
+        def handleMediaFileStarted(mediaFileID: String,
+                                   killSwitch: KillSwitch,
+                                   controllerState: AudioPlayerControllerState):
+        Behavior[AudioPlayerInternalControllerCommand] =
+          if isCurrentMediaFile(mediaFileID, controllerState) then
+            val nextState = controllerState.copy(currentKillSwitch = Some(killSwitch))
+            handleControllerCommand(nextState)
+          else
+            Behaviors.same
+
+        /**
+          * Dispatches events received from the audio player actor to the
+          * specific handler functions.
+          *
+          * @param event           the event to be handled
+          * @param controllerState the current controller state
+          * @return the updated behavior
+          */
+        def handlePlaylistEvent(event: AudioPlayerActor.PlaylistEvent,
+                                controllerState: AudioPlayerControllerState):
+        Behavior[AudioPlayerInternalControllerCommand] =
+          event match
+            case AudioPlayerActor.PlaylistEvent.MediaFileEnded(mediaFileID) =>
+              handleMediaFileEnded(mediaFileID, controllerState)
+            case AudioPlayerActor.PlaylistEvent.MediaFileFailed(mediaFileID, _) =>
+              handleMediaFileFailed(mediaFileID, controllerState)
+            case AudioPlayerActor.PlaylistEvent.MediaFileStarted(mediaFileID, killSwitch) =>
+              handleMediaFileStarted(mediaFileID, killSwitch, controllerState)
+
         Behaviors.receiveMessage:
           case Stop =>
             messageBus.removeListener(messageBusID)
@@ -193,8 +332,43 @@ object AudioPlayerControllerActor:
           case cmd: AudioPlayerCommands.SetPlaylist =>
             handleSetPlaylist(cmd, state)
 
+          case AudioPlayerCommands.StartAudioPlayback =>
+            if !state.playerState.playbackActive then
+              val nextState = stateWithPlayerActor()
+              nextState.audioPlayerActor ! AudioPlayerActor.AudioPlayerCommand.StartPlayback
+              val updatedState = nextState.copy(
+                playerState = state.playerState.copy(playbackActive = true, playlistActivated = true)
+              )
+              publishPlayerState(updatedState)
+              handleControllerCommand(updatedState)
+            else
+              Behaviors.same
+
+          case AudioPlayerCommands.StopAudioPlayback =>
+            if state.playerState.playbackActive then
+              state.audioPlayerActor ! AudioPlayerActor.AudioPlayerCommand.StopPlayback
+              val updatedState = state.copy(
+                playerState = state.playerState.copy(playbackActive = false)
+              )
+              publishPlayerState(updatedState)
+              handleControllerCommand(updatedState)
+            else
+              Behaviors.same
+
+          case AudioPlayerCommands.SkipCurrentSource =>
+            state.currentKillSwitch match
+              case Some(ks) =>
+                ks.shutdown()
+                handleControllerCommand(state.copy(currentKillSwitch = None))
+              case None =>
+                Behaviors.same
+
+          case ev: AudioPlayerActor.PlaylistEvent =>
+            handlePlaylistEvent(ev, state)
+
           case _ =>
             Behaviors.same
 
-      handleControllerCommand(InitialControllerState).narrow
+      handleControllerCommand(InitialControllerState)
+    behavior.narrow[AudioPlayerControllerCommand]
 end AudioPlayerControllerActor

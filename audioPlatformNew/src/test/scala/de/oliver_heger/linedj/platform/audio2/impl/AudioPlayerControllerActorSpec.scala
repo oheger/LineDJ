@@ -27,8 +27,9 @@ import org.apache.commons.configuration2.BaseHierarchicalConfiguration
 import org.apache.pekko.actor.testkit.typed.scaladsl.{ScalaTestWithActorTestKit, TestProbe}
 import org.apache.pekko.actor.typed.ActorRef
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
-import org.mockito.ArgumentCaptor
+import org.apache.pekko.stream.KillSwitch
 import org.mockito.ArgumentMatchers.any
+import org.mockito.Mockito
 import org.mockito.Mockito.*
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
@@ -44,6 +45,18 @@ import scala.compiletime.uninitialized
 import scala.concurrent.duration.*
 
 object AudioPlayerControllerActorSpec:
+  /**
+    * A data class that holds information about the creation of an audio
+    * player actor. This is used by the test class to keep track on all created
+    * actor instances, obtain test probes for them and validate their
+    * configuration.
+    *
+    * @param probeAudioPlayerActor the probe representing the player actor
+    * @param audioPlayerConfig     the config used to create the actor
+    */
+  private case class AudioPlayerActorCreation(probeAudioPlayerActor: TestProbe[AudioPlayerActor.AudioPlayerCommand],
+                                              audioPlayerConfig: AudioPlayerActor.Config)
+
   /**
     * Generates an ID for a test song based on the given index.
     *
@@ -99,13 +112,13 @@ class AudioPlayerControllerActorSpec extends ScalaTestWithActorTestKit, AnyFlatS
     val helper = new ControllerTestHelper
 
     helper.sendCommand(
-      AudioPlayerCommands.SetPlaylist(playlist, positionOffset = PositionOffset, timeOffset = 100.millis),
-      expectPlayerCreation = true
-    ).expectAudioPlayerCommand(
-      AudioPlayerCommand.AppendToPlaylist(playlist.pendingSongs.head, optOffset = Some(PositionOffset))
-    ).expectAudioPlayerCommand(
-      AudioPlayerCommand.AppendToPlaylist(playlist.pendingSongs(1), optOffset = None)
-    ).expectAudioPlayerCommand(AudioPlayerCommand.ClosePlaylist)
+        AudioPlayerCommands.SetPlaylist(playlist, positionOffset = PositionOffset, timeOffset = 100.millis),
+        expectPlayerCreation = true
+      ).expectAudioPlayerCommand(
+        AudioPlayerCommand.AppendToPlaylist(playlist.pendingSongs.head, optOffset = Some(PositionOffset))
+      ).expectAudioPlayerCommand(
+        AudioPlayerCommand.AppendToPlaylist(playlist.pendingSongs(1), optOffset = None)
+      ).expectAudioPlayerCommand(AudioPlayerCommand.ClosePlaylist)
       .expectAudioPlayerState: state =>
         state.playlist should be(playlist)
         state.playlistSeqNo should not be PlaylistService.SeqNoInitial
@@ -143,19 +156,310 @@ class AudioPlayerControllerActorSpec extends ScalaTestWithActorTestKit, AnyFlatS
         state.playlistClosed shouldBe true
         state.playlistActivated shouldBe false
 
+  it should "reset the audio player when setting a new playlist, and songs are pending" in :
+    val firstPlaylist = Playlist(pendingSongs = List(songID(1)), playedSongs = Nil)
+    val secondPlaylist = Playlist(pendingSongs = List(songID(2)), playedSongs = Nil)
+    val helper = new ControllerTestHelper
+
+    helper.sendCommand(AudioPlayerCommands.SetPlaylist(firstPlaylist), expectPlayerCreation = true)
+      .expectAudioPlayerCommand(AudioPlayerCommand.AppendToPlaylist(songID(1)))
+      .expectAudioPlayerCommand(AudioPlayerCommand.ClosePlaylist)
+
+    helper.sendCommand(AudioPlayerCommands.SetPlaylist(secondPlaylist))
+      .expectAudioPlayerCommand(AudioPlayerCommand.Stop)
+      .expectAudioPlayerCreation()
+      .expectAudioPlayerCommand(AudioPlayerCommand.AppendToPlaylist(songID(2)))
+      .expectAudioPlayerCommand(AudioPlayerCommand.ClosePlaylist)
+
+  it should "not reset the audio player if the current playlist is not activated" in :
+    val firstPlaylist = Playlist(pendingSongs = Nil, playedSongs = Nil)
+    val secondPlaylist = Playlist(pendingSongs = List(songID(1)), playedSongs = Nil)
+    val helper = new ControllerTestHelper
+
+    helper.sendCommand(AudioPlayerCommands.SetPlaylist(firstPlaylist), expectPlayerCreation = true)
+      .expectAudioPlayerCommand(AudioPlayerCommand.ClosePlaylist)
+
+    helper.sendCommand(AudioPlayerCommands.SetPlaylist(secondPlaylist))
+      .expectAudioPlayerCommand(AudioPlayerCommand.AppendToPlaylist(songID(1)))
+      .expectAudioPlayerCommand(AudioPlayerCommand.ClosePlaylist)
+      .expectNoAudioPlayerCommand()
+
+  it should "process a start playback command" in :
+    val helper = new ControllerTestHelper
+
+    helper.sendCommand(AudioPlayerCommands.StartAudioPlayback, expectPlayerCreation = true)
+      .expectAudioPlayerCommand(AudioPlayerCommand.StartPlayback)
+      .expectAudioPlayerState: state =>
+        state.playlist should be(Playlist(Nil, Nil))
+        state.playlistSeqNo should be(PlaylistService.SeqNoInitial)
+        state.playbackActive shouldBe true
+        state.playlistClosed shouldBe false
+        state.playlistActivated shouldBe true
+
+  it should "start playback only if it is not yet active" in :
+    val helper = new ControllerTestHelper
+
+    helper.sendCommand(AudioPlayerCommands.StartAudioPlayback, expectPlayerCreation = true)
+      .expectAudioPlayerCommand(AudioPlayerCommand.StartPlayback)
+      .expectAudioPlayerState: state =>
+        state.playbackActive shouldBe true
+      .sendCommand(AudioPlayerCommands.StartAudioPlayback)
+      .expectNoAudioPlayerCommand()
+      .expectNoAudioPlayerState()
+
+  it should "process a stop playback command" in :
+    val helper = new ControllerTestHelper
+
+    helper.sendCommand(AudioPlayerCommands.StartAudioPlayback, expectPlayerCreation = true)
+      .expectAudioPlayerCommand(AudioPlayerCommand.StartPlayback)
+      .expectAudioPlayerState: state =>
+        state.playbackActive shouldBe true
+      .sendCommand(AudioPlayerCommands.StopAudioPlayback)
+      .expectAudioPlayerCommand(AudioPlayerCommand.StopPlayback)
+      .expectAudioPlayerState: state =>
+        state.playbackActive shouldBe false
+
+  it should "stop playback only if it is active" in :
+    val playlist = createPlaylist(pending = 1, played = 0)
+    val helper = new ControllerTestHelper
+
+    helper.sendCommand(AudioPlayerCommands.SetPlaylist(playlist), expectPlayerCreation = true)
+      .expectAudioPlayerCommand(AudioPlayerCommand.AppendToPlaylist(playlist.pendingSongs.head))
+      .expectAudioPlayerCommand(AudioPlayerCommand.ClosePlaylist)
+      .expectAudioPlayerState: state =>
+        state.playbackActive shouldBe false
+      .sendCommand(AudioPlayerCommands.StopAudioPlayback)
+      .expectNoAudioPlayerCommand()
+      .expectNoAudioPlayerState()
+
+  it should "move to the next song on a media file completed event" in :
+    val playlist = Playlist(
+      pendingSongs = List(songID(2), songID(3), songID(4)),
+      playedSongs = List(songID(1))
+    )
+    val helper = new ControllerTestHelper
+
+    helper.sendCommand(AudioPlayerCommands.SetPlaylist(playlist), expectPlayerCreation = true)
+      .expectAudioPlayerCommand(AudioPlayerCommand.AppendToPlaylist(songID(2)))
+      .expectAudioPlayerCommand(AudioPlayerCommand.AppendToPlaylist(songID(3)))
+      .expectAudioPlayerCommand(AudioPlayerCommand.AppendToPlaylist(songID(4)))
+      .expectAudioPlayerCommand(AudioPlayerCommand.ClosePlaylist)
+      .expectAudioPlayerState: state =>
+        state.playlist should be(playlist)
+        state.playbackActive shouldBe false
+
+    helper.sendCommand(AudioPlayerCommands.StartAudioPlayback)
+      .expectAudioPlayerCommand(AudioPlayerCommand.StartPlayback)
+      .expectAudioPlayerState: state =>
+        state.playbackActive shouldBe true
+
+    helper.fetchAudioPlayerConfig().playlistCallback(AudioPlayerActor.PlaylistEvent.MediaFileEnded(songID(2)))
+    helper.expectAudioPlayerState: state =>
+      state.playbackActive shouldBe true
+      state.playlist.pendingSongs should be(List(songID(3), songID(4)))
+      state.playlist.playedSongs should be(List(songID(2), songID(1)))
+
+  it should "not publish a playback state update if the completed media file is not the current song" in :
+    val playlist = Playlist(
+      pendingSongs = List(songID(2), songID(3), songID(4)),
+      playedSongs = List(songID(1))
+    )
+    val helper = new ControllerTestHelper
+
+    helper.sendCommand(AudioPlayerCommands.SetPlaylist(playlist), expectPlayerCreation = true)
+      .expectAudioPlayerCommand(AudioPlayerCommand.AppendToPlaylist(songID(2)))
+      .expectAudioPlayerCommand(AudioPlayerCommand.AppendToPlaylist(songID(3)))
+      .expectAudioPlayerCommand(AudioPlayerCommand.AppendToPlaylist(songID(4)))
+      .expectAudioPlayerCommand(AudioPlayerCommand.ClosePlaylist)
+      .expectAudioPlayerState: state =>
+        state.playlist should be(playlist)
+        state.playbackActive shouldBe false
+
+    helper.fetchAudioPlayerConfig().playlistCallback(AudioPlayerActor.PlaylistEvent.MediaFileEnded(songID(3)))
+    helper.expectNoAudioPlayerState()
+
+  it should "stop playback when the last song of the playlist is completed" in :
+    val playlist = Playlist(
+      pendingSongs = List(songID(2)),
+      playedSongs = List(songID(1))
+    )
+    val helper = new ControllerTestHelper
+
+    helper.sendCommand(AudioPlayerCommands.SetPlaylist(playlist), expectPlayerCreation = true)
+      .expectAudioPlayerCommand(AudioPlayerCommand.AppendToPlaylist(songID(2)))
+      .expectAudioPlayerCommand(AudioPlayerCommand.ClosePlaylist)
+      .expectAudioPlayerState: state =>
+        state.playlist should be(playlist)
+        state.playlistClosed shouldBe true
+        state.playbackActive shouldBe false
+
+    helper.sendCommand(AudioPlayerCommands.StartAudioPlayback)
+      .expectAudioPlayerCommand(AudioPlayerCommand.StartPlayback)
+      .expectAudioPlayerState: state =>
+        state.playbackActive shouldBe true
+
+    helper.fetchAudioPlayerConfig().playlistCallback(AudioPlayerActor.PlaylistEvent.MediaFileEnded(songID(2)))
+    helper.expectAudioPlayerState: state =>
+      state.playbackActive shouldBe false
+      state.playlistClosed shouldBe true
+      state.playlist.pendingSongs shouldBe empty
+      state.playlist.playedSongs should be(List(songID(2), songID(1)))
+
+  it should "move to the next song on a media file failed event" in :
+    val playlist = Playlist(
+      pendingSongs = List(songID(2), songID(3), songID(4)),
+      playedSongs = List(songID(1))
+    )
+    val helper = new ControllerTestHelper
+
+    helper.sendCommand(AudioPlayerCommands.SetPlaylist(playlist), expectPlayerCreation = true)
+      .expectAudioPlayerCommand(AudioPlayerCommand.AppendToPlaylist(songID(2)))
+      .expectAudioPlayerCommand(AudioPlayerCommand.AppendToPlaylist(songID(3)))
+      .expectAudioPlayerCommand(AudioPlayerCommand.AppendToPlaylist(songID(4)))
+      .expectAudioPlayerCommand(AudioPlayerCommand.ClosePlaylist)
+      .expectAudioPlayerState: state =>
+        state.playlist should be(playlist)
+        state.playbackActive shouldBe false
+
+    helper.sendCommand(AudioPlayerCommands.StartAudioPlayback)
+      .expectAudioPlayerCommand(AudioPlayerCommand.StartPlayback)
+      .expectAudioPlayerState: state =>
+        state.playbackActive shouldBe true
+
+    helper.fetchAudioPlayerConfig().playlistCallback(
+      AudioPlayerActor.PlaylistEvent.MediaFileFailed(songID(2), new Exception("Playback failed"))
+    )
+    helper.expectAudioPlayerState: state =>
+      state.playbackActive shouldBe true
+      state.playlist.pendingSongs should be(List(songID(3), songID(4)))
+      state.playlist.playedSongs should be(List(songID(2), songID(1)))
+
+  it should "not publish a playback state update if the failed media file is not the current song" in :
+    val playlist = Playlist(
+      pendingSongs = List(songID(2), songID(3), songID(4)),
+      playedSongs = List(songID(1))
+    )
+    val helper = new ControllerTestHelper
+
+    helper.sendCommand(AudioPlayerCommands.SetPlaylist(playlist), expectPlayerCreation = true)
+      .expectAudioPlayerCommand(AudioPlayerCommand.AppendToPlaylist(songID(2)))
+      .expectAudioPlayerCommand(AudioPlayerCommand.AppendToPlaylist(songID(3)))
+      .expectAudioPlayerCommand(AudioPlayerCommand.AppendToPlaylist(songID(4)))
+      .expectAudioPlayerCommand(AudioPlayerCommand.ClosePlaylist)
+      .expectAudioPlayerState: state =>
+        state.playlist should be(playlist)
+        state.playbackActive shouldBe false
+
+    helper.fetchAudioPlayerConfig().playlistCallback(
+      AudioPlayerActor.PlaylistEvent.MediaFileFailed(songID(3), new Exception("Playback failed"))
+    )
+    helper.expectNoAudioPlayerState()
+
+  it should "stop playback when the last song of the playlist fails" in :
+    val playlist = Playlist(
+      pendingSongs = List(songID(2)),
+      playedSongs = List(songID(1))
+    )
+    val helper = new ControllerTestHelper
+
+    helper.sendCommand(AudioPlayerCommands.SetPlaylist(playlist), expectPlayerCreation = true)
+      .expectAudioPlayerCommand(AudioPlayerCommand.AppendToPlaylist(songID(2)))
+      .expectAudioPlayerCommand(AudioPlayerCommand.ClosePlaylist)
+      .expectAudioPlayerState: state =>
+        state.playlist should be(playlist)
+        state.playlistClosed shouldBe true
+        state.playbackActive shouldBe false
+
+    helper.sendCommand(AudioPlayerCommands.StartAudioPlayback)
+      .expectAudioPlayerCommand(AudioPlayerCommand.StartPlayback)
+      .expectAudioPlayerState: state =>
+        state.playbackActive shouldBe true
+
+    helper.fetchAudioPlayerConfig().playlistCallback(
+      AudioPlayerActor.PlaylistEvent.MediaFileFailed(songID(2), new Exception("Playback failed"))
+    )
+    helper.expectAudioPlayerState: state =>
+      state.playbackActive shouldBe false
+      state.playlistClosed shouldBe true
+      state.playlist.pendingSongs shouldBe empty
+      state.playlist.playedSongs should be(List(songID(2), songID(1)))
+
+  it should "skip the current media file" in :
+    val playlist = Playlist(
+      pendingSongs = List(songID(2), songID(3), songID(4)),
+      playedSongs = List(songID(1))
+    )
+    val killSwitch = mock[KillSwitch]
+    val helper = new ControllerTestHelper
+    helper.sendCommand(AudioPlayerCommands.SetPlaylist(playlist), expectPlayerCreation = true)
+
+    helper.fetchAudioPlayerConfig().playlistCallback(
+      AudioPlayerActor.PlaylistEvent.MediaFileStarted(songID(2), killSwitch)
+    )
+    helper.sendCommand(AudioPlayerCommands.SkipCurrentSource)
+
+    verify(killSwitch, Mockito.timeout(1000)).shutdown()
+
+  it should "reset the kill switch for the current source after it was triggered" in :
+    val playlist = Playlist(
+      pendingSongs = List(songID(2), songID(3), songID(4)),
+      playedSongs = List(songID(1))
+    )
+    val killSwitch = mock[KillSwitch]
+    val helper = new ControllerTestHelper
+    helper.sendCommand(AudioPlayerCommands.SetPlaylist(playlist), expectPlayerCreation = true)
+      .expectAudioPlayerState: state =>
+        state.playlist should be(playlist)
+
+    helper.fetchAudioPlayerConfig().playlistCallback(
+      AudioPlayerActor.PlaylistEvent.MediaFileStarted(songID(2), killSwitch)
+    )
+    helper.sendCommand(AudioPlayerCommands.SkipCurrentSource)
+      .sendCommand(AudioPlayerCommands.SkipCurrentSource)
+    helper.fetchAudioPlayerConfig().playlistCallback(
+      AudioPlayerActor.PlaylistEvent.MediaFileEnded(songID(2))
+    )
+    helper.expectAudioPlayerState: state =>
+      state.playlist.pendingSongs.head should be(songID(3))
+
+    verify(killSwitch, times(1)).shutdown()
+
+  it should "ignore a media file started event if it is not for the current song in the playlist" in :
+    val playlist = Playlist(
+      pendingSongs = List(songID(2), songID(3), songID(4)),
+      playedSongs = List(songID(1))
+    )
+    val killSwitch = mock[KillSwitch]
+    val helper = new ControllerTestHelper
+    helper.sendCommand(AudioPlayerCommands.SetPlaylist(playlist), expectPlayerCreation = true)
+      .expectAudioPlayerState: state =>
+        state.playlist should be(playlist)
+
+    helper.fetchAudioPlayerConfig().playlistCallback(
+      AudioPlayerActor.PlaylistEvent.MediaFileStarted(songID(3), killSwitch)
+    )
+    helper.sendCommand(AudioPlayerCommands.SkipCurrentSource)
+    helper.fetchAudioPlayerConfig().playlistCallback(
+      AudioPlayerActor.PlaylistEvent.MediaFileEnded(songID(2))
+    )
+    helper.expectAudioPlayerState: state =>
+      state.playlist.pendingSongs.head should be(songID(3))
+
+    verifyNoInteractions(killSwitch)
+
   /**
     * A test helper class that manages a controller instance to be tested and
     * its dependencies.
     */
   private class ControllerTestHelper:
     /** The message bus used by the test controller. */
-    val messageBus: MessageBusTestImpl = new MessageBusTestImpl
+    private val messageBus: MessageBusTestImpl = new MessageBusTestImpl
 
     /** A queue to record audio player actor creations. */
-    private val actorCreationQueue = new LinkedBlockingQueue[TestProbe[AudioPlayerActor.AudioPlayerCommand]]
+    private val actorCreationQueue = new LinkedBlockingQueue[AudioPlayerActorCreation]
 
-    /** Test probe for the current audio player actor. */
-    private var audioPlayerActor: TestProbe[AudioPlayerActor.AudioPlayerCommand] = uninitialized
+    /** Stores data about the latest audio player actor. */
+    private var audioPlayerCreation: AudioPlayerActorCreation = uninitialized
 
     /** The mock factory for the audio player actor. */
     private val audioPlayerActorFactory = createAudioPlayerActorFactory()
@@ -171,6 +475,7 @@ class AudioPlayerControllerActorSpec extends ScalaTestWithActorTestKit, AnyFlatS
 
     /**
       * Sends the `Stop` command to the actor under test.
+      *
       * @return this test helper
       */
     def stopControllerActor(): ControllerTestHelper =
@@ -196,31 +501,27 @@ class AudioPlayerControllerActorSpec extends ScalaTestWithActorTestKit, AnyFlatS
       this
 
     /**
-      * Verifies that the audio player actor has been created with a correct
-      * configuration. The function checks some basic properties of the
-      * configuration. It also returns the object, so that further checks can
-      * be done.
+      * Returns the configuration used for the creation of the latest audio
+      * player actor.
       *
       * @return the configuration for the audio player actor
       */
     def fetchAudioPlayerConfig(): AudioPlayerActor.Config =
-      val captConfig = ArgumentCaptor.forClass(classOf[AudioPlayerActor.Config])
-      verify(audioPlayerActorFactory).apply(captConfig.capture())
-      captConfig.getValue.archiveService should be(archiveService)
-      captConfig.getValue.lineCreatorFunc should be(LineWriterStage.DefaultLineCreatorFunc)
-      captConfig.getValue
+      audioPlayerCreation should not be null
+      audioPlayerCreation.audioPlayerConfig
 
     /**
-      * Expects that an audio player actor instance has been created. The new
-      * instance is stored in a field of this test helper, so that the messages
-      * sent to it can be tested.
+      * Expects that an audio player actor instance has been created.
+      * Information about the new instance is stored in a field of this test
+      * helper, so that it can be validated, and that the messages sent to the
+      * actor can be tested.
       *
       * @return this test helper
       */
     def expectAudioPlayerCreation(): ControllerTestHelper =
-      val newProbe = actorCreationQueue.poll(3, TimeUnit.SECONDS)
-      newProbe should not be null
-      audioPlayerActor = newProbe
+      val newCreation = actorCreationQueue.poll(3, TimeUnit.SECONDS)
+      newCreation should not be null
+      audioPlayerCreation = newCreation
       this
 
     /**
@@ -235,6 +536,7 @@ class AudioPlayerControllerActorSpec extends ScalaTestWithActorTestKit, AnyFlatS
 
     /**
       * Tests that the test actor instance has been stopped.
+      *
       * @return this test helper
       */
     def verifyControllerActorStopped(): ControllerTestHelper =
@@ -250,7 +552,7 @@ class AudioPlayerControllerActorSpec extends ScalaTestWithActorTestKit, AnyFlatS
       * @return this test helper
       */
     def expectAudioPlayerCommand(command: AudioPlayerActor.AudioPlayerCommand): ControllerTestHelper =
-      audioPlayerActor.expectMessage(command)
+      audioPlayerCreation.probeAudioPlayerActor.expectMessage(command)
       this
 
     /**
@@ -260,7 +562,7 @@ class AudioPlayerControllerActorSpec extends ScalaTestWithActorTestKit, AnyFlatS
       * @return this test helper
       */
     def expectNoAudioPlayerCommand(): ControllerTestHelper =
-      audioPlayerActor.expectNoMessage(200.millis)
+      audioPlayerCreation.probeAudioPlayerActor.expectNoMessage(200.millis)
       this
 
     /**
@@ -277,6 +579,16 @@ class AudioPlayerControllerActorSpec extends ScalaTestWithActorTestKit, AnyFlatS
       this
 
     /**
+      * Checks that no [[AudioPlayerState]] message was published on the message
+      * bus for a certain period.
+      *
+      * @return this test helper
+      */
+    def expectNoAudioPlayerState(): ControllerTestHelper =
+      messageBus.expectNoMessage(200.millis)
+      this
+
+    /**
       * Creates a mock for the factory of the audio player actor. The mock is
       * prepared to create a behavior that is backed by a test probe. The probe
       * is recorded in a queue, so that it can be obtained and used to inspect
@@ -287,8 +599,11 @@ class AudioPlayerControllerActorSpec extends ScalaTestWithActorTestKit, AnyFlatS
     private def createAudioPlayerActorFactory(): AudioPlayerActor.Factory =
       val factory = mock[AudioPlayerActor.Factory]
       when(factory.apply(any())).thenAnswer((invocation: InvocationOnMock) =>
+        val playerConfig: AudioPlayerActor.Config = invocation.getArgument(0)
+        playerConfig.archiveService should be(archiveService)
+        playerConfig.lineCreatorFunc should be(LineWriterStage.DefaultLineCreatorFunc)
         val probe = testKit.createTestProbe[AudioPlayerActor.AudioPlayerCommand]()
-        actorCreationQueue.offer(probe)
+        actorCreationQueue.offer(AudioPlayerActorCreation(probe, playerConfig))
         Behaviors.monitor(probe.ref, Behaviors.ignore))
       factory
 
