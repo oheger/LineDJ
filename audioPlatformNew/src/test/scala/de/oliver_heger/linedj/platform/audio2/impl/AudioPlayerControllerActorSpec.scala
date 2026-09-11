@@ -22,7 +22,7 @@ import de.oliver_heger.linedj.platform.audio2.impl.AudioPlayerActor.AudioPlayerC
 import de.oliver_heger.linedj.platform.audio2.playlist.{Playlist, PlaylistService}
 import de.oliver_heger.linedj.platform.audio2.{AudioPlayerCommands, AudioPlayerState}
 import de.oliver_heger.linedj.platform.startup.ConfigService
-import de.oliver_heger.linedj.player.engine.stream.LineWriterStage
+import de.oliver_heger.linedj.player.engine.stream.{LineWriterStage, PausePlaybackStage}
 import org.apache.commons.configuration2.BaseHierarchicalConfiguration
 import org.apache.pekko.actor.testkit.typed.scaladsl.{ScalaTestWithActorTestKit, TestProbe}
 import org.apache.pekko.actor.typed.ActorRef
@@ -170,6 +170,7 @@ class AudioPlayerControllerActorSpec extends ScalaTestWithActorTestKit, AnyFlatS
       .expectAudioPlayerCreation()
       .expectAudioPlayerCommand(AudioPlayerCommand.AppendToPlaylist(songID(2)))
       .expectAudioPlayerCommand(AudioPlayerCommand.ClosePlaylist)
+    helper.fetchAudioPlayerConfig().initPlaybackState should be(PausePlaybackStage.PlaybackState.PlaybackPaused)
 
   it should "not reset the audio player if the current playlist is not activated" in :
     val firstPlaylist = Playlist(pendingSongs = Nil, playedSongs = Nil)
@@ -206,6 +207,18 @@ class AudioPlayerControllerActorSpec extends ScalaTestWithActorTestKit, AnyFlatS
       .sendCommand(AudioPlayerCommands.StartAudioPlayback)
       .expectNoAudioPlayerCommand()
       .expectNoAudioPlayerState()
+
+  it should "keep the playback state when resetting the audio player" in :
+    val firstPlaylist = Playlist(pendingSongs = List(songID(1)), playedSongs = Nil)
+    val secondPlaylist = Playlist(pendingSongs = List(songID(2)), playedSongs = Nil)
+    val helper = new ControllerTestHelper
+
+    helper.sendCommand(AudioPlayerCommands.SetPlaylist(firstPlaylist), expectPlayerCreation = true)
+      .sendCommand(AudioPlayerCommands.StartAudioPlayback)
+
+    helper.sendCommand(AudioPlayerCommands.SetPlaylist(secondPlaylist))
+      .expectAudioPlayerCreation()
+    helper.fetchAudioPlayerConfig().initPlaybackState should be(PausePlaybackStage.PlaybackState.PlaybackPossible)
 
   it should "process a stop playback command" in :
     val helper = new ControllerTestHelper

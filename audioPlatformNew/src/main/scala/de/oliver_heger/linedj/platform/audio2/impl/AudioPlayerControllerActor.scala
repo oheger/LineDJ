@@ -21,7 +21,7 @@ import de.oliver_heger.linedj.platform.audio2.playlist.{Playlist, PlaylistServic
 import de.oliver_heger.linedj.platform.audio2.{AudioPlayerCommands, AudioPlayerState}
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.startup.ConfigService
-import de.oliver_heger.linedj.player.engine.stream.LineWriterStage
+import de.oliver_heger.linedj.player.engine.stream.{LineWriterStage, PausePlaybackStage}
 import org.apache.pekko.actor as classics
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import org.apache.pekko.actor.typed.{ActorRef, Behavior}
@@ -136,7 +136,8 @@ object AudioPlayerControllerActor:
       val audioPlayerConfig = AudioPlayerActor.Config(
         archiveService = archiveService,
         playlistCallback = event => context.self ! event,
-        progressCallback = null
+        progressCallback = null,
+        initPlaybackState = PausePlaybackStage.PlaybackState.PlaybackPaused
       )
 
       /**
@@ -168,7 +169,11 @@ object AudioPlayerControllerActor:
           else
             val nextCount = state.playerActorCount + 1
             context.log.info("Creating {}. audio player actor.", nextCount)
-            val playerActor = context.spawn(audioPlayerFactory(audioPlayerConfig), AudioPlayerActorName + nextCount)
+            val currentConfig = if state.playerState.playbackActive then
+              audioPlayerConfig.copy(initPlaybackState = PausePlaybackStage.PlaybackState.PlaybackPossible)
+            else
+              audioPlayerConfig
+            val playerActor = context.spawn(audioPlayerFactory(currentConfig), AudioPlayerActorName + nextCount)
             state.copy(audioPlayerActor = playerActor, playerActorCount = nextCount)
 
         /**
