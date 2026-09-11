@@ -198,17 +198,20 @@ object AudioPlayerActor:
     * instance. An instance of this class must be passed to the factory to
     * create a new actor instance.
     *
-    * @param archiveService   the archive service
-    * @param playlistCallback the callback for playlist events
-    * @param progressCallback the callback for progressed audio data
-    * @param lineCreatorFunc  the function to create the audio line
-    * @param optBufferFunc    the optional function to create a buffered source
+    * @param archiveService    the archive service
+    * @param playlistCallback  the callback for playlist events
+    * @param progressCallback  the callback for progressed audio data
+    * @param lineCreatorFunc   the function to create the audio line
+    * @param optBufferFunc     the optional function to create a buffered source
+    * @param initPlaybackState the initial playback state
     */
   final case class Config(archiveService: ArchiveService,
                           playlistCallback: PlaylistEventCallback,
                           progressCallback: PlaybackProgressCallback,
                           lineCreatorFunc: LineWriterStage.LineCreatorFunc = LineWriterStage.DefaultLineCreatorFunc,
-                          optBufferFunc: Option[BufferFunc] = None)
+                          optBufferFunc: Option[BufferFunc] = None,
+                          initPlaybackState: PausePlaybackStage.PlaybackState =
+                          PausePlaybackStage.PlaybackState.PlaybackPossible)
 
   /**
     * A factory interface for creating a behavior for a new actor instance.
@@ -301,7 +304,7 @@ object AudioPlayerActor:
       given ExecutionContext = context.executionContext
 
       val pauseActor = context.spawn(
-        PausePlaybackStage.pausePlaybackActor(PausePlaybackStage.PlaybackState.PlaybackPossible),
+        PausePlaybackStage.pausePlaybackActor(config.initPlaybackState),
         "pausePlaybackActor"
       )
       val playlistKillSwitch = KillSwitches.shared("stopPlaylist")

@@ -20,7 +20,7 @@ import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.platform.archiveclient.ArchiveService
 import de.oliver_heger.linedj.player.engine.AudioStreamFactory.AudioStreamPlaybackData
 import de.oliver_heger.linedj.player.engine.stream.AudioEncodingStage.AudioStreamHeader
-import de.oliver_heger.linedj.player.engine.stream.{BufferedPlaylistSource, LineWriterStage}
+import de.oliver_heger.linedj.player.engine.stream.{BufferedPlaylistSource, LineWriterStage, PausePlaybackStage}
 import de.oliver_heger.linedj.player.engine.{AsyncAudioStreamFactory, AudioStreamFactory}
 import org.apache.pekko.actor.typed.ActorRef
 import org.apache.pekko.actor.typed.scaladsl.adapter.*
@@ -177,13 +177,32 @@ class AudioPlayerActorSpec(testSystem: classic.ActorSystem) extends AnyFlatSpecL
         case AudioPlayerActor.PlaylistEvent.MediaFileEnded(id) =>
           id should be(TestFileID)
 
+  it should "support setting the initial playback mode" in :
+    val helper = new PlayerActorTestHelper
+
+    helper.setInitialPlaybackState(PausePlaybackStage.PlaybackState.PlaybackPaused)
+      .expectRequest(TestFileID, TestFileUri, TestData)
+      .sendCommand(AudioPlayerActor.AudioPlayerCommand.AddAudioStreamFactory(helper.audioStreamFactory))
+      .sendCommand(AudioPlayerActor.AudioPlayerCommand.AppendToPlaylist(TestFileID))
+      .sendCommand(AudioPlayerActor.AudioPlayerCommand.ClosePlaylist)
+
+    helper.checkPlaylistResult:
+      case AudioPlayerActor.PlaylistEvent.MediaFileStarted(id, ks) =>
+        id should be(TestFileID)
+        ks should not be null
+    helper.expectNoPlaylistResult()
+      .sendCommand(AudioPlayerActor.AudioPlayerCommand.StartPlayback)
+      .checkPlaylistResult:
+        case AudioPlayerActor.PlaylistEvent.MediaFileEnded(id) =>
+          id should be(TestFileID)
+
   it should "handle the Stop command" in :
     val helper = new PlayerActorTestHelper
 
     helper.sendCommand(AudioPlayerActor.AudioPlayerCommand.Stop)
       .verifyActorTerminated()
 
-  it should "support buffering the sources in the playlist" in:
+  it should "support buffering the sources in the playlist" in :
     val bufferTestData: String = FileTestHelper.TestData * 128
     val bufferFileSize: Int = bufferTestData.length / 4
     val deletedFiles = ConcurrentHashMap.newKeySet[Path]()
@@ -239,6 +258,9 @@ class AudioPlayerActorSpec(testSystem: classic.ActorSystem) extends AnyFlatSpecL
 
     /** Holds the optional buffer function. */
     private var optBufferFunc: Option[AudioPlayerActor.BufferFunc] = None
+
+    /** Stores the optional initial playback state. */
+    private var optPlaybackState: Option[PausePlaybackStage.PlaybackState] = None
 
     /** The actor to be tested. */
     private lazy val testActor = createTestActor()
@@ -350,11 +372,22 @@ class AudioPlayerActorSpec(testSystem: classic.ActorSystem) extends AnyFlatSpecL
     /**
       * Allows setting a function for creating a buffered source. This method
       * must be called before accessing the test actor.
+      *
       * @param f the function to create the buffer config
       * @return this test helper
       */
     def initBufferFunc(f: AudioPlayerActor.BufferFunc): PlayerActorTestHelper =
       optBufferFunc = Some(f)
+      this
+
+    /**
+      * Sets the initial playback state for the actor test instance.
+      *
+      * @param state the desired initial playback state
+      * @return this test helper
+      */
+    def setInitialPlaybackState(state: PausePlaybackStage.PlaybackState): PlayerActorTestHelper =
+      optPlaybackState = Some(state)
       this
 
     /**
@@ -427,7 +460,7 @@ class AudioPlayerActorSpec(testSystem: classic.ActorSystem) extends AnyFlatSpecL
       FileIdPrefix + fileID + DownloadSuffix + offsetParameter
 
     /**
-      * Reads a value from a queue with a timeout. Fails if no value can be 
+      * Reads a value from a queue with a timeout. Fails if no value can be
       * read within the timeout.
       *
       * @param queue the queue to read from
@@ -456,5 +489,7 @@ class AudioPlayerActorSpec(testSystem: classic.ActorSystem) extends AnyFlatSpecL
         lineCreatorFunc = lineCreatorFunc(),
         optBufferFunc = optBufferFunc
       )
-      testSystem.spawnAnonymous(AudioPlayerActor.newInstance(actorConfig))
+      val configWithInitPlayback = optPlaybackState.fold(actorConfig): state =>
+        actorConfig.copy(initPlaybackState = state)
+      testSystem.spawnAnonymous(AudioPlayerActor.newInstance(configWithInitPlayback))
   end PlayerActorTestHelper
