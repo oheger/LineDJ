@@ -224,6 +224,38 @@ object AudioPlayerControllerActor:
           handleControllerCommand(updatedState)
 
         /**
+          * Handles an AppendPlaylist command. The songs referenced by the
+          * command are added to the pending list of the current playlist. If
+          * this playlist has already been activated, the new songs are also
+          * passed to the audio player actor. If the playlist has already been
+          * closed, the command is ignored.
+          *
+          * @param cmd             the command
+          * @param controllerState the current controller state
+          * @return the updated behavior
+          */
+        def handleAppendPlaylist(cmd: AudioPlayerCommands.AppendPlaylist,
+                                 controllerState: AudioPlayerControllerState):
+        Behavior[AudioPlayerInternalControllerCommand] =
+          if controllerState.playerState.playlistClosed then
+            Behaviors.same
+          else
+            if controllerState.playerState.playlistActivated then
+              cmd.songIDs foreach (song =>
+                controllerState.audioPlayerActor ! AudioPlayerActor.AudioPlayerCommand.AppendToPlaylist(song))
+            val updatedState = controllerState.copy(
+              playerState = controllerState.playerState.copy(
+                playlist = controllerState.playerState.playlist.copy(
+                  pendingSongs = controllerState.playerState.playlist.pendingSongs ++ cmd.songIDs
+                ),
+                playlistSeqNo = playlistService.incrementPlaylistSeqNo(
+                  controllerState.playerState.playlistSeqNo)
+              )
+            )
+            publishPlayerState(updatedState)
+            handleControllerCommand(updatedState)
+
+        /**
           * Checks whether the file with the given ID is the current song in
           * the playlist.
           *
@@ -336,6 +368,9 @@ object AudioPlayerControllerActor:
 
           case cmd: AudioPlayerCommands.SetPlaylist =>
             handleSetPlaylist(cmd, state)
+
+          case cmd: AudioPlayerCommands.AppendPlaylist =>
+            handleAppendPlaylist(cmd, state)
 
           case AudioPlayerCommands.StartAudioPlayback =>
             if !state.playerState.playbackActive then

@@ -30,29 +30,12 @@ import scala.concurrent.duration.{DurationInt, FiniteDuration}
   */
 enum AudioPlayerCommands:
   /**
-    * A command which appends a list of songs to the current playlist.
+    * A command which appends a list of songs to the current playlist if it has
+    * not yet been closed.
     *
-    * If the playlist has not yet been closed, all songs referenced by this
-    * message are appended to the current playlist. Optionally, the playlist
-    * can be closed then.
-    *
-    * With the _activate_ flag a hint can be given to the platform whether the
-    * current playlist is expected to be played immediately. In this case, the
-    * new songs can be passed directly to the player engine, which might trigger
-    * some actions, like initiating downloads for song files. A value of
-    * *false* means that the playlist may be changed again before it is
-    * finalized; in this case, no actions need to be taken yet. It is, however,
-    * up to the audio platform to decide how to handle this flag. Typically, if
-    * the playlist has already been activated, the flag is ignored, and new songs
-    * will be propagated to the player engine.
-    *
-    * @param songIDs       list of songs to be appended to the playlist
-    * @param closePlaylist flag whether the playlist is to be closed
-    * @param activate      a hint whether new songs should become active
+    * @param songIDs list of songs to be appended to the playlist
     */
-  case AppendPlaylist(songIDs: Iterable[String],
-                      closePlaylist: Boolean = false,
-                      activate: Boolean = true)
+  case AppendPlaylist(songIDs: Iterable[String])
 
   /**
     * A command which sets the playlist of the audio player.

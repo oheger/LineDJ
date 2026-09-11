@@ -156,6 +156,25 @@ class AudioPlayerControllerActorSpec extends ScalaTestWithActorTestKit, AnyFlatS
         state.playlistClosed shouldBe true
         state.playlistActivated shouldBe false
 
+  it should "not change the playlist sequence number if an equivalent playlist is set" in :
+    val firstPlaylist = createPlaylist(pending = 2, played = 1)
+    val equivalentPlaylist = PlaylistServiceImpl.moveBackwards(firstPlaylist).get
+    var firstSeqNo = PlaylistService.SeqNoInitial
+    val helper = new ControllerTestHelper
+
+    helper.sendCommand(AudioPlayerCommands.SetPlaylist(firstPlaylist), expectPlayerCreation = true)
+      .expectAudioPlayerCommand(AudioPlayerCommand.AppendToPlaylist(songID(2)))
+      .expectAudioPlayerCommand(AudioPlayerCommand.AppendToPlaylist(songID(3)))
+      .expectAudioPlayerCommand(AudioPlayerCommand.ClosePlaylist)
+      .expectAudioPlayerState: state =>
+        firstSeqNo = state.playlistSeqNo
+        firstSeqNo should not be PlaylistService.SeqNoInitial
+
+    helper.sendCommand(AudioPlayerCommands.SetPlaylist(equivalentPlaylist), expectPlayerCreation = true)
+      .expectAudioPlayerState: state =>
+        state.playlistSeqNo should be(firstSeqNo)
+        state.playlist should be(equivalentPlaylist)
+
   it should "reset the audio player when setting a new playlist, and songs are pending" in :
     val firstPlaylist = Playlist(pendingSongs = List(songID(1)), playedSongs = Nil)
     val secondPlaylist = Playlist(pendingSongs = List(songID(2)), playedSongs = Nil)
@@ -184,6 +203,52 @@ class AudioPlayerControllerActorSpec extends ScalaTestWithActorTestKit, AnyFlatS
       .expectAudioPlayerCommand(AudioPlayerCommand.AppendToPlaylist(songID(1)))
       .expectAudioPlayerCommand(AudioPlayerCommand.ClosePlaylist)
       .expectNoAudioPlayerCommand()
+
+  it should "append songs to an activated playlist" in :
+    val firstSongs = List(songID(1), songID(2))
+    val appendSongs = List(songID(3), songID(4))
+    val playlist = Playlist(pendingSongs = firstSongs, playedSongs = Nil)
+    val helper = new ControllerTestHelper
+
+    helper.sendCommand(AudioPlayerCommands.SetPlaylist(playlist, closePlaylist = false),
+        expectPlayerCreation = true)
+      .expectAudioPlayerCommand(AudioPlayerCommand.AppendToPlaylist(songID(1)))
+      .expectAudioPlayerCommand(AudioPlayerCommand.AppendToPlaylist(songID(2)))
+      .expectAudioPlayerState: state =>
+        state.playlist.pendingSongs should be(firstSongs)
+        state.playlistActivated shouldBe true
+
+    helper.sendCommand(AudioPlayerCommands.AppendPlaylist(appendSongs))
+      .expectAudioPlayerCommand(AudioPlayerCommand.AppendToPlaylist(songID(3)))
+      .expectAudioPlayerCommand(AudioPlayerCommand.AppendToPlaylist(songID(4)))
+      .expectAudioPlayerState: state =>
+        state.playlist.pendingSongs should be(firstSongs ++ appendSongs)
+        state.playlistSeqNo should be(2)
+        state.playlistActivated shouldBe true
+
+  it should "ignore an AppendPlaylist command if the playlist is closed" in :
+    val playlist = createPlaylist(pending = 1, played = 0)
+    val helper = new ControllerTestHelper
+
+    helper.sendCommand(AudioPlayerCommands.SetPlaylist(playlist), expectPlayerCreation = true)
+      .expectAudioPlayerCommand(AudioPlayerCommand.AppendToPlaylist(playlist.pendingSongs.head))
+      .expectAudioPlayerCommand(AudioPlayerCommand.ClosePlaylist)
+      .expectAudioPlayerState: state =>
+        state.playlistClosed shouldBe true
+
+    helper.sendCommand(AudioPlayerCommands.AppendPlaylist(List(songID(99))))
+      .expectNoAudioPlayerCommand()
+      .expectNoAudioPlayerState()
+
+  it should "append songs to a playlist which is not activated without passing them to the player" in :
+    val appendSongs = List(songID(2), songID(3))
+    val helper = new ControllerTestHelper
+
+    helper.sendCommand(AudioPlayerCommands.AppendPlaylist(appendSongs))
+      .expectNoAudioPlayerCommand()
+      .expectAudioPlayerState: state =>
+        state.playlist.pendingSongs should be(appendSongs)
+        state.playlistActivated shouldBe false
 
   it should "process a start playback command" in :
     val helper = new ControllerTestHelper
@@ -315,6 +380,32 @@ class AudioPlayerControllerActorSpec extends ScalaTestWithActorTestKit, AnyFlatS
     helper.expectAudioPlayerState: state =>
       state.playbackActive shouldBe false
       state.playlistClosed shouldBe true
+      state.playlist.pendingSongs shouldBe empty
+      state.playlist.playedSongs should be(List(songID(2), songID(1)))
+
+  it should "not reset the playback flag if the last song of an open playlist is completed" in :
+    val playlist = Playlist(
+      pendingSongs = List(songID(2)),
+      playedSongs = List(songID(1))
+    )
+    val helper = new ControllerTestHelper
+
+    helper.sendCommand(AudioPlayerCommands.SetPlaylist(playlist, closePlaylist = false),
+        expectPlayerCreation = true)
+      .expectAudioPlayerCommand(AudioPlayerCommand.AppendToPlaylist(songID(2)))
+      .expectAudioPlayerState: state =>
+        state.playlistClosed shouldBe false
+        state.playbackActive shouldBe false
+
+    helper.sendCommand(AudioPlayerCommands.StartAudioPlayback)
+      .expectAudioPlayerCommand(AudioPlayerCommand.StartPlayback)
+      .expectAudioPlayerState: state =>
+        state.playbackActive shouldBe true
+
+    helper.fetchAudioPlayerConfig().playlistCallback(AudioPlayerActor.PlaylistEvent.MediaFileEnded(songID(2)))
+    helper.expectAudioPlayerState: state =>
+      state.playbackActive shouldBe true
+      state.playlistClosed shouldBe false
       state.playlist.pendingSongs shouldBe empty
       state.playlist.playedSongs should be(List(songID(2), songID(1)))
 
@@ -570,12 +661,16 @@ class AudioPlayerControllerActorSpec extends ScalaTestWithActorTestKit, AnyFlatS
 
     /**
       * Checks that no message was sent to the audio player actor for a certain
-      * period.
+      * period. This function also works if no audio player actor has been
+      * created.
       *
       * @return this test helper
       */
     def expectNoAudioPlayerCommand(): ControllerTestHelper =
-      audioPlayerCreation.probeAudioPlayerActor.expectNoMessage(200.millis)
+      if audioPlayerCreation == null then
+        actorCreationQueue.poll(100, TimeUnit.MILLISECONDS) should be(null)
+      else
+        audioPlayerCreation.probeAudioPlayerActor.expectNoMessage(200.millis)
       this
 
     /**
