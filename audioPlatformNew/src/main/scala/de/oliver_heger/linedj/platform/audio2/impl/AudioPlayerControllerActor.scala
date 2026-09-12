@@ -21,6 +21,7 @@ import de.oliver_heger.linedj.platform.audio2.playlist.{Playlist, PlaylistServic
 import de.oliver_heger.linedj.platform.audio2.{AudioPlayerCommands, AudioPlayerState, PlaybackProgress}
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.startup.ConfigService
+import de.oliver_heger.linedj.player.engine.AsyncAudioStreamFactory
 import de.oliver_heger.linedj.player.engine.stream.{LineWriterStage, PausePlaybackStage}
 import org.apache.pekko.actor as classics
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
@@ -113,6 +114,7 @@ object AudioPlayerControllerActor:
       * @param messageBus         the system message bus
       * @param archiveService     the service to access the media archive
       * @param configService      the service to access the platform config
+      * @param audioStreamFactory the factory to obtain audio streams
       * @param playlistService    the service to manage playlists
       * @param audioPlayerFactory the factory to create audio player actors
       * @return the behavior for the new [[AudioPlayerControllerActor]] instance
@@ -120,6 +122,7 @@ object AudioPlayerControllerActor:
     def apply(messageBus: MessageBus,
               archiveService: ArchiveService,
               configService: ConfigService,
+              audioStreamFactory: AsyncAudioStreamFactory,
               playlistService: PlaylistService[Playlist, String] = PlaylistServiceImpl,
               audioPlayerFactory: AudioPlayerActor.Factory = AudioPlayerActor.newInstance):
     Behavior[AudioPlayerControllerCommand]
@@ -128,6 +131,7 @@ object AudioPlayerControllerActor:
   final val newInstance: Factory = (messageBus: MessageBus,
                                     archiveService: ArchiveService,
                                     configService: ConfigService,
+                                    audioStreamFactory: AsyncAudioStreamFactory,
                                     playlistService: PlaylistService[Playlist, String],
                                     audioPlayerFactory: AudioPlayerActor.Factory) =>
     val behavior = Behaviors.setup[AudioPlayerInternalControllerCommand]: context =>
@@ -148,6 +152,7 @@ object AudioPlayerControllerActor:
         archiveService = archiveService,
         playlistCallback = event => context.self ! event,
         progressCallback = chunk => context.self ! chunk,
+        audioStreamFactory = audioStreamFactory,
         initPlaybackState = PausePlaybackStage.PlaybackState.PlaybackPaused
       )
 

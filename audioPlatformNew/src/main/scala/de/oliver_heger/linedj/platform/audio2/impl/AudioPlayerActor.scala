@@ -17,9 +17,8 @@
 package de.oliver_heger.linedj.platform.audio2.impl
 
 import de.oliver_heger.linedj.platform.archiveclient.ArchiveService
-import de.oliver_heger.linedj.player.engine.AudioStreamFactory.AudioStreamPlaybackData
 import de.oliver_heger.linedj.player.engine.stream.{AudioStreamPlayerStage, BufferedPlaylistSource, LineWriterStage, PausePlaybackStage}
-import de.oliver_heger.linedj.player.engine.{AsyncAudioStreamFactory, AudioStreamFactory, CompositeAsyncAudioStreamFactory}
+import de.oliver_heger.linedj.player.engine.{AsyncAudioStreamFactory, AudioStreamFactory}
 import org.apache.pekko.Done
 import org.apache.pekko.actor as classics
 import org.apache.pekko.actor.typed.Behavior
@@ -32,7 +31,7 @@ import org.apache.pekko.stream.KillSwitches
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
 
 import javax.sound.sampled.AudioFormat
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.{ExecutionContext, Future}
 
 /**
   * A module providing an actor implementation that manages a playlist stream
@@ -48,22 +47,6 @@ object AudioPlayerActor:
     * actor implementation.
     */
   enum AudioPlayerCommand:
-    /**
-      * A command to add a factory for audio streams. Such factories are OSGi
-      * declarative services components that can be added and removed 
-      * dynamically. The actor manages the current set of available factories.
-      *
-      * @param factory the [[AsyncAudioStreamFactory]] to add
-      */
-    case AddAudioStreamFactory(factory: AsyncAudioStreamFactory)
-
-    /**
-      * A command to remove a factory for audio streams.
-      *
-      * @param factory the [[AsyncAudioStreamFactory]] to remove
-      */
-    case RemoveAudioStreamFactory(factory: AsyncAudioStreamFactory)
-
     /**
       * A command to append a media file to the playlist. The content of the
       * file is requested from the archive when it reaches the top position in
@@ -114,23 +97,6 @@ object AudioPlayerActor:
     */
   final case class PlaylistEntry(mediaFileID: String,
                                  optOffset: Option[Long] = None)
-
-  /**
-    * An enumeration class defining the internal commands processed by the 
-    * audio player actor. These are commands the actor sends to itself.
-    */
-  private enum InternalCommand:
-    /**
-      * A command to create an audio stream for a media file. This is used by 
-      * the internal [[AsyncAudioStreamFactory]] implementation provided by the
-      * actor. It delegates to the factories that are added dynamically.
-      *
-      * @param uri           the URI of the affected media file
-      * @param promiseResult the promise used to deliver the result
-      */
-    case CreateAudioStream(uri: String,
-                           promiseResult: Promise[AudioStreamPlaybackData])
-  end InternalCommand
 
   /**
     * An enumeration class defining the lifecycle events of media files in the
@@ -201,6 +167,7 @@ object AudioPlayerActor:
     * @param archiveService    the archive service
     * @param playlistCallback  the callback for playlist events
     * @param progressCallback  the callback for progressed audio data
+    * @param audioStreamFactory the factory to obtain audio streams                          
     * @param lineCreatorFunc   the function to create the audio line
     * @param optBufferFunc     the optional function to create a buffered source
     * @param initPlaybackState the initial playback state
@@ -208,6 +175,7 @@ object AudioPlayerActor:
   final case class Config(archiveService: ArchiveService,
                           playlistCallback: PlaylistEventCallback,
                           progressCallback: PlaybackProgressCallback,
+                          audioStreamFactory: AsyncAudioStreamFactory,
                           lineCreatorFunc: LineWriterStage.LineCreatorFunc = LineWriterStage.DefaultLineCreatorFunc,
                           optBufferFunc: Option[BufferFunc] = None,
                           initPlaybackState: PausePlaybackStage.PlaybackState =
@@ -232,13 +200,7 @@ object AudioPlayerActor:
     * of this actor.
     */
   final val newInstance: Factory = (config: Config) =>
-    setUpBehavior(config).narrow
-
-  /**
-    * Type alias comprising all the commands handled by this actor. This 
-    * includes the public and the internal commands.
-    */
-  private type ActorCommand = AudioPlayerCommand | InternalCommand
+    setUpBehavior(config)
 
   /** The default sample rate used for unknown audio sources. */
   private val DefaultSampleRate = 44100.0f
@@ -261,13 +223,8 @@ object AudioPlayerActor:
     * @param config the config parameters for the new actor instance
     * @return the [[Behavior]] for the new instance
     */
-  private def setUpBehavior(config: Config): Behavior[ActorCommand] =
+  private def setUpBehavior(config: Config): Behavior[AudioPlayerCommand] =
     Behaviors.setup: context =>
-      val audioStreamFactoryImpl: AsyncAudioStreamFactory = (uri: String) =>
-        val promiseSource = Promise[AudioStreamPlaybackData]()
-        context.self ! InternalCommand.CreateAudioStream(uri, promiseSource)
-        promiseSource.future
-
       /**
         * Returns a source for the next media file in the playlist. This 
         * function requests the media file of the given playlist entry from the
@@ -312,7 +269,7 @@ object AudioPlayerActor:
       val playlistStreamConfig = AudioStreamPlayerStage.AudioStreamPlayerConfig(
         sourceResolverFunc = resolveAudioSource,
         sinkProviderFunc = audioStreamSink,
-        audioStreamFactory = audioStreamFactoryImpl,
+        audioStreamFactory = config.audioStreamFactory,
         optPauseActor = Some(pauseActor),
         optLineCreatorFunc = Some(config.lineCreatorFunc),
         optKillSwitch = Some(playlistKillSwitch)
@@ -356,45 +313,23 @@ object AudioPlayerActor:
           AudioStreamPlayerStage.runPlaylistStream(playlistStreamConfig, source,
             createPlaylistEventSink((entry: PlaylistEntry) => entry.mediaFileID))._1
 
-      /**
-        * The main command handler function for this actor implementation.
-        *
-        * @param audioStreamFactory the current composite audio stream factory
-        * @return the updated behavior
-        */
-      def handleAudioPlayerCommand(audioStreamFactory: CompositeAsyncAudioStreamFactory): Behavior[ActorCommand] =
-        Behaviors.receiveMessage:
-          case AudioPlayerCommand.AddAudioStreamFactory(factory) =>
-            val nextFactory = CompositeAsyncAudioStreamFactory(factory :: audioStreamFactory.factories.toList)
-            handleAudioPlayerCommand(nextFactory)
+      Behaviors.receiveMessage:
+        case AudioPlayerCommand.AppendToPlaylist(mediaFileID, optOffset) =>
+          playlistQueue.offer(PlaylistEntry(mediaFileID, optOffset))
+          Behaviors.same
 
-          case AudioPlayerCommand.RemoveAudioStreamFactory(factory) =>
-            val nextFactories = audioStreamFactory.factories.filterNot(_ == factory)
-            handleAudioPlayerCommand(CompositeAsyncAudioStreamFactory(nextFactories))
+        case AudioPlayerCommand.ClosePlaylist =>
+          playlistQueue.complete()
+          Behaviors.same
 
-          case AudioPlayerCommand.AppendToPlaylist(mediaFileID, optOffset) =>
-            playlistQueue.offer(PlaylistEntry(mediaFileID, optOffset))
-            Behaviors.same
+        case AudioPlayerCommand.StopPlayback =>
+          pauseActor ! PausePlaybackStage.StopPlayback
+          Behaviors.same
 
-          case AudioPlayerCommand.ClosePlaylist =>
-            playlistQueue.complete()
-            Behaviors.same
+        case AudioPlayerCommand.StartPlayback =>
+          pauseActor ! PausePlaybackStage.StartPlayback
+          Behaviors.same
 
-          case AudioPlayerCommand.StopPlayback =>
-            pauseActor ! PausePlaybackStage.StopPlayback
-            Behaviors.same
-
-          case AudioPlayerCommand.StartPlayback =>
-            pauseActor ! PausePlaybackStage.StartPlayback
-            Behaviors.same
-
-          case AudioPlayerCommand.Stop =>
-            playlistKillSwitch.shutdown()
-            Behaviors.stopped
-
-          case InternalCommand.CreateAudioStream(uri, promiseResult) =>
-            audioStreamFactory.playbackDataForAsync(uri).onComplete: triedSource =>
-              promiseResult.complete(triedSource)
-            Behaviors.same
-
-      handleAudioPlayerCommand(CompositeAsyncAudioStreamFactory(Nil))
+        case AudioPlayerCommand.Stop =>
+          playlistKillSwitch.shutdown()
+          Behaviors.stopped

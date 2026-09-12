@@ -18,22 +18,21 @@ package de.oliver_heger.linedj.platform.audio2.impl
 
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.platform.archiveclient.ArchiveService
+import de.oliver_heger.linedj.player.engine.AudioStreamFactory
 import de.oliver_heger.linedj.player.engine.AudioStreamFactory.AudioStreamPlaybackData
 import de.oliver_heger.linedj.player.engine.stream.AudioEncodingStage.AudioStreamHeader
 import de.oliver_heger.linedj.player.engine.stream.{BufferedPlaylistSource, LineWriterStage, PausePlaybackStage}
-import de.oliver_heger.linedj.player.engine.{AsyncAudioStreamFactory, AudioStreamFactory}
+import org.apache.pekko.actor as classic
 import org.apache.pekko.actor.typed.ActorRef
 import org.apache.pekko.actor.typed.scaladsl.adapter.*
-import org.apache.pekko.actor as classic
 import org.apache.pekko.http.scaladsl.model.*
 import org.apache.pekko.http.scaladsl.model.headers.{ContentDispositionTypes, `Content-Disposition`}
-import org.apache.pekko.util.ByteString
 import org.apache.pekko.testkit.{TestKit, TestProbe}
+import org.apache.pekko.util.ByteString
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.when
 import org.mockito.invocation.InvocationOnMock
-import org.scalatest.BeforeAndAfterAll
-import org.scalatest.BeforeAndAfterEach
+import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
 import org.scalatest.concurrent.Eventually
 import org.scalatest.concurrent.PatienceConfiguration.{Interval, Timeout}
 import org.scalatest.flatspec.AnyFlatSpecLike
@@ -44,9 +43,8 @@ import org.scalatestplus.mockito.MockitoSugar
 
 import java.io.InputStream
 import java.nio.file.{Files, Path, Paths}
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicReference
-import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
+import java.util.concurrent.{ConcurrentHashMap, LinkedBlockingQueue, TimeUnit}
 import javax.sound.sampled.{AudioFormat, AudioInputStream, AudioSystem, SourceDataLine}
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters.*
@@ -107,7 +105,6 @@ class AudioPlayerActorSpec(testSystem: classic.ActorSystem) extends AnyFlatSpecL
     val helper = new PlayerActorTestHelper
 
     helper.expectRequest(TestFileID, TestFileUri, TestData)
-      .sendCommand(AudioPlayerActor.AudioPlayerCommand.AddAudioStreamFactory(helper.audioStreamFactory))
       .sendCommand(AudioPlayerActor.AudioPlayerCommand.AppendToPlaylist(TestFileID))
       .sendCommand(AudioPlayerActor.AudioPlayerCommand.ClosePlaylist)
 
@@ -127,7 +124,6 @@ class AudioPlayerActorSpec(testSystem: classic.ActorSystem) extends AnyFlatSpecL
     val offset = 42L
 
     helper.expectRequest(TestFileID, TestFileUri, TestData, Some(offset))
-      .sendCommand(AudioPlayerActor.AudioPlayerCommand.AddAudioStreamFactory(helper.audioStreamFactory))
       .sendCommand(AudioPlayerActor.AudioPlayerCommand.AppendToPlaylist(TestFileID, Some(offset)))
       .sendCommand(AudioPlayerActor.AudioPlayerCommand.ClosePlaylist)
 
@@ -141,29 +137,11 @@ class AudioPlayerActorSpec(testSystem: classic.ActorSystem) extends AnyFlatSpecL
     helper.requestedUris() should contain only TestFileName
     helper.playedData().utf8String should be(TestData)
 
-  it should "handle the removal of an audio stream factory" in :
-    val helper = new PlayerActorTestHelper
-
-    helper.expectRequest(TestFileID, TestFileUri, TestData)
-      .sendCommand(AudioPlayerActor.AudioPlayerCommand.AddAudioStreamFactory(helper.audioStreamFactory))
-      .sendCommand(AudioPlayerActor.AudioPlayerCommand.RemoveAudioStreamFactory(helper.audioStreamFactory))
-      .sendCommand(AudioPlayerActor.AudioPlayerCommand.AppendToPlaylist(TestFileID))
-      .sendCommand(AudioPlayerActor.AudioPlayerCommand.ClosePlaylist)
-
-    helper.checkPlaylistResult:
-      case AudioPlayerActor.PlaylistEvent.MediaFileStarted(id, ks) =>
-        id should be(TestFileID)
-        ks should not be null
-    helper.checkPlaylistResult:
-      case AudioPlayerActor.PlaylistEvent.MediaFileFailed(id, _) =>
-        id should be(TestFileID)
-
   it should "pause playback until start is received" in :
     val helper = new PlayerActorTestHelper
 
     helper.expectRequest(TestFileID, TestFileUri, TestData)
       .sendCommand(AudioPlayerActor.AudioPlayerCommand.StopPlayback)
-      .sendCommand(AudioPlayerActor.AudioPlayerCommand.AddAudioStreamFactory(helper.audioStreamFactory))
       .sendCommand(AudioPlayerActor.AudioPlayerCommand.AppendToPlaylist(TestFileID))
       .sendCommand(AudioPlayerActor.AudioPlayerCommand.ClosePlaylist)
 
@@ -182,7 +160,6 @@ class AudioPlayerActorSpec(testSystem: classic.ActorSystem) extends AnyFlatSpecL
 
     helper.setInitialPlaybackState(PausePlaybackStage.PlaybackState.PlaybackPaused)
       .expectRequest(TestFileID, TestFileUri, TestData)
-      .sendCommand(AudioPlayerActor.AudioPlayerCommand.AddAudioStreamFactory(helper.audioStreamFactory))
       .sendCommand(AudioPlayerActor.AudioPlayerCommand.AppendToPlaylist(TestFileID))
       .sendCommand(AudioPlayerActor.AudioPlayerCommand.ClosePlaylist)
 
@@ -217,7 +194,6 @@ class AudioPlayerActorSpec(testSystem: classic.ActorSystem) extends AnyFlatSpecL
 
     helper.initBufferFunc(bufferFunc)
       .expectRequest(TestFileID, TestFileUri, bufferTestData)
-      .sendCommand(AudioPlayerActor.AudioPlayerCommand.AddAudioStreamFactory(helper.audioStreamFactory))
       .sendCommand(AudioPlayerActor.AudioPlayerCommand.AppendToPlaylist(TestFileID))
       .sendCommand(AudioPlayerActor.AudioPlayerCommand.ClosePlaylist)
 
@@ -239,9 +215,6 @@ class AudioPlayerActorSpec(testSystem: classic.ActorSystem) extends AnyFlatSpecL
   private class PlayerActorTestHelper:
     /** The mock archive service used by the player stream. */
     private val archiveService = mock[ArchiveService]
-
-    /** The stub for the audio stream factory used by the player stream. */
-    val audioStreamFactory: AsyncAudioStreamFactory = createAudioStreamFactory()
 
     /** The ''AtomicReference'' storing the audio data written to the line. */
     private val refData = new AtomicReference(ByteString.empty)
@@ -486,6 +459,7 @@ class AudioPlayerActorSpec(testSystem: classic.ActorSystem) extends AnyFlatSpecL
         archiveService = archiveService,
         playlistCallback = playlistCallback,
         progressCallback = progressCallback,
+        audioStreamFactory = createAudioStreamFactory(),
         lineCreatorFunc = lineCreatorFunc(),
         optBufferFunc = optBufferFunc
       )

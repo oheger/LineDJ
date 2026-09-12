@@ -22,6 +22,7 @@ import de.oliver_heger.linedj.platform.audio2.impl.AudioPlayerActor.AudioPlayerC
 import de.oliver_heger.linedj.platform.audio2.playlist.{Playlist, PlaylistService}
 import de.oliver_heger.linedj.platform.audio2.{AudioPlayerCommands, AudioPlayerState, PlaybackProgress}
 import de.oliver_heger.linedj.platform.startup.ConfigService
+import de.oliver_heger.linedj.player.engine.AsyncAudioStreamFactory
 import de.oliver_heger.linedj.player.engine.stream.{LineWriterStage, PausePlaybackStage}
 import org.apache.commons.configuration2.BaseHierarchicalConfiguration
 import org.apache.pekko.actor.testkit.typed.scaladsl.{ScalaTestWithActorTestKit, TestProbe}
@@ -678,6 +679,9 @@ class AudioPlayerControllerActorSpec extends ScalaTestWithActorTestKit, AnyFlatS
     /** Mock for the archive service. */
     private val archiveService = mock[ArchiveService]
 
+    /** The audio stream factory passed to the controller. */
+    private val audioStreamFactory = mock[AsyncAudioStreamFactory]
+
     /** The simulated platform configuration. */
     private val platformConfig = new BaseHierarchicalConfiguration
 
@@ -842,6 +846,7 @@ class AudioPlayerControllerActorSpec extends ScalaTestWithActorTestKit, AnyFlatS
         val playerConfig: AudioPlayerActor.Config = invocation.getArgument(0)
         playerConfig.archiveService should be(archiveService)
         playerConfig.lineCreatorFunc should be(LineWriterStage.DefaultLineCreatorFunc)
+        playerConfig.audioStreamFactory should be(audioStreamFactory)
         val probe = testKit.createTestProbe[AudioPlayerActor.AudioPlayerCommand]()
         actorCreationQueue.offer(AudioPlayerActorCreation(probe, playerConfig))
         Behaviors.monitor(probe.ref, Behaviors.ignore))
@@ -859,6 +864,7 @@ class AudioPlayerControllerActorSpec extends ScalaTestWithActorTestKit, AnyFlatS
         messageBus = messageBus,
         archiveService = archiveService,
         configService = configService,
+        audioStreamFactory = audioStreamFactory,
         audioPlayerFactory = audioPlayerActorFactory
       )
       val ref = testKit.spawn(behavior)
