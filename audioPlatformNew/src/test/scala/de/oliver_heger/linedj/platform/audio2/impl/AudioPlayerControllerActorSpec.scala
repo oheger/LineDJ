@@ -20,7 +20,7 @@ import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.archiveclient.ArchiveService
 import de.oliver_heger.linedj.platform.audio2.impl.AudioPlayerActor.AudioPlayerCommand
 import de.oliver_heger.linedj.platform.audio2.playlist.{Playlist, PlaylistService}
-import de.oliver_heger.linedj.platform.audio2.{AudioPlayerCommands, AudioPlayerState}
+import de.oliver_heger.linedj.platform.audio2.{AudioPlayerCommands, AudioPlayerState, PlaybackProgress}
 import de.oliver_heger.linedj.platform.startup.ConfigService
 import de.oliver_heger.linedj.player.engine.stream.{LineWriterStage, PausePlaybackStage}
 import org.apache.commons.configuration2.BaseHierarchicalConfiguration
@@ -93,8 +93,13 @@ class AudioPlayerControllerActorSpec extends ScalaTestWithActorTestKit, AnyFlatS
     val helper = new ControllerTestHelper
 
     helper.stopControllerActor()
-      .verifyMessageBusUnregistration()
       .verifyControllerActorStopped()
+      .verifyMessageBusUnregistration()
+
+  it should "publish its initial state when it starts up" in :
+    val helper = new ControllerTestHelper
+
+    helper.initialState should be(AudioPlayerState.Initial)
 
   it should "create a correct config for the audio player actor" in :
     val playlist = createPlaylist(pending = 1, played = 0)
@@ -551,6 +556,108 @@ class AudioPlayerControllerActorSpec extends ScalaTestWithActorTestKit, AnyFlatS
 
     verifyNoInteractions(killSwitch)
 
+  it should "publish playback progress objects for processed audio chunks" in :
+    val playlist = createPlaylist(pending = 1, played = 0)
+    val chunk1 = LineWriterStage.PlayedAudioChunk(1000, 1.second)
+    val chunk2 = LineWriterStage.PlayedAudioChunk(2000, 2.seconds)
+    val helper = new ControllerTestHelper
+
+    helper.sendCommand(AudioPlayerCommands.SetPlaylist(playlist), expectPlayerCreation = true)
+      .expectAudioPlayerCommand(AudioPlayerCommand.AppendToPlaylist(playlist.pendingSongs.head))
+      .expectAudioPlayerCommand(AudioPlayerCommand.ClosePlaylist)
+      .expectAudioPlayerState: state =>
+        state.playlist should be(playlist)
+
+    val config = helper.fetchAudioPlayerConfig()
+    config.progressCallback(chunk1)
+    helper.expectPlaybackProgress: progress =>
+      progress.bytesProcessed should be(chunk1.size)
+      progress.playbackTime should be(chunk1.duration)
+
+    config.progressCallback(chunk2)
+    helper.expectPlaybackProgress: progress =>
+      progress.bytesProcessed should be(chunk1.size + chunk2.size)
+      progress.playbackTime should be(chunk1.duration + chunk2.duration)
+
+  it should "aggregate playback progress until the time delta reaches one second" in :
+    val playlist = createPlaylist(pending = 1, played = 0)
+    val chunk1 = LineWriterStage.PlayedAudioChunk(1000, 500.millis)
+    val chunk2 = LineWriterStage.PlayedAudioChunk(2000, 500.millis)
+    val chunk3 = LineWriterStage.PlayedAudioChunk(3000, 1.second)
+    val helper = new ControllerTestHelper
+
+    helper.sendCommand(AudioPlayerCommands.SetPlaylist(playlist), expectPlayerCreation = true)
+      .expectAudioPlayerCommand(AudioPlayerCommand.AppendToPlaylist(playlist.pendingSongs.head))
+      .expectAudioPlayerCommand(AudioPlayerCommand.ClosePlaylist)
+      .expectAudioPlayerState: state =>
+        state.playlist should be(playlist)
+
+    val config = helper.fetchAudioPlayerConfig()
+    config.progressCallback(chunk1)
+    helper.expectPlaybackProgress: progress =>
+      progress.bytesProcessed should be(chunk1.size)
+      progress.playbackTime should be(chunk1.duration)
+
+    config.progressCallback(chunk2)
+    config.progressCallback(chunk3)
+    helper.expectPlaybackProgress: progress =>
+      progress.bytesProcessed should be(chunk1.size + chunk2.size + chunk3.size)
+      progress.playbackTime should be(chunk1.duration + chunk2.duration + chunk3.duration)
+
+  it should "add the configured playback offsets to the playback progress" in :
+    val playlist = createPlaylist(pending = 1, played = 0)
+    val PositionOffset = 5000L
+    val TimeOffset = 1.second
+    val chunk = LineWriterStage.PlayedAudioChunk(1000, 250.millis)
+    val helper = new ControllerTestHelper
+
+    helper.sendCommand(
+        AudioPlayerCommands.SetPlaylist(playlist, positionOffset = PositionOffset, timeOffset = TimeOffset),
+        expectPlayerCreation = true
+      )
+      .expectAudioPlayerCommand(
+        AudioPlayerCommand.AppendToPlaylist(playlist.pendingSongs.head, Some(PositionOffset)))
+      .expectAudioPlayerCommand(AudioPlayerCommand.ClosePlaylist)
+      .expectAudioPlayerState: state =>
+        state.playlist should be(playlist)
+
+    helper.fetchAudioPlayerConfig().progressCallback(chunk)
+    helper.expectPlaybackProgress: progress =>
+      progress.bytesProcessed should be(PositionOffset + chunk.size)
+      progress.playbackTime should be(TimeOffset + chunk.duration)
+
+  it should "reset the playback progress counters when the next media file starts" in :
+    val playlist = Playlist(
+      pendingSongs = List(songID(2), songID(3)),
+      playedSongs = List(songID(1))
+    )
+    val chunk1 = LineWriterStage.PlayedAudioChunk(1000, 250.millis)
+    val chunk2 = LineWriterStage.PlayedAudioChunk(1500, 300.millis)
+    val helper = new ControllerTestHelper
+
+    helper.sendCommand(AudioPlayerCommands.SetPlaylist(playlist), expectPlayerCreation = true)
+      .expectAudioPlayerCommand(AudioPlayerCommand.AppendToPlaylist(songID(2)))
+      .expectAudioPlayerCommand(AudioPlayerCommand.AppendToPlaylist(songID(3)))
+      .expectAudioPlayerCommand(AudioPlayerCommand.ClosePlaylist)
+      .expectAudioPlayerState: state =>
+        state.playlist should be(playlist)
+
+    val config = helper.fetchAudioPlayerConfig()
+    config.progressCallback(chunk1)
+    helper.expectPlaybackProgress: progress =>
+      progress.bytesProcessed should be(chunk1.size)
+      progress.playbackTime should be(chunk1.duration)
+
+    config.playlistCallback(AudioPlayerActor.PlaylistEvent.MediaFileEnded(songID(2)))
+    helper.expectAudioPlayerState: state =>
+      state.playlist.pendingSongs should be(List(songID(3)))
+
+    config.playlistCallback(AudioPlayerActor.PlaylistEvent.MediaFileStarted(songID(3), mock[KillSwitch]))
+    config.progressCallback(chunk2)
+    helper.expectPlaybackProgress: progress =>
+      progress.bytesProcessed should be(chunk2.size)
+      progress.playbackTime should be(chunk2.duration)
+
   /**
     * A test helper class that manages a controller instance to be tested and
     * its dependencies.
@@ -574,8 +681,19 @@ class AudioPlayerControllerActorSpec extends ScalaTestWithActorTestKit, AnyFlatS
     /** The simulated platform configuration. */
     private val platformConfig = new BaseHierarchicalConfiguration
 
+    /** Stores the state published by the controller when it starts up. */
+    private var initialPlayerState: AudioPlayerState = uninitialized
+
     /** The controller actor to be tested. */
     private val controllerActor = createController()
+
+    /**
+      * Returns the state that was published by the controller when it started
+      * up.
+      *
+      * @return the initial state of the controller
+      */
+    def initialState: AudioPlayerState = initialPlayerState
 
     /**
       * Sends the `Stop` command to the actor under test.
@@ -687,6 +805,20 @@ class AudioPlayerControllerActorSpec extends ScalaTestWithActorTestKit, AnyFlatS
       this
 
     /**
+      * Expects that a [[PlaybackProgress]] message has been published on the
+      * message bus. The message is fetched from the bus and passed to the
+      * provided check function.
+      *
+      * @param check the function verifying the properties of the progress
+      *              message
+      * @return this test helper
+      */
+    def expectPlaybackProgress(check: PlaybackProgress => Unit): ControllerTestHelper =
+      val progress = messageBus.expectMessageType[PlaybackProgress]
+      check(progress)
+      this
+
+    /**
       * Checks that no [[AudioPlayerState]] message was published on the message
       * bus for a certain period.
       *
@@ -729,4 +861,8 @@ class AudioPlayerControllerActorSpec extends ScalaTestWithActorTestKit, AnyFlatS
         configService = configService,
         audioPlayerFactory = audioPlayerActorFactory
       )
-      testKit.spawn(behavior)
+      val ref = testKit.spawn(behavior)
+      // The actor publishes its initial state as part of its setup; consume it, so that
+      // it does not interfere with the message expectations in the test cases.
+      initialPlayerState = messageBus.expectMessageType[AudioPlayerState]
+      ref
