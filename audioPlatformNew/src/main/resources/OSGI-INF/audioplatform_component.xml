@@ -25,4 +25,14 @@
 
   <reference interface="de.oliver_heger.linedj.platform.app.ClientApplicationContext"
              name="clientContext" bind="initClientContext"/>
+
+  <reference interface="de.oliver_heger.linedj.platform.archiveclient.ArchiveService"
+             name="archiveService" bind="initArchiveService"/>
+
+  <reference interface="de.oliver_heger.linedj.platform.startup.ConfigService"
+             name="configService" bind="initConfigService"/>
+
+  <reference interface="de.oliver_heger.linedj.player.engine.AudioStreamFactory"
+             name="audioStreamFactory" bind="addAudioStreamFactory"
+             unbind="removeAudioStreamFactory" cardinality="1..n" policy="dynamic"/>
 </component>
