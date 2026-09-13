@@ -34,15 +34,13 @@ import org.mockito.Mockito
 import org.mockito.Mockito.*
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
-import org.scalatest.concurrent.Eventually
-import org.scalatest.concurrent.PatienceConfiguration.{Interval, Timeout}
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.time.{Millis, Seconds, Span}
 import org.scalatestplus.mockito.MockitoSugar
 
-import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
+import java.util.concurrent.{CountDownLatch, LinkedBlockingQueue, TimeUnit}
 import scala.compiletime.uninitialized
+import scala.concurrent.Promise
 import scala.concurrent.duration.*
 
 object AudioPlayerControllerActorSpec:
@@ -85,8 +83,7 @@ end AudioPlayerControllerActorSpec
 /**
   * Test class for [[AudioPlayerControllerActor]].
   */
-class AudioPlayerControllerActorSpec extends ScalaTestWithActorTestKit, AnyFlatSpecLike, Matchers, MockitoSugar,
-  Eventually:
+class AudioPlayerControllerActorSpec extends ScalaTestWithActorTestKit, AnyFlatSpecLike, Matchers, MockitoSugar:
 
   import AudioPlayerControllerActorSpec.*
 
@@ -718,9 +715,6 @@ class AudioPlayerControllerActorSpec extends ScalaTestWithActorTestKit, AnyFlatS
       * @return this test helper
       */
     def sendCommand(command: AudioPlayerCommands, expectPlayerCreation: Boolean = false): ControllerTestHelper =
-      // The registration on the message bus happens asynchronously; so make sure that it is done.
-      eventually(Timeout(Span(3, Seconds)), Interval(Span(50, Millis))):
-        messageBus.currentListeners should not be empty
       messageBus.publishDirectly(command)
       if expectPlayerCreation then
         expectAudioPlayerCreation()
@@ -860,14 +854,23 @@ class AudioPlayerControllerActorSpec extends ScalaTestWithActorTestKit, AnyFlatS
     private def createController(): ActorRef[AudioPlayerControllerActor.AudioPlayerControllerCommand] =
       val configService = mock[ConfigService]
       when(configService.config).thenReturn(platformConfig)
-      val behavior = AudioPlayerControllerActor.newInstance(
+      val promiseReady = Promise[Unit]()
+      val controllerConfig = AudioPlayerControllerActor.Config(
         messageBus = messageBus,
         archiveService = archiveService,
         configService = configService,
         audioStreamFactory = audioStreamFactory,
-        audioPlayerFactory = audioPlayerActorFactory
+        audioPlayerFactory = audioPlayerActorFactory,
+        promiseReady = promiseReady
       )
+      val behavior = AudioPlayerControllerActor.newInstance(controllerConfig)
       val ref = testKit.spawn(behavior)
+
+      // Wait until the actor reports that it is ready to serve commands.
+      val latch = new CountDownLatch(1)
+      promiseReady.future.foreach(_ => latch.countDown())(using system.executionContext)
+      latch.await(3, TimeUnit.SECONDS) shouldBe true
+
       // The actor publishes its initial state as part of its setup; consume it, so that
       // it does not interfere with the message expectations in the test cases.
       initialPlayerState = messageBus.expectMessageType[AudioPlayerState]

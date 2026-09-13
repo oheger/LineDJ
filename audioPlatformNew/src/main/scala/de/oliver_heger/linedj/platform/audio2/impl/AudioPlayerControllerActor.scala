@@ -28,6 +28,7 @@ import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import org.apache.pekko.actor.typed.{ActorRef, Behavior}
 import org.apache.pekko.stream.KillSwitch
 
+import scala.concurrent.Promise
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 
 /**
@@ -102,6 +103,34 @@ object AudioPlayerControllerActor:
   )
 
   /**
+    * A data class that holds the configuration settings supported by an actor
+    * instance. An instance of this class must be passed to the factory to
+    * create a new actor instance.
+    *
+    * The actor registers itself at the system message bus and listens for
+    * audio player commands. Since the registration happens asynchronously,
+    * there is a race condition, and command sent immediately after the actor
+    * creation could be missed. To work around this, a [[Promise]] can be
+    * passed. It is completed, as soon as the actor is ready to process
+    * commands on the message bus.
+    *
+    * @param messageBus         the system message bus
+    * @param archiveService     the service to access the media archive
+    * @param configService      the service to access the platform config
+    * @param audioStreamFactory the factory to obtain audio streams
+    * @param promiseReady       a promise to indicate that the actor is ready
+    * @param playlistService    the service to manage playlists
+    * @param audioPlayerFactory the factory to create audio player actors
+    */
+  final case class Config(messageBus: MessageBus,
+                          archiveService: ArchiveService,
+                          configService: ConfigService,
+                          audioStreamFactory: AsyncAudioStreamFactory,
+                          promiseReady: Promise[Unit],
+                          playlistService: PlaylistService[Playlist, String] = PlaylistServiceImpl,
+                          audioPlayerFactory: AudioPlayerActor.Factory = AudioPlayerActor.newInstance)
+
+  /**
     * A factory trait for creating new actor instances.
     */
   trait Factory:
@@ -111,29 +140,14 @@ object AudioPlayerControllerActor:
       * the actor is properly set up to receive commands via the system message 
       * bus.
       *
-      * @param messageBus         the system message bus
-      * @param archiveService     the service to access the media archive
-      * @param configService      the service to access the platform config
-      * @param audioStreamFactory the factory to obtain audio streams
-      * @param playlistService    the service to manage playlists
-      * @param audioPlayerFactory the factory to create audio player actors
+      * @param config the configuration for the actor instance
       * @return the behavior for the new [[AudioPlayerControllerActor]] instance
       */
-    def apply(messageBus: MessageBus,
-              archiveService: ArchiveService,
-              configService: ConfigService,
-              audioStreamFactory: AsyncAudioStreamFactory,
-              playlistService: PlaylistService[Playlist, String] = PlaylistServiceImpl,
-              audioPlayerFactory: AudioPlayerActor.Factory = AudioPlayerActor.newInstance):
+    def apply(config: Config):
     Behavior[AudioPlayerControllerCommand]
 
   /** A default factory for creating new instances. */
-  final val newInstance: Factory = (messageBus: MessageBus,
-                                    archiveService: ArchiveService,
-                                    configService: ConfigService,
-                                    audioStreamFactory: AsyncAudioStreamFactory,
-                                    playlistService: PlaylistService[Playlist, String],
-                                    audioPlayerFactory: AudioPlayerActor.Factory) =>
+  final val newInstance: Factory = (config: Config) =>
     val behavior = Behaviors.setup[AudioPlayerInternalControllerCommand]: context =>
 
       /**
@@ -147,7 +161,9 @@ object AudioPlayerControllerActor:
         case c: AudioPlayerCommands =>
           context.self ! c
 
+      import config.*
       val messageBusID = messageBus.registerListener(createMessageBusReceiver())
+      promiseReady.success(()) // Indicate that command processing is active.
       val audioPlayerConfig = AudioPlayerActor.Config(
         archiveService = archiveService,
         playlistCallback = event => context.self ! event,
