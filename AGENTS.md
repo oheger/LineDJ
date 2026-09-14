@@ -68,6 +68,21 @@
 - Only one workflow: `.github/workflows/player-server-native-image.yml` (manual dispatch for GraalVM native image builds).
 - No automated CI for tests/lint. Run `sbt test` locally before committing.
 
+## File Editing
+
+The `edit` tool requires an exact byte-for-byte match of `oldString`
+(including whitespace and line breaks). This is error-prone on small local
+models. When editing:
+
+- Prefer `oldString` anchors that are small and unique (a function signature,
+  one statement, or a few lines) rather than large blocks.
+- Copy `oldString` verbatim from the file — never paraphrase or re-indent it.
+- Do NOT copy line-number prefixes (e.g. `22:`) from `Read` output into
+  `oldString`; only the raw text after the line-number prefix belongs there.
+- If an edit fails with "oldString not found", re-read the file first to get
+  its current content before retrying; then retry with a smaller anchor or
+  fall back to `write` (full-file replace).
+
 ## Gotchas
 
 - `-Xfatal-warnings` means any deprecation warning breaks the build. Fix warnings, don't suppress.
