@@ -38,64 +38,70 @@ object UIBusSpec:
   /** Constant for another test message. */
   private val MessagePong = "PONG"
 
+  /** A test message of a distinct type. */
+  private case class TestMessage(value: String)
+
   /**
-   * Creates a test receiver which can handle a specific message. If this
-   * message is received, it is written into the protocol buffer.
-   * @param msg the message to be processed
-   * @param protocol the protocol buffer
-   * @return the test receiver
-   */
+    * Creates a test receiver which can handle a specific message. If this
+    * message is received, it is written into the protocol buffer.
+    *
+    * @param msg      the message to be processed
+    * @param protocol the protocol buffer
+    * @return the test receiver
+    */
   private def createReceiver(msg: Any, protocol: StringBuilder): Actor.Receive =
     case `msg` => protocol append msg
 
   /**
-   * Generates the expected protocol entry for a synchronized operation.
-   * @param op the operation
-   * @return the protocol entry for this operation
-   */
+    * Generates the expected protocol entry for a synchronized operation.
+    *
+    * @param op the operation
+    * @return the protocol entry for this operation
+    */
   private def syncProt(op: String = ""): String = SyncStart + op + SyncEnd
 
 /**
- * Test class for ''UIBus''.
- */
+  * Test class for ''UIBus''.
+  */
 class UIBusSpec extends AnyFlatSpec with Matchers with MockitoSugar:
 
   import UIBusSpec._
 
   /**
-   * Creates a mock sync object. The mock directly executes passed in
-   * runnable scheduled for asynchronous execution. It writes log information
-   * into the given string builder so that it is possible to keep track what
-   * happened in which (logical) thread.
-   * @param protocol the string builder for writing logs
-   * @return the mock sync object
-   */
+    * Creates a mock sync object. The mock directly executes passed in
+    * runnable scheduled for asynchronous execution. It writes log information
+    * into the given string builder so that it is possible to keep track what
+    * happened in which (logical) thread.
+    *
+    * @param protocol the string builder for writing logs
+    * @return the mock sync object
+    */
   private def createSync(protocol: StringBuilder): GUISynchronizer =
     val sync = mock[GUISynchronizer]
-    when(sync.asyncInvoke(any(classOf[Runnable]))).thenAnswer((invocationOnMock: InvocationOnMock) => {
+    when(sync.asyncInvoke(any(classOf[Runnable]))).thenAnswer: (invocationOnMock: InvocationOnMock) =>
       val task = invocationOnMock.getArguments()(0).asInstanceOf[Runnable]
       protocol append SyncStart
       task.run()
       protocol append SyncEnd
-    })
     sync
 
   /**
-   * Creates a test bus instance and a protocol buffer for checking
-   * invocations.
-   * @return a tuple with the bus and the protocol buffer
-   */
+    * Creates a test bus instance and a protocol buffer for checking
+    * invocations.
+    *
+    * @return a tuple with the bus and the protocol buffer
+    */
   private def createBus(): (UIBus, StringBuilder) =
     val protocol = new StringBuilder()
     (new UIBus(createSync(protocol)), protocol)
 
-  "A UIBus" should "work without listeners" in:
+  "A UIBus" should "work without listeners" in :
     val (bus, protocol) = createBus()
 
     bus publish MessagePing
     protocol.toString() should be(SyncStart + SyncEnd)
 
-  it should "handle listeners" in:
+  it should "handle listeners" in :
     val (bus, protocol) = createBus()
     val rec1 = createReceiver(MessagePing, protocol)
     val rec2 = createReceiver(MessagePong, protocol)
@@ -106,7 +112,7 @@ class UIBusSpec extends AnyFlatSpec with Matchers with MockitoSugar:
     bus publish MessagePing
     protocol.toString() should be(syncProt() + syncProt() + syncProt(MessagePing))
 
-  it should "support removing listeners" in:
+  it should "support removing listeners" in :
     val (bus, protocol) = createBus()
     val rec1 = createReceiver(MessagePing, protocol)
     val rec2 = createReceiver(MessagePing, protocol)
@@ -116,3 +122,41 @@ class UIBusSpec extends AnyFlatSpec with Matchers with MockitoSugar:
     bus removeListener lid
     bus publish MessagePing
     protocol.toString() should be(syncProt() + syncProt() + syncProt() + syncProt(MessagePing))
+
+  it should "record published messages" in :
+    val (bus, protocol) = createBus()
+
+    bus publish MessagePing
+    bus publish TestMessage("pong")
+    protocol.toString() should be(syncProt() + syncProt())
+    bus.recordedMessages should be(Map(classOf[String] -> MessagePing, classOf[TestMessage] -> TestMessage("pong")))
+
+  it should "record only the latest message for each message class" in :
+    val (bus, _) = createBus()
+
+    bus publish MessagePing
+    bus publish MessagePong
+    bus.recordedMessages should be(Map(classOf[String] -> MessagePong))
+
+  it should "deliver already published messages to new listeners" in :
+    val (bus, protocol) = createBus()
+    val rec = createReceiver(MessagePing, protocol)
+
+    bus publish MessagePing
+    bus registerListener rec
+    protocol.toString() should be(syncProt() + syncProt(MessagePing))
+
+  it should "deliver recorded messages of different classes to new listeners" in :
+    val (bus, protocol) = createBus()
+    val recPing = createReceiver(MessagePing, protocol)
+    val recPong = createReceiver(TestMessage("pong"), protocol)
+
+    bus publish MessagePing
+    bus publish TestMessage("pong")
+    protocol.toString() should be(syncProt() + syncProt())
+
+    bus registerListener recPing
+    protocol.toString() should be(syncProt() + syncProt() + syncProt(MessagePing))
+
+    bus registerListener recPong
+    protocol.toString() should be(syncProt() + syncProt() + syncProt(MessagePing) + syncProt("TestMessage(pong)"))

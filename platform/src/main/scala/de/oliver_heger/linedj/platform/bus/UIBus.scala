@@ -21,62 +21,79 @@ import net.sf.jguiraffe.gui.builder.utils.GUISynchronizer
 import org.apache.pekko.actor.Actor.Receive
 
 /**
- * An implementation of the [[MessageBus]]
- * trait for a UI application.
- *
- * This implementation is mainly based on a ''GUISynchronizer'' in order to
- * implement messaging in a way appropriate for UI communication. All
- * registration and invocation of listeners is done in the UI thread of the
- * underlying UI framework. This makes it possible for bus listeners to
- * directly interact with UI components in a safe way.
- *
- * @param sync the object handling the synchronization with the UI thread
- */
+  * An implementation of the [[MessageBus]]
+  * trait for a UI application.
+  *
+  * This implementation is mainly based on a ''GUISynchronizer'' in order to
+  * implement messaging in a way appropriate for UI communication. All
+  * registration and invocation of listeners is done in the UI thread of the
+  * underlying UI framework. This makes it possible for bus listeners to
+  * directly interact with UI components in a safe way.
+  *
+  * @param sync the object handling the synchronization with the UI thread
+  */
 class UIBus(sync: GUISynchronizer) extends MessageBus:
   /** The list of currently registered listeners. */
   private var listeners = List.empty[Receive]
 
+  /** The latest message published for each message class. */
+  private var latestMessages = Map.empty[Class[_], Any]
+
   /**
-   * Returns the current list of listeners registered at this bus.
-   * @return the list with registered listeners
-   */
+    * Returns the current list of listeners registered at this bus.
+    *
+    * @return the list with registered listeners
+    */
   def busListeners: List[Receive] = listeners
 
   /**
-   * @inheritdoc This implementation iterates over all listeners in the UI
-   *             thread. All listeners that can handle the message are
-   *             invoked.
-   */
-  override def publish(msg: Any): Unit =
-    runAsync:
-      listeners foreach { l =>
-        if l isDefinedAt msg then
-          l(msg)
-      }
+    * Returns a map with the latest message published for each message class.
+    * This can be used to obtain the messages that are delivered to newly
+    * registered listeners.
+    *
+    * @return a map with the most recent message per message class
+    */
+  def recordedMessages: Map[Class[_], Any] = latestMessages
 
   /**
-   * @inheritdoc This implementation adds the listener to an internal list;
-   *             this happens asynchronously in the UI thread. The listener ID
-   *             is calculated from the listeners hash code.
-   */
+    * @inheritdoc This implementation iterates over all listeners in the UI
+    *             thread. All listeners that can handle the message are
+    *             invoked.
+    */
+  override def publish(msg: Any): Unit =
+    runAsync:
+      listeners foreach : l =>
+        if l isDefinedAt msg then
+          l(msg)
+      latestMessages = latestMessages.updated(msg.getClass, msg)
+
+  /**
+    * @inheritdoc This implementation adds the listener to an internal list;
+    *             this happens asynchronously in the UI thread. The listener ID
+    *             is calculated from the listeners hash code.
+    */
   override def registerListener(r: Receive): Int =
     runAsync:
       listeners = r :: listeners
+      latestMessages.values foreach : msg =>
+        if r isDefinedAt msg then
+          r(msg)
     r.hashCode()
 
   /**
-   * @inheritdoc This implementation removes all listeners with the given ID
-   *             from the internal list. This happens asynchronously in the UI
-   *             thread. The listener ID is again calculated from the listeners
-   *             hash code.
-   */
+    * @inheritdoc This implementation removes all listeners with the given ID
+    *             from the internal list. This happens asynchronously in the UI
+    *             thread. The listener ID is again calculated from the listeners
+    *             hash code.
+    */
   override def removeListener(listenerID: Int): Unit =
     runAsync:
       listeners = listeners filterNot (_.hashCode() == listenerID)
 
   /**
-   * Helper method for running code asynchronously on the UI thread.
-   * @param r the code to be run
-   */
+    * Helper method for running code asynchronously on the UI thread.
+    *
+    * @param r the code to be run
+    */
   private def runAsync(r: => Unit): Unit =
     sync asyncInvoke (() => r)
