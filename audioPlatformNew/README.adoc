@@ -1,0 +1,87 @@
+= LineDJ Audio Platform
+
+This project provides specific functionality related to playing audio on top of the basic link:../platform/README.adoc[LineDJ Platform] project.
+
+== Functionality
+While the LineDJ Platform project contains base classes for creating general-purpose applications using the OSGi-based LineDJ programming model, the _Audio Platform_ project is rather concerned with applications in the domain of audio playback. It offers the following functionality:
+
+* An integration of the audio player engine (from the _playerEngine_ module). The pretty low-level API of the player engine has been wrapped to fit into the event-based programming model of LineDJ applications.
+* Support for playlists. There are classes modeling playlists and services to create and manipulate them. A current playlist for the audio player managed by the platform is maintained.
+* Support for metadata resolving for songs in the current playlist. A playlist only contains references to the songs to be played. An application that wants to display the current playlist also needs the metadata available for the songs, such as artists, titles, containing albums, etc. There is a service that can perform lookups for song metadata. It uses a local cache to speed up such lookups.
+* Special events for state changes of the managed audio player. They can be evaluated for instance by applications implementing a UI for an audio player.
+
+In the following sections, this functionality is described in more details.
+
+=== Playlist representation
+A playlist is defined as two lists with song IDs. One list contains the songs that are pending for playback; in the other one the songs are stored that have already been played. That way some kind of history information is kept.
+
+The link:src/main/scala/de/oliver_heger/linedj/platform/audio2/playlist/PlaylistService.scala[PlaylistService] trait offers functions to create playlist objects, query their properties, and manipulate them.
+
+=== Playlist metadata resolution
+In order to display a playlist to the end user, the plain song IDs have to be replaced by meaningful metadata. As this is a typical use case for audio applications, the _Audio Platform_ offers the link:src/main/scala/de/oliver_heger/linedj/platform/audio2/playlist/MediaFileInfoResolverService.scala[MediaFileInfoResolverService] for this purpose. The service is passed a collection of media file IDs and a callback function. It resolves the IDs in background and then invokes the callback on the UI thread with the result: a Map with IDs associated with corresponding metadata.
+
+=== Event-based interface of an audio player
+In order to allow interactions with the managed audio player component, the _Audio Platform_ module registers a special listener on the system message bus that reacts on audio player commands. So, rather than obtaining a reference to an audio player and invoking methods on it, command objects are published on the message bus. Such commands cause updates in the state of the audio player, which are in turn propagated via the bus. This programming model emphasizes the asynchronous nature of such interactions: a client fires a command and then waits for incoming state changed events to update its UI. This also fits to the shared nature of the audio player.
+
+The commands supported by the audio player are defined in the link:src/main/scala/de/oliver_heger/linedj/platform/audio2/AudioPlayerCommands.scala[AudioPlayerCommands] enumeration. They allow basic playback control (such as start, stop, skip) and updates of the current playlist. It is possible to append songs to the current playlist, or to set the current playlist at once. Per default, songs added to the playlist are directly passed to the player engine. This may cause some actions to be triggered, e.g. the download of media files from the media archive. This may not always be desired; for instance, a playlist may be populated first and then reordered before the songs are actually played. In this case, songs can be added to the playlist without activating them. They are then stored, but not yet passed to the player engine. This only happens when playback is started or a playlist is set explicitly.
+
+A playlist can also be in an open or closed state. When it is closed no more songs can be added, and playback stops after the last song. An open playlist in contrast can be appended dynamically. However, care has to be taken to keep the playlist filled with audio data to a certain amount. Otherwise, playback may stop due to a buffer under-run.
+
+The state of the audio player is determined by the link:src/main/scala/de/oliver_heger/linedj/platform/audio2/AudioPlayerState.scala[AudioPlayerState] class. It mainly consists of the current playlist and some flags like the activated or closed flags. The state also contains a sequence number for the current playlist. This is a convenient means to determine whether there was a change in the playlist: it is increased if the sequence of songs in the playlist has changed, but not if only the position in the playlist has moved. This can be useful for client applications that need to trigger major update steps in case of a playlist change.
+
+The current state of the audio player is published on the system message bus. Every change causes an update to be published. Since the message bus stores the latest message of a specific type, there is no race condition that listeners could miss notifications when they are registered too late. When a new listener is registered, the message bus passes it the latest known audio player state.
+
+== Service dependencies
+As an important part of the functionality offered by the _Audio Platform_ is available by just sending messages on the event bus, client applications have no need to request a service reference and therefore have no direct dependency. This may cause race conditions during startup of the OSGi container when a client application already tries to send messages before the _Audio Platform_ has started and registered the listeners on the bus.
+
+To avoid this, the platform registers a dummy dependency as OSGi service that represents the audio player controller service. Client applications can depend on this synthetic service. The following fragment shows how this is done in a declarative services component definition file:
+
+[source,xml]
+----
+<component xmlns="http://www.eclipse.org/ns/bloc">
+  <reference
+  interface="de.oliver_heger.linedj.platform.comm.ServiceDependencies$ServiceDependency"
+    name="playerController"
+    target="(serviceName=lineDJ.audioPlayerController)"/>
+</component>
+----
+
+OSGi will then ensure that this component is not activated before the corresponding listeners are registered at the message bus.
+
+== Configuration
+The metadata resolver service defines some configuration properties that support a certain customization of its behavior. The properties are defined in the central platform configuration file managed by the xref:../platformStartup/README.adoc[Platform Startup] module, in a section named `platform.infoResolver`. The following fragment shows an XML configuration with the supported properties:
+
+.Configuration example for the metadata resolver service
+[source,xml]
+----
+<platform>
+  <infoResolver>
+    <cacheQueryTimeout>15s</cacheQueryTimeout>
+    <cacheSize>2500</cacheSize>
+    <queryParallelism>8</queryParallelism>
+  </infoResolver>
+</platform>
+----
+
+Table <<tab_resolver_config>> describes the properties and their default values.
+
+[#tab_resolver_config]
+.Configuration properties supported by the metadata resolver service
+[cols="1,3,1",options="header"]
+|====
+| Setting
+| Description
+| Default value
+
+| cacheQueryTimeout
+| A timeout (a value with a unit) for a request to the archive server when requesting the metadata of a media file. If no response is received within this time, the request is considered a failure.
+| 30 sec
+
+| cacheSize
+| The resolver service maintains an LRU cache for metadata that has already been requested. This property defines the size of this cache.
+| 1000
+
+| queryParallelism
+| The resolver service sends multiple requests to the archive server in parallel when querying metadata for media files. This property allows limiting the number of concurrent requests. This prevents overloading the server with a flood of requests.
+| no limit
+|====
