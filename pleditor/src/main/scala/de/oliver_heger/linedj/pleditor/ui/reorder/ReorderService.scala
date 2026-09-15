@@ -34,9 +34,9 @@ trait ReorderService:
     * is fetched asynchronously.
     *
     * @return a future for the sequence of available ''PlaylistReorderer''
-    *         services and their names
+    *         services. Their names can be obtained via the ''name'' property.
     */
-  def loadAvailableReorderServices(): Future[Seq[(PlaylistReorderer, String)]]
+  def loadAvailableReorderServices(): Future[Seq[PlaylistReorderer]]
 
   /**
     * Triggers a reorder operation on a part of the current playlist. The

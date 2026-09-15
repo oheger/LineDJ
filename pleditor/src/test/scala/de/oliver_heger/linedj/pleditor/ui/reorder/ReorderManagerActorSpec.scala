@@ -65,29 +65,29 @@ class ReorderManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
     val reorder = mock[PlaylistReorderer]
     val helper = new ReorderManagerActorTestHelper
 
-    helper.addReorderService(reorder, ServiceName)
+    helper.addReorderService(reorder)
     helper.actor ! ReorderManagerActor.GetAvailableReorderServices
     val msg = expectMsgType[ReorderManagerActor.AvailableReorderServices]
     msg.services should have length 1
-    msg.services should contain(reorder, ServiceName)
+    msg.services should contain(reorder)
 
   it should "allow removing reorder services" in:
     val reorder = mock[PlaylistReorderer]
     val reorderOther = mock[PlaylistReorderer]
     val helper = new ReorderManagerActorTestHelper
-    helper.addReorderService(reorder, ServiceName)
-    helper.addReorderService(reorderOther, ServiceName + "_other")
+    helper.addReorderService(reorder)
+    helper.addReorderService(reorderOther)
 
     helper removeReorderService reorder
     helper.actor ! ReorderManagerActor.GetAvailableReorderServices
     val msg = expectMsgType[ReorderManagerActor.AvailableReorderServices]
     msg.services should have length 1
-    msg.services should not contain(reorder, ServiceName)
+    msg.services should not contain reorder
 
   it should "stop the associated child actor when a service is removed" in:
     val reorder = mock[PlaylistReorderer]
     val helper = new ReorderManagerActorTestHelper
-    helper.addReorderService(reorder, ServiceName)
+    helper.addReorderService(reorder)
 
     val probe = TestProbe()
     val child = helper removeReorderService reorder
@@ -123,7 +123,7 @@ class ReorderManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
     val invocation = createReorderMessage(reorder)
     val response = ReorderActor.ReorderResponse(createSongList(), invocation.request)
     val helper = new ReorderManagerActorTestHelper
-    val child = helper.addReorderService(reorder, ServiceName)
+    val child = helper.addReorderService(reorder)
 
     helper send invocation
     child.expectMsg(invocation.request)
@@ -140,7 +140,7 @@ class ReorderManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
   it should "react on a failed invocation via a child actor" in:
     val reorder = mock[PlaylistReorderer]
     val helper = new ReorderManagerActorTestHelper
-    val child = helper.addReorderService(reorder, ServiceName)
+    val child = helper.addReorderService(reorder)
 
     system stop child.ref
     awaitCond:
@@ -193,11 +193,10 @@ class ReorderManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
       * test probe returned by the child actor factory is returned.
       *
       * @param reorder the reorder service
-      * @param name    the name of the service
       * @return the probe representing the wrapping child actor
       */
-    def addReorderService(reorder: PlaylistReorderer, name: String): TestProbe =
-      send(ReorderManagerActor.AddReorderService(reorder, name))
+    def addReorderService(reorder: PlaylistReorderer): TestProbe =
+      send(ReorderManagerActor.AddReorderService(reorder))
       managedServices(reorder)
 
     /**

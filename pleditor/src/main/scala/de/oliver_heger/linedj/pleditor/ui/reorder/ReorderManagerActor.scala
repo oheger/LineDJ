@@ -37,11 +37,11 @@ object ReorderManagerActor:
   /**
     * A message produced by [[ReorderManagerActor]] as answer for a request for
     * the currently available reorder services. The message contains a list of
-    * services with their (user-readable) names.
+    * the services currently available.
     *
     * @param services the list of currently available services
     */
-  case class AvailableReorderServices(services: Seq[(PlaylistReorderer, String)])
+  case class AvailableReorderServices(services: Seq[PlaylistReorderer])
 
   /**
     * A message processed by [[ReorderManagerActor]] telling it that another
@@ -49,9 +49,8 @@ object ReorderManagerActor:
     * service is stored internally, so that it can be invoked.
     *
     * @param service the ''PlaylistReorderer'' service
-    * @param name    the name under which this service is registered
     */
-  case class AddReorderService(service: PlaylistReorderer, name: String)
+  case class AddReorderService(service: PlaylistReorderer)
 
   /**
     * A message processed by [[ReorderManagerActor]] telling it that a
@@ -82,15 +81,6 @@ object ReorderManagerActor:
     * @param service the service which could not be invoked
     */
   case class FailedReorderServiceInvocation(service: PlaylistReorderer)
-
-  /**
-    * An internally used data class for storing information about reorder
-    * services.
-    *
-    * @param name       the name of the service
-    * @param childActor the associated child actor
-    */
-  private case class ServiceData(name: String, childActor: ActorRef)
 
   private class ReorderManagerActorImpl(bus: MessageBus) extends ReorderManagerActor(bus) with ChildActorFactory
 
@@ -128,7 +118,7 @@ class ReorderManagerActor(bus: MessageBus) extends Actor with ActorLogging:
     * A map storing information about the currently available reorder
     * services.
     */
-  private val reorderServices = collection.mutable.Map.empty[PlaylistReorderer, ServiceData]
+  private val reorderServices = collection.mutable.Map.empty[PlaylistReorderer, ActorRef]
 
   /**
     * This actor uses a supervision strategy that stops failing child actors.
@@ -145,16 +135,15 @@ class ReorderManagerActor(bus: MessageBus) extends Actor with ActorLogging:
     case GetAvailableReorderServices =>
       sender() ! AvailableReorderServices(availableReorderServices())
 
-    case AddReorderService(service, name) =>
+    case AddReorderService(service) =>
       val child = createChildActor(Props(classOf[ReorderActor], service))
       context watch child
-      reorderServices += service -> ServiceData(name, child)
+      reorderServices += service -> child
 
     case RemoveReorderService(service) =>
-      val optData = reorderServices remove service
-      optData foreach { d =>
-        context unwatch d.childActor
-        context stop d.childActor
+      reorderServices remove service foreach { child =>
+        context unwatch child
+        context stop child
       }
 
     case ReorderServiceInvocation(service, request) =>
@@ -167,13 +156,12 @@ class ReorderManagerActor(bus: MessageBus) extends Actor with ActorLogging:
       handleChildActorTermination(t.actor)
 
   /**
-    * Returns a list with metadata about all currently available reorder
-    * services.
+    * Returns a list with all currently available reorder services.
     *
-    * @return the list with service information
+    * @return the list with the available services
     */
-  private def availableReorderServices(): List[(PlaylistReorderer, String)] =
-    reorderServices.toList map (e => (e._1, e._2.name))
+  private def availableReorderServices(): List[PlaylistReorderer] =
+    reorderServices.keys.toList
 
   /**
     * Handles a request for invoking a reorder service. The invocation may fail
@@ -181,13 +169,13 @@ class ReorderManagerActor(bus: MessageBus) extends Actor with ActorLogging:
     *
     * @param service the service to be invoked
     * @param request the request to be executed
-    * @param optData an option with the associated service data
+    * @param optChild an option with the associated child actor
     */
   private def handleServiceInvocation(service: PlaylistReorderer, request: ReorderActor
-  .ReorderRequest, optData: Option[ServiceData]): Unit =
-    optData match
-      case Some(data) =>
-        data.childActor ! request
+  .ReorderRequest, optChild: Option[ActorRef]): Unit =
+    optChild match
+      case Some(child) =>
+        child ! request
 
       case None =>
         bus publish FailedReorderServiceInvocation(service)
@@ -202,7 +190,7 @@ class ReorderManagerActor(bus: MessageBus) extends Actor with ActorLogging:
     */
   private def handleChildActorTermination(childActor: ActorRef): Unit =
     log.warning("Invocation of a child actor failed!")
-    val item = reorderServices.find(p => p._2.childActor == childActor)
+    val item = reorderServices.find(p => p._2 == childActor)
     item foreach { p =>
       val service = p._1
       reorderServices remove service

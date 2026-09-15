@@ -101,7 +101,7 @@ class ReorderControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar:
   private def expectWindowOpened(helper: ReorderControllerTestHelper, optWindow: Option[Window] =
   None): WindowEvent =
     val event = createWindowEventWithWindow(optWindow)
-    val future = Promise[Seq[(PlaylistReorderer, String)]]().future
+    val future = Promise[Seq[PlaylistReorderer]]().future
     when(helper.reorderService.loadAvailableReorderServices()).thenReturn(future)
     event
 
@@ -116,9 +116,14 @@ class ReorderControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar:
 
   it should "populate the list model with the available reorder services" in:
     val event = createWindowEventWithWindow()
-    val promise = Promise[Seq[(PlaylistReorderer, String)]]()
-    val services = List((mock[PlaylistReorderer], "B"), (mock[PlaylistReorderer], "A"),
-      (mock[PlaylistReorderer], "C"))
+    val promise = Promise[Seq[PlaylistReorderer]]()
+    val serviceB = mock[PlaylistReorderer]
+    when(serviceB.name).thenReturn("B")
+    val serviceA = mock[PlaylistReorderer]
+    when(serviceA.name).thenReturn("A")
+    val serviceC = mock[PlaylistReorderer]
+    when(serviceC.name).thenReturn("C")
+    val services = List(serviceB, serviceA, serviceC)
     val helper = new ReorderControllerTestHelper
     when(helper.reorderService.loadAvailableReorderServices()).thenReturn(promise.future)
 
@@ -126,14 +131,14 @@ class ReorderControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar:
     promise success services
     helper.syncedRunnable.run()
     val verInOrder = Mockito.inOrder(helper.listHandler)
-    verInOrder.verify(helper.listHandler).addItem(0, "A", services(1)._1)
-    verInOrder.verify(helper.listHandler).addItem(1, "B", services.head._1)
-    verInOrder.verify(helper.listHandler).addItem(2, "C", services(2)._1)
-    verInOrder.verify(helper.listHandler).setData(services(1)._1)
+    verInOrder.verify(helper.listHandler).addItem(0, "A", serviceA)
+    verInOrder.verify(helper.listHandler).addItem(1, "B", serviceB)
+    verInOrder.verify(helper.listHandler).addItem(2, "C", serviceC)
+    verInOrder.verify(helper.listHandler).setData(serviceA)
 
   it should "handle an empty list of reorder services" in:
     val event = createWindowEventWithWindow()
-    val promise = Promise[Seq[(PlaylistReorderer, String)]]()
+    val promise = Promise[Seq[PlaylistReorderer]]()
     val helper = new ReorderControllerTestHelper
     when(helper.reorderService.loadAvailableReorderServices()).thenReturn(promise.future)
 

@@ -109,13 +109,12 @@ class ReorderController(listHandler: ListComponentHandler, buttonHandler: Compon
     * @param list the list with information about reorder services
     * @return a flag whether there is at least one service to choose
     */
-  private def fillListModel(list: Seq[(PlaylistReorderer, String)]): Boolean =
-    val sortedList = list.sortWith(_._2 < _._2)
+  private def fillListModel(list: Seq[PlaylistReorderer]): Boolean =
+    val sortedList = list.sortBy(_.name)
     sortedList.zipWithIndex.foreach { e =>
       val index = e._2
-      val name = e._1._2
-      val service = e._1._1
-      listHandler.addItem(index, name, service)
+      val service = e._1
+      listHandler.addItem(index, service.name, service)
     }
-    sortedList.headOption foreach (listHandler setData _._1)
+    sortedList.headOption foreach (listHandler setData _)
     list.nonEmpty

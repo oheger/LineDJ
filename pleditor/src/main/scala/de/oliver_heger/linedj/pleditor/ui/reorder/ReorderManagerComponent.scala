@@ -86,7 +86,8 @@ class ReorderManagerComponent extends ReorderService:
   def reorderServiceAdded(service: PlaylistReorderer): Unit =
     log.info("Added playlist reorder service.")
     try
-      reorderManagerActor ! ReorderManagerActor.AddReorderService(service, service.name)
+      service.name
+      reorderManagerActor ! ReorderManagerActor.AddReorderService(service)
     catch
       case e: Exception =>
         log.warn("Could not add reorder service!", e)
@@ -106,7 +107,7 @@ class ReorderManagerComponent extends ReorderService:
   /**
     * @inheritdoc This implementation asks the management actor.
     */
-  override def loadAvailableReorderServices(): Future[Seq[(PlaylistReorderer, String)]] =
+  override def loadAvailableReorderServices(): Future[Seq[PlaylistReorderer]] =
     implicit val timeout: Timeout = Timeout(10.seconds)
     implicit val ec: ExecutionContextExecutor = clientApplicationContext.actorSystem.dispatcher
     val future = reorderManagerActor ? ReorderManagerActor.GetAvailableReorderServices

@@ -67,8 +67,7 @@ class ReorderManagerComponentSpec(testSystem: ActorSystem) extends TestKit(testS
     val helper = new ReorderManagerComponentTestHelper
 
     helper.component reorderServiceAdded reorder
-    helper.reorderManagerActor.expectMsg(ReorderManagerActor.AddReorderService(reorder,
-      ServiceName))
+    helper.reorderManagerActor.expectMsg(ReorderManagerActor.AddReorderService(reorder))
 
   it should "ignore new services that fail when asked for their name" in:
     val reorder = mock[PlaylistReorderer]
@@ -98,8 +97,7 @@ class ReorderManagerComponentSpec(testSystem: ActorSystem) extends TestKit(testS
     watcher.expectMsgType[Terminated]
 
   it should "implement the loadAvailableReorderServices() method" in:
-    val serviceList = List((mock[PlaylistReorderer], ServiceName), (mock[PlaylistReorderer],
-      "other"))
+    val serviceList = List(mock[PlaylistReorderer], mock[PlaylistReorderer])
     val props = Props(new Actor {
       override def receive: Receive = {
         case ReorderManagerActor.GetAvailableReorderServices =>
