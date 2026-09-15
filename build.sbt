@@ -251,6 +251,7 @@ lazy val LineDJ = (project in file("."))
   reorderRandomAlbums,
   reorderRandomArtists,
   reorderRandomSongs,
+  reorderSpi,
   serverCommon,
   shared,
   trayWindowList
@@ -741,6 +742,21 @@ lazy val playlistEditor = (project in file("pleditor"))
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
   ).dependsOn(shared % "compile->compile;test->test", platform % "compile->compile;test->test", audioPlatform)
+
+/**
+  * Project that defines the Service Provider Interface for the reorder
+  * components.
+  */
+lazy val reorderSpi = (project in file("reorder/spi"))
+  .enablePlugins(SbtOsgi)
+  .settings(defaultSettings)
+  .settings(OSGi.osgiSettings)
+  .settings(
+    name := "linedj-reorder-spi",
+    OsgiKeys.exportPackage := Seq(
+      "de.oliver_heger.linedj.reorder.spi"
+    )
+  )
 
 /**
   * Project for the playlist medium reorder component. This is an
