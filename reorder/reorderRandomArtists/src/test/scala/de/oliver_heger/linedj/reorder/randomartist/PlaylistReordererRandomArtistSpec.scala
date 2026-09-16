@@ -16,31 +16,35 @@
 
 package de.oliver_heger.linedj.reorder.randomartist
 
-import de.oliver_heger.linedj.platform.audio.model.{SongArtistOrdering, SongData}
-import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
-import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
+import de.oliver_heger.linedj.reorder.spi.MetadataExtractorTestHelper.*
+
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 /**
-  * Test class for ''PlaylistReordererRandomArtist''.
+  * Test class for [[PlaylistReordererRandomArtist]].
   */
 class PlaylistReordererRandomArtistSpec extends AnyFlatSpec with Matchers:
-  "A PlaylistReordererRandomArtist" should "return a name" in:
+  "A PlaylistReordererRandomArtist" should "return a name" in :
     val reorder = new PlaylistReordererRandomArtist
 
     reorder.name should not be null
 
-  it should "return the correct ordering" in:
+  it should "return the correct ordering" in :
     val reorder = new PlaylistReordererRandomArtist
+    val s1 = createFile(artist = Some("Mike Oldfield"), album = Some("Crisis"), trackNumber = Some(1))
+    val s2 = createFile(
+      artist = Some("Mike Oldfield"),
+      album = Some("Crisis"),
+      trackNumber = Some(2),
+      title = Some("Moonlight Shadow")
+    )
 
-    reorder.groupOrdering should be(SongArtistOrdering)
+    reorder.groupOrdering(TestMetadataExtractor).compare(s1, s2) should be < 0
 
-  it should "return the artist from the grouping function" in:
+  it should "return the artist from the grouping function" in :
     val Artist = "Eric Clapton"
-    val song = SongData(MediaFileID(MediumID.UndefinedMediumID, "someURI"),
-      MediaMetadata.UndefinedMediaData.copy(title = Some("title"), artist = Some(Artist)),
-    "title", Artist, "album")
+    val song = createFile(title = Some("title"), artist = Some(Artist), album = Some("album"))
     val reorder = new PlaylistReordererRandomArtist
 
-    reorder groupSong song should be(Artist)
+    reorder.groupSong(TestMetadataExtractor)(song) should be(Artist)
