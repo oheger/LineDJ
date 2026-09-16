@@ -16,8 +16,7 @@
 
 package de.oliver_heger.linedj.reorder.random
 
-import de.oliver_heger.linedj.platform.audio.model.SongData
-import de.oliver_heger.linedj.pleditor.spi.LocalizedPlaylistReorderer
+import de.oliver_heger.linedj.reorder.spi.{LocalizedPlaylistReorderer, MetadataExtractor}
 
 import scala.collection.immutable.Seq
 
@@ -32,5 +31,5 @@ import scala.collection.immutable.Seq
 class PlaylistReordererRandomSongs extends LocalizedPlaylistReorderer:
   override val resourceBundleBaseName = "ReorderRandomSongsResources"
 
-  override def reorder(songs: Seq[SongData]): Seq[SongData] =
+  override def reorder[A](songs: Seq[A], extractor: MetadataExtractor[A]): Seq[A] =
     util.Random.shuffle(songs)

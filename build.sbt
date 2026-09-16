@@ -829,7 +829,7 @@ lazy val reorderRandomSongs = (project in file("reorder/reorderRandomSongs"))
     ),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
-  ).dependsOn(playlistEditor)
+  ).dependsOn(reorderSpi % "compile->compile;test->test")
 
 /**
   * Project for the playlist random artist reorder component. This is an
