@@ -17,8 +17,8 @@
 package de.oliver_heger.linedj.pleditor.ui.reorder
 
 import de.oliver_heger.linedj.platform.comm.MessageBus
-import de.oliver_heger.linedj.pleditor.spi.PlaylistReorderer
 import de.oliver_heger.linedj.pleditor.ui.reorder.ReorderManagerActor._
+import de.oliver_heger.linedj.reorder.spi.PlaylistReorderer
 import de.oliver_heger.linedj.shared.actors.ChildActorFactory
 import org.apache.pekko.actor.SupervisorStrategy.Stop
 import org.apache.pekko.actor._
@@ -97,7 +97,7 @@ object ReorderManagerActor:
   * An actor implementation which manages all available reorder services.
   *
   * Service objects implementing the
-  * [[de.oliver_heger.linedj.pleditor.spi.PlaylistReorderer]] interface can be
+  * [[de.oliver_heger.linedj.reorder.spi.PlaylistReorderer]] interface can be
   * added and removed dynamically. This actor is responsible for managing the
   * services available and processing requests to reorder parts of the
   * playlist. This is achieved by creating [[ReorderActor]] child actors for

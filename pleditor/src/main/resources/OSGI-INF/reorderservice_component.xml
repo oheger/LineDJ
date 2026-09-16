@@ -33,7 +33,7 @@
   <reference interface="de.oliver_heger.linedj.platform.app.ClientApplicationContext"
              name="clientContext" bind="initClientApplicationContext"/>
 
-  <reference interface="de.oliver_heger.linedj.pleditor.spi.PlaylistReorderer"
+  <reference interface="de.oliver_heger.linedj.reorder.spi.PlaylistReorderer"
              name="reorderSerivices" bind="reorderServiceAdded" unbind="reorderServiceRemoved"
              policy="dynamic" cardinality="0..n"/>
 </component>

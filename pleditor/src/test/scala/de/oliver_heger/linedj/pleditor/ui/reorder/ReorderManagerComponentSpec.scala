@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.pleditor.ui.reorder
 import de.oliver_heger.linedj.platform.app.ClientApplicationContext
 import de.oliver_heger.linedj.platform.audio.model.SongData
 import de.oliver_heger.linedj.platform.comm.MessageBus
-import de.oliver_heger.linedj.pleditor.spi.PlaylistReorderer
+import de.oliver_heger.linedj.reorder.spi.PlaylistReorderer
 import de.oliver_heger.linedj.shared.actors.ActorFactory
 import org.apache.pekko.actor.*
 import org.apache.pekko.actor.typed.Behavior

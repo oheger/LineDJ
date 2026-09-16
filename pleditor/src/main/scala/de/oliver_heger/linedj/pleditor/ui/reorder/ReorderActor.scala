@@ -17,8 +17,8 @@
 package de.oliver_heger.linedj.pleditor.ui.reorder
 
 import de.oliver_heger.linedj.platform.audio.model.SongData
-import de.oliver_heger.linedj.pleditor.spi.PlaylistReorderer
 import de.oliver_heger.linedj.pleditor.ui.reorder.ReorderActor.{ReorderRequest, ReorderResponse}
+import de.oliver_heger.linedj.reorder.spi.PlaylistReorderer
 import org.apache.pekko.actor.Actor
 
 import scala.collection.immutable.Seq
@@ -45,7 +45,7 @@ object ReorderActor:
 
 
 /**
-  * An actor which wraps a [[de.oliver_heger.linedj.pleditor.spi.PlaylistReorderer]]
+  * An actor which wraps a [[de.oliver_heger.linedj.reorder.spi.PlaylistReorderer]]
   * service.
   *
   * This actor implementation can handle a single message which triggers a
@@ -63,4 +63,4 @@ object ReorderActor:
 class ReorderActor(reorder: PlaylistReorderer) extends Actor:
   override def receive: Receive =
     case request: ReorderRequest =>
-      sender() ! ReorderResponse(reorder.reorder(request.songs), request)
+      sender() ! ReorderResponse(reorder.reorder(request.songs, SongDataExtractor), request)

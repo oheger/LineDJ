@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.pleditor.ui.reorder
 
 import de.oliver_heger.linedj.platform.audio.model.SongData
-import de.oliver_heger.linedj.pleditor.spi.PlaylistReorderer
+import de.oliver_heger.linedj.reorder.spi.PlaylistReorderer
 import org.apache.pekko.actor.{ActorSystem, Props}
 import org.apache.pekko.testkit.{ImplicitSender, TestKit}
 import org.mockito.Mockito._
@@ -49,7 +49,7 @@ class ReorderActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
     val reorder = mock[PlaylistReorderer]
     val songs = createSongs(8)
     val orderedSongs = createSongs(7)
-    when(reorder.reorder(songs)).thenReturn(orderedSongs)
+    when(reorder.reorder(songs, SongDataExtractor)).thenReturn(orderedSongs)
     val request = ReorderActor.ReorderRequest(songs, 42)
     val actor = system.actorOf(Props(classOf[ReorderActor], reorder))
 

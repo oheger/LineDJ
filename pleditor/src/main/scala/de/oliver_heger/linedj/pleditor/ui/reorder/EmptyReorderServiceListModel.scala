@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.pleditor.ui.reorder
 
 import de.oliver_heger.linedj.platform.ui.EmptyListModel
-import de.oliver_heger.linedj.pleditor.spi.PlaylistReorderer
+import de.oliver_heger.linedj.reorder.spi.PlaylistReorderer
 
 /**
   * The list model for the list with available reorder services.

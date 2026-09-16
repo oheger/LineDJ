@@ -731,7 +731,6 @@ lazy val playlistEditor = (project in file("pleditor"))
     OsgiKeys.privatePackage := Seq(
       "de.oliver_heger.linedj.pleditor.ui.*"
     ),
-    OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.pleditor.spi"),
     OsgiKeys.importPackage := Seq(
       "de.oliver_heger.linedj.platform.bus",
       "de.oliver_heger.linedj.platform.mediaifc.ext",

@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.pleditor.ui.reorder
 
 import de.oliver_heger.linedj.platform.app.ClientApplicationContext
 import de.oliver_heger.linedj.platform.audio.model.SongData
-import de.oliver_heger.linedj.pleditor.spi.PlaylistReorderer
+import de.oliver_heger.linedj.reorder.spi.PlaylistReorderer
 import org.apache.logging.log4j.LogManager
 import org.apache.pekko.actor.ActorRef
 import org.apache.pekko.pattern.ask

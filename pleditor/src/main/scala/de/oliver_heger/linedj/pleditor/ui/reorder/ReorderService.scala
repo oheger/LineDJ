@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.pleditor.ui.reorder
 
 import de.oliver_heger.linedj.platform.audio.model.SongData
-import de.oliver_heger.linedj.pleditor.spi.PlaylistReorderer
+import de.oliver_heger.linedj.reorder.spi.PlaylistReorderer
 
 import scala.collection.immutable.Seq
 import scala.concurrent.Future

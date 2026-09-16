@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.pleditor.ui.reorder
 
 import de.oliver_heger.linedj.platform.audio.model.SongData
-import de.oliver_heger.linedj.pleditor.spi.PlaylistReorderer
+import de.oliver_heger.linedj.reorder.spi.PlaylistReorderer
 import net.sf.jguiraffe.gui.builder.components.model.ListComponentHandler
 import net.sf.jguiraffe.gui.builder.event.{FormActionEvent, FormActionListener, FormChangeEvent, FormChangeListener}
 import net.sf.jguiraffe.gui.builder.utils.GUISynchronizer
