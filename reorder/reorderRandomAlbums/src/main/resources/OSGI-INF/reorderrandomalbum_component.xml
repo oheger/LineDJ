@@ -25,6 +25,6 @@
   <implementation class="de.oliver_heger.linedj.reorder.randomalbum.PlaylistReordererRandomAlbum" />
 
   <service>
-    <provide interface="de.oliver_heger.linedj.pleditor.spi.PlaylistReorderer"/>
+    <provide interface="de.oliver_heger.linedj.reorder.spi.PlaylistReorderer"/>
   </service>
 </component>

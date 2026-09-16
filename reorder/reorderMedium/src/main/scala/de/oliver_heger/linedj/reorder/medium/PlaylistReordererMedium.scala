@@ -16,13 +16,12 @@
 
 package de.oliver_heger.linedj.reorder.medium
 
-import de.oliver_heger.linedj.platform.audio.model.SongData
-import de.oliver_heger.linedj.pleditor.spi.LocalizedPlaylistReorderer
+import de.oliver_heger.linedj.reorder.spi.{LocalizedPlaylistReorderer, MetadataExtractor}
 
 import scala.collection.immutable.Seq
 
 /**
-  * An implementation of a reorder service which orders songs in ''medium''
+  * An implementation of a reorder service which orders songs in _medium_
   * style.
   *
   * This style means that songs are ordered by their (relative) URI which
@@ -38,5 +37,5 @@ import scala.collection.immutable.Seq
 class PlaylistReordererMedium extends LocalizedPlaylistReorderer:
   override val resourceBundleBaseName = "ReorderMediumResources"
 
-  override def reorder(songs: Seq[SongData]): Seq[SongData] =
-    songs sortWith(_.id.uri < _.id.uri)
+  override def reorder[A](songs: Seq[A], extractor: MetadataExtractor[A]): Seq[A] =
+    songs.sortBy(extractor.uri)

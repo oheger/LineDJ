@@ -16,40 +16,27 @@
 
 package de.oliver_heger.linedj.reorder.medium
 
-import de.oliver_heger.linedj.platform.audio.model.SongData
-import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
-import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
+import de.oliver_heger.linedj.reorder.spi.MetadataExtractorTestHelper.*
+
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-object PlaylistReordererMediumSpec:
-  /**
-    * Creates a ''SongData'' object with the specified URI.
-    * @param uri the URI
-    * @return the created ''SongData''
-    */
-  private def createSong(uri: String): SongData =
-    SongData(MediaFileID(MediumID.UndefinedMediumID, uri), MediaMetadata.UndefinedMediaData, null, null, null)
-end PlaylistReordererMediumSpec
-
 /**
-  * Test class for ''PlaylistReordererMedium''.
+  * Test class for [[PlaylistReordererMedium]].
   */
 class PlaylistReordererMediumSpec extends AnyFlatSpec with Matchers:
-  import PlaylistReordererMediumSpec.*
-
   "A PlaylistReordererMedium" should "return a name" in:
     val reorder = new PlaylistReordererMedium
 
     reorder.name should not be null
 
-  it should "order songs by their URI" in:
-    val songA = createSong("A")
-    val songB = createSong("B")
-    val songC = createSong("C")
-    val songD = createSong("D")
+  it should "order files by their URI" in:
+    val songA = createFile(uri = "A")
+    val songB = createFile(uri = "B")
+    val songC = createFile(uri = "C")
+    val songD = createFile(uri = "D")
     val songs = List(songB, songD, songA, songC)
     val orderedSongs = List(songA, songB, songC, songD)
     val reorder = new PlaylistReordererMedium
 
-    reorder reorder songs should be(orderedSongs)
+    reorder.reorder(songs, TestMetadataExtractor) should be(orderedSongs)

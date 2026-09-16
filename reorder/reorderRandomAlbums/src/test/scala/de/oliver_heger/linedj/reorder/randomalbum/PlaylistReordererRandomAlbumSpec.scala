@@ -16,35 +16,35 @@
 
 package de.oliver_heger.linedj.reorder.randomalbum
 
-import de.oliver_heger.linedj.platform.audio.model.{SongAlbumOrdering, SongData}
-import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
-import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
+import de.oliver_heger.linedj.reorder.spi.MetadataExtractorTestHelper.*
+
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 /**
-  * Test class for ''PlaylistReordererRandomAlbum''.
+  * Test class for [[PlaylistReordererRandomAlbum]].
   */
 class PlaylistReordererRandomAlbumSpec extends AnyFlatSpec with Matchers:
-  "A PlaylistReordererRandomAlbum" should "return a name" in:
+  "A PlaylistReordererRandomAlbum" should "return a name" in :
     val reorder = new PlaylistReordererRandomAlbum
 
     reorder.name should not be null
 
-  it should "return the correct ordering" in:
+  it should "return the correct ordering" in :
     val reorder = new PlaylistReordererRandomAlbum
-
-    reorder.groupOrdering should be(SongAlbumOrdering)
-
-  it should "return the album from the grouping function" in:
-    val Album = "Brothers in Arms"
-    val song = SongData(
-      MediaFileID(MediumID.UndefinedMediumID, "someURI"),
-      MediaMetadata.UndefinedMediaData.copy(title = Some("So Far Away"), album = Some(Album)),
-      "title",
-      "artist",
-      Album
+    val s1 = createFile(inceptionYear = Some(1983), album = Some("Crisis"), trackNumber = Some(1))
+    val s2 = createFile(
+      inceptionYear = Some(1983),
+      album = Some("Crisis"),
+      trackNumber = Some(2),
+      title = Some("Moonlight Shadow")
     )
+
+    reorder.groupOrdering(TestMetadataExtractor).compare(s1, s2) should be < 0
+
+  it should "return the album from the grouping function" in :
+    val Album = "Brothers in Arms"
+    val song = createFile(title = Some("So Far Away"), album = Some(Album))
     val reorder = new PlaylistReordererRandomAlbum
 
-    reorder groupSong song should be(Album)
+    reorder.groupSong(TestMetadataExtractor)(song) should be(Album)
