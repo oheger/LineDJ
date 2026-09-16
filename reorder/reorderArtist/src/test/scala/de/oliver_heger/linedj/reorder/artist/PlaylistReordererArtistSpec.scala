@@ -16,49 +16,32 @@
 
 package de.oliver_heger.linedj.reorder.artist
 
-import de.oliver_heger.linedj.platform.audio.model.SongData
-import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
-import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
+import de.oliver_heger.linedj.reorder.spi.MetadataExtractorTestHelper.*
+
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-
-object PlaylistReordererArtistSpec:
-  /**
-    * Creates a ''SongData'' object with the specified metadata.
-    *
-    * @param data the metadata for the song
-    * @return the created ''SongData''
-    */
-  private def createSong(data: MediaMetadata): SongData =
-    SongData(MediaFileID(MediumID.UndefinedMediumID, "song://" + data.title.getOrElse("testSong")),
-      data, data.title getOrElse "", data.artist getOrElse "", data.album getOrElse "")
-end PlaylistReordererArtistSpec
 
 /**
   * Test class for ''PlaylistReordererArtist''.
   */
 class PlaylistReordererArtistSpec extends AnyFlatSpec with Matchers:
-
-  import PlaylistReordererArtistSpec.*
-
-  "A PlaylistReordererArtist" should "return a name" in:
+  "A PlaylistReordererArtist" should "return a name" in :
     val reorder = new PlaylistReordererArtist
 
     reorder.name should not be null
 
-  it should "order a sequence of songs correctly" in:
-    val s1 = createSong(MediaMetadata(inceptionYear = Some(1984), album = Some("Ammonia Avenue"),
-      artist = Some("Alan Parson"), title = Some("Some song"), size = 0, checksum = ""))
-    val s2 = createSong(MediaMetadata(album = Some("On every street"), trackNumber = Some(1),
-      title = Some("Calling Elvis"), artist = Some("Dire Straits"), size = 0, checksum = ""))
-    val s3 = createSong(MediaMetadata(inceptionYear = Some(1983), album = Some("Crisis"),
-      trackNumber = Some(1), artist = Some("Mike Oldfield"), size = 0, checksum = ""))
-    val s4 = createSong(MediaMetadata(inceptionYear = Some(1983), album = Some("Crisis"),
-      trackNumber = Some(2), title = Some("Moonlight Shadow"), artist = Some("Mike Oldfield"), 
-      size = 0, checksum = ""))
-    val s5 = createSong(MediaMetadata(inceptionYear = Some(1984), album = Some("Discovery"),
-      title = Some("Talk about your life"), artist = Some("Mike Oldfield"), size = 0, checksum = ""))
+  it should "order a sequence of files correctly" in :
+    val s1 = createFile(inceptionYear = Some(1984), album = Some("Ammonia Avenue"),
+      artist = Some("Alan Parson"), title = Some("Some song"))
+    val s2 = createFile(album = Some("On every street"), trackNumber = Some(1),
+      title = Some("Calling Elvis"), artist = Some("Dire Straits"))
+    val s3 = createFile(inceptionYear = Some(1983), album = Some("Crisis"),
+      trackNumber = Some(1), artist = Some("Mike Oldfield"))
+    val s4 = createFile(inceptionYear = Some(1983), album = Some("Crisis"),
+      trackNumber = Some(2), title = Some("Moonlight Shadow"), artist = Some("Mike Oldfield"))
+    val s5 = createFile(inceptionYear = Some(1984), album = Some("Discovery"),
+      title = Some("Talk about your life"), artist = Some("Mike Oldfield"))
     val songs = List(s3, s1, s5, s4, s2)
     val reorder = new PlaylistReordererArtist
 
-    reorder reorder songs should be(List(s1, s2, s3, s4, s5))
+    reorder.reorder(songs, TestMetadataExtractor) should be(List(s1, s2, s3, s4, s5))
