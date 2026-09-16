@@ -16,8 +16,7 @@
 
 package de.oliver_heger.linedj.reorder.album
 
-import de.oliver_heger.linedj.platform.audio.model.{SongAlbumOrdering, SongData}
-import de.oliver_heger.linedj.pleditor.spi.LocalizedPlaylistReorderer
+import de.oliver_heger.linedj.reorder.spi.{LocalizedPlaylistReorderer, MediaFileOrderings, MetadataExtractor}
 
 import scala.collection.immutable.Seq
 
@@ -32,5 +31,5 @@ import scala.collection.immutable.Seq
 class PlaylistReordererAlbum extends LocalizedPlaylistReorderer:
   override val resourceBundleBaseName = "ReorderAlbumResources"
 
-  override def reorder(songs: Seq[SongData]): Seq[SongData] =
-    songs sorted SongAlbumOrdering
+  override def reorder[A](songs: Seq[A], extractor: MetadataExtractor[A]): Seq[A] =
+    songs.sorted(using MediaFileOrderings.songAlbumOrdering(extractor))
