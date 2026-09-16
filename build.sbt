@@ -741,7 +741,7 @@ lazy val playlistEditor = (project in file("pleditor"))
     ),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
-  ).dependsOn(shared % "compile->compile;test->test", platform % "compile->compile;test->test", audioPlatform)
+  ).dependsOn(shared % "compile->compile;test->test", platform % "compile->compile;test->test", audioPlatform, reorderSpi)
 
 /**
   * Project that defines the Service Provider Interface for the reorder
