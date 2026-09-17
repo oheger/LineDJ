@@ -240,6 +240,7 @@ lazy val LineDJ = (project in file("."))
   playerEngineConfig,
   playerServer,
   playlistEditor,
+  playlistEditorNew,
   protocolOneDrive,
   protocolWebDav,
   radioPlayer,
@@ -741,6 +742,31 @@ lazy val playlistEditor = (project in file("pleditor"))
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
   ).dependsOn(shared % "compile->compile;test->test", platform % "compile->compile;test->test", audioPlatform, reorderSpi)
+
+/**
+  * Project for the new playlist editor client application. This application
+  * allows creating a playlist from the media stored in the archive.
+  */
+lazy val playlistEditorNew = (project in file("apps/pleditor"))
+  .enablePlugins(SbtOsgi)
+  .settings(defaultSettings)
+  .settings(OSGi.osgiSettings)
+  .settings(
+    name := "linedj-pleditorNew",
+    libraryDependencies ++= jguiraffeDependencies,
+    libraryDependencies ++= osgiDependencies,
+    libraryDependencies ++= logDependencies,
+    OsgiKeys.privatePackage := Seq(
+      "de.oliver_heger.linedj.apps.pleditor.*"
+    ),
+    OsgiKeys.importPackage := Seq(
+      "de.oliver_heger.linedj.platform.bus",
+      OSGi.ScalaImport,
+      "*"
+    ),
+    OsgiKeys.additionalHeaders :=
+      Map("Service-Component" -> "OSGI-INF/*.xml")
+  ).dependsOn(shared % "compile->compile;test->test", platform % "compile->compile;test->test", audioPlatformNew, reorderSpi)
 
 /**
   * Project that defines the Service Provider Interface for the reorder
