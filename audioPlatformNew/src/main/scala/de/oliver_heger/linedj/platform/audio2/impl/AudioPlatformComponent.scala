@@ -19,12 +19,14 @@ package de.oliver_heger.linedj.platform.audio2.impl
 import de.oliver_heger.linedj.platform.app.{ClientContextSupport, PlatformComponent}
 import de.oliver_heger.linedj.platform.archiveclient.ArchiveService
 import de.oliver_heger.linedj.platform.audio2.impl.AudioPlatformComponent.log
+import de.oliver_heger.linedj.platform.audio2.playlist.{Playlist, PlaylistService}
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.comm.ServiceDependencies.{RegisterService, ServiceDependency, UnregisterService}
 import de.oliver_heger.linedj.platform.startup.ConfigService
 import de.oliver_heger.linedj.player.engine.AudioStreamFactory
 import org.apache.logging.log4j.LogManager
 import org.apache.pekko.actor.typed.ActorRef
+import org.osgi.framework.ServiceRegistration
 import org.osgi.service.component.ComponentContext
 
 import scala.compiletime.uninitialized
@@ -74,6 +76,9 @@ class AudioPlatformComponent(controllerFactory: AudioPlayerControllerActor.Facto
 
   /** Stores the controller actor. */
   private var optControllerActor: Option[ActorRef[AudioPlayerControllerActor.AudioPlayerControllerCommand]] = None
+
+  /** Stores the registration of the playlist service. */
+  private var optPlaylistServiceRegistration: Option[ServiceRegistration[PlaylistService[Playlist, String]]] = None
 
   import AudioPlatformComponent.*
 
@@ -133,6 +138,13 @@ class AudioPlatformComponent(controllerFactory: AudioPlayerControllerActor.Facto
         controllerFactory(controllerConfig), AudioPlayerControllerActorName
       )
     )
+    optPlaylistServiceRegistration = Some(
+      compContext.getBundleContext.registerService(
+        classOf[PlaylistService[Playlist, String]],
+        PlaylistServiceImpl,
+        null
+      )
+    )
 
   override def deactivate(componentContext: ComponentContext): Unit =
     log.info("Deactivating AudioPlatformComponent.")
@@ -142,6 +154,7 @@ class AudioPlatformComponent(controllerFactory: AudioPlayerControllerActor.Facto
       actor ! AudioPlayerControllerActor.Stop
       clientApplicationContext.messageBus.publish(UnregisterService(audioPlayerControllerDependency))
     audioStreamFactoryManager.shutdown()
+    optPlaylistServiceRegistration.foreach(_.unregister())
 
   /**
     * Returns a [[Promise]] to be passed to the audio player controller to 

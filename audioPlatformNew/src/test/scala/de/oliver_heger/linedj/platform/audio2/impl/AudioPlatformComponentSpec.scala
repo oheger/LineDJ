@@ -20,6 +20,7 @@ import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.app.ClientApplicationContext
 import de.oliver_heger.linedj.platform.archiveclient.ArchiveService
 import de.oliver_heger.linedj.platform.audio2.impl.AudioPlayerControllerActor.AudioPlayerControllerCommand
+import de.oliver_heger.linedj.platform.audio2.playlist.{Playlist, PlaylistService}
 import de.oliver_heger.linedj.platform.comm.ServiceDependencies.{RegisterService, UnregisterService}
 import de.oliver_heger.linedj.platform.startup.ConfigService
 import de.oliver_heger.linedj.player.engine.{AsyncAudioStreamFactory, AudioStreamFactory}
@@ -31,6 +32,7 @@ import org.apache.pekko.actor.typed.{ActorRef, Behavior, Props}
 import org.apache.pekko.testkit.TestKit
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.*
+import org.osgi.framework.{BundleContext, ServiceRegistration}
 import org.osgi.service.component.ComponentContext
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
@@ -43,7 +45,7 @@ import scala.concurrent.duration.DurationInt
 /**
   * Test class for [[AudioPlatformComponent]].
   */
-class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSystem), AnyFlatSpecLike, 
+class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSystem), AnyFlatSpecLike,
   BeforeAndAfterAll, Matchers, MockitoSugar, OptionValues:
   def this() = this(ActorSystem("AudioPlatformComponentSpec"))
 
@@ -52,10 +54,10 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
 
   override protected def afterAll(): Unit =
     typedTestKit.shutdownTestKit()
-    TestKit.shutdownActorSystem(system)  
+    TestKit.shutdownActorSystem(system)
     super.afterAll()
 
-  "An AudioPlatformComponent" should "handle a deactivation without an activation" in:
+  "An AudioPlatformComponent" should "handle a deactivation without an activation" in :
     val componentContext = mock[ComponentContext]
     val helper = new ComponentTestHelper
 
@@ -64,7 +66,7 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
     verifyNoInteractions(componentContext)
     helper.messageBus.expectNoMessage(100.millis)
 
-  it should "pass a stream factory to add to the audio stream factory manager" in:
+  it should "pass a stream factory to add to the audio stream factory manager" in :
     val factory = mock[AudioStreamFactory]
     val helper = new ComponentTestHelper
 
@@ -73,7 +75,7 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
     // The factory is converted to an async factory.
     verify(helper.audioStreamFactoryManager).addFactory(any())
 
-  it should "pass a stream factory to remove to the audio stream factory manager" in:
+  it should "pass a stream factory to remove to the audio stream factory manager" in :
     val factory = mock[AudioStreamFactory]
     val helper = new ComponentTestHelper
 
@@ -81,7 +83,7 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
 
     verify(helper.audioStreamFactoryManager).removeFactory(any())
 
-  it should "install an audio player controller actor" in:
+  it should "install an audio player controller actor" in :
     val helper = new ComponentTestHelper
     helper.activate()
 
@@ -90,13 +92,13 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
     val registerMsg = helper.messageBus.expectMessageType[RegisterService]
     registerMsg.service should be(AudioPlatformComponent.audioPlayerControllerDependency)
 
-  it should "not publish the controller service dependency before the promise is fulfilled" in:
+  it should "not publish the controller service dependency before the promise is fulfilled" in :
     val helper = new ComponentTestHelper
     helper.activate()
 
     helper.messageBus.expectNoMessage(200.millis)
 
-  it should "stop the controller actor on deactivate" in:
+  it should "stop the controller actor on deactivate" in :
     val helper = new ComponentTestHelper
     helper.activate()
 
@@ -104,7 +106,7 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
 
     helper.probeControllerActor.expectMessage(AudioPlayerControllerActor.Stop)
 
-  it should "unregister the service dependency for the controller on deactivate" in:
+  it should "unregister the service dependency for the controller on deactivate" in :
     val helper = new ComponentTestHelper
     helper.activate()
 
@@ -113,32 +115,47 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
     val unregisterMsg = helper.messageBus.expectMessageType[UnregisterService]
     unregisterMsg.service should be(AudioPlatformComponent.audioPlayerControllerDependency)
 
-  it should "shutdown the audio stream factory manager on deactivate" in:
+  it should "shutdown the audio stream factory manager on deactivate" in :
     val helper = new ComponentTestHelper
     helper.activate()
-    
+
     helper.deactivate()
-    
+
     verify(helper.audioStreamFactoryManager).shutdown()
-  
+
+  it should "unregister the playlist service on deactivate" in :
+    val helper = new ComponentTestHelper
+    helper.activate()
+
+    helper.deactivate()
+
+    verify(helper.playlistServiceRegistration).unregister()
+
   /**
     * A test helper class managing the object under test and its dependencies.
     */
   private class ComponentTestHelper:
     /** The message bus. */
     val messageBus = new MessageBusTestImpl
-    
+
     /** Mock for the archive service. */
     private val archiveService: ArchiveService = mock[ArchiveService]
-    
+
     /** Mock for the config service. */
     private val configService: ConfigService = mock[ConfigService]
-    
+
     /** Mock for the actor factory. */
     private val actorFactory: ActorFactory = createActorFactory()
 
     /** Mock for the managed audio stream factory. */
     private val managedAudioStreamFactory: AsyncAudioStreamFactory = mock[AsyncAudioStreamFactory]
+
+    /** A mock for the OSGi registration of the playlist service. */
+    val playlistServiceRegistration: ServiceRegistration[PlaylistService[Playlist, String]] =
+      mock[ServiceRegistration[PlaylistService[Playlist, String]]]
+
+    /** Mock for the OSGi bundle context. */
+    private val bundleContext = createBundleContext()
 
     /** The test probe for the controller actor. */
     val probeControllerActor: TestProbe[AudioPlayerControllerCommand] =
@@ -160,11 +177,14 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
       component.initArchiveService(archiveService)
       component.initConfigService(configService)
       component.initClientContext(createClientApplicationContext())
-      component.activate(mock)
+
+      val componentContext = mock[ComponentContext]
+      when(componentContext.getBundleContext).thenReturn(bundleContext)
+      component.activate(componentContext)
 
     /**
       * Deactivates the test component.
-       */
+      */
     def deactivate(): Unit =
       val componentContext = mock[ComponentContext]
       component.deactivate(componentContext)
@@ -173,6 +193,7 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
     /**
       * Creates a [[ClientApplicationContext]] object that returns the mock and
       * helper objects managed by this object.
+      *
       * @return the [[ClientApplicationContext]]
       */
     private def createClientApplicationContext(): ClientApplicationContext =
@@ -185,6 +206,7 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
     /**
       * Creates a mock for the [[AudioStreamFactoryManager]] that is prepared
       * to return the mock for the managed audio stream factory.
+      *
       * @return the mock audio stream factory manager
       */
     private def createAudioStreamFactoryManager(): AudioStreamFactoryManager =
@@ -196,6 +218,7 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
       * Creates an [[ActorFactory]] to be used by the tests. This factory
       * spawns only anonymous actors to prevent non-unique-actor-name
       * exceptions.
+      *
       * @return the actor factory
       */
     private def createActorFactory(): ActorFactory =
@@ -212,8 +235,21 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
           typedTestKit.spawn(behavior)
 
     /**
+      * Creates a mock for the bundle context which is prepared to expect a
+      * registration for the playlist service.
+      *
+      * @return the mock bundle context
+      */
+    private def createBundleContext(): BundleContext =
+      val context = mock[BundleContext]
+      when(context.registerService(classOf[PlaylistService[Playlist, String]], PlaylistServiceImpl, null))
+        .thenReturn(playlistServiceRegistration)
+      context
+
+    /**
       * Creates the test component instance.
-       * @return the component to be tested
+      *
+      * @return the component to be tested
       */
     private def createComponent(): AudioPlatformComponent =
       val controllerFactory = new AudioPlayerControllerActor.Factory:
