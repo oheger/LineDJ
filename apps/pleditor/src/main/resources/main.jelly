@@ -1,0 +1,301 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!--
+
+    Copyright 2015-2026 The Developers Team.
+
+    Licensed under the Apache License, Version 2.0 (the "License")
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<!-- The Jelly script defining the main window of the LineDJ playlist generator
+    application.
+-->
+<j:jelly xmlns:j="jelly:core" xmlns:di="diBuilder" xmlns:f="formBuilder"
+  xmlns:a="actionBuilder" xmlns:w="windowBuilder">
+
+  <!-- A transformer for durations -->
+  <di:bean name="durationTransformer"
+    beanClassName="de.oliver_heger.linedj.platform.ui.DurationTransformer">
+  </di:bean>
+
+  <!-- Definitions for actions and their tasks -->
+
+  <!-- The action for application shutdown -->
+  <a:action name="exitAction" textres="EXIT_ACTION_TEXT"
+    tooltipres="EXIT_ACTION_TOOLTIP" mnemonicres="EXIT_ACTION_MNEMO"
+    resgrp="application" taskBean="exitTask"/>
+
+  <!-- New playlist action -->
+  <a:action name="plNewAction" textres="act_plnew_text" tooltipres="act_plnew_tip"
+            mnemonicres="act_plnew_mnemo" taskBean="playlistNewTask">
+    <f:icon resource="new.png"/>
+  </a:action>
+
+  <!-- Activate playlist action -->
+  <a:action name="plActivateAction" textres="act_plactivate_text" tooltipres="act_plactivate_tip"
+            mnemonicres="act_plactivate_mnemo" taskBean="playlistActivateTask" enabled="false">
+    <f:icon resource="activate.png"/>
+  </a:action>
+
+  <!-- Playlist export action -->
+  <a:action name="plExportAction" textres="act_plexport_text" tooltipres="act_plexport_tip"
+    mnemonicres="act_plexport_mnemo" taskBean="playlistExportTask" enabled="false">
+    <f:icon resource="export.png"/>
+  </a:action>
+
+  <!-- Actions manipulating the playlist -->
+  <a:action name="plRemoveAction" textres="act_plremove_text" tooltipres="act_plremove_tip"
+            mnemonicres="act_plremove_mnemo" taskBean="removeTask"
+            acceleratorDef="DELETE" enabled="false">
+    <f:icon resource="clear.png"/>
+  </a:action>
+
+  <a:action name="plMoveTopAction" textres="act_plmovetop_text" tooltipres="act_plmovetop_tip"
+            mnemonicres="act_plmovetop_mnemo" taskBean="moveTopTask"
+            acceleratorDef="ALT HOME" enabled="false">
+    <f:icon resource="move_top.png"/>
+  </a:action>
+
+  <a:action name="plMoveUpAction" textres="act_plmoveup_text" tooltipres="act_plmoveup_tip"
+            mnemonicres="act_plmoveup_mnemo" taskBean="moveUpTask"
+            acceleratorDef="ALT UP" enabled="false">
+    <f:icon resource="move_up.png"/>
+  </a:action>
+
+  <a:action name="plMoveDownAction" textres="act_plmovedown_text" tooltipres="act_plmovedown_tip"
+            mnemonicres="act_plmovedown_mnemo" taskBean="moveDownTask"
+            acceleratorDef="ALT DOWN" enabled="false">
+    <f:icon resource="move_down.png"/>
+  </a:action>
+
+  <a:action name="plMoveBottomAction" textres="act_plmovebottom_text" tooltipres="act_plmovebottom_tip"
+            mnemonicres="act_plmovebottom_mnemo" taskBean="moveBottomTask"
+            acceleratorDef="ALT END" enabled="false">
+    <f:icon resource="move_bottom.png"/>
+  </a:action>
+
+  <a:action name="plReorderAction" textres="act_reorder_text" tooltipres="act_reorder_tip"
+            mnemonicres="act_reorder_mnemo" taskBean="reorderTask" enabled="false">
+    <f:icon resource="reorder.png"/>
+  </a:action>
+
+  <!-- The main menu -->
+  <a:menubar name="mainMenu">
+    <a:menu textres="menu_file_text" mnemonicres="menu_file_mnemo">
+      <a:menuitem actionName="plNewAction" />
+      <a:separator/>
+      <a:menuitem actionName="exitAction" acceleratorDef="ALT X"/>
+    </a:menu>
+    <a:menu textres="menu_playlist_text" mnemonicres="menu_playlist_mnemo">
+      <a:menuitem actionName="plMoveTopAction"/>
+      <a:menuitem actionName="plMoveUpAction"/>
+      <a:menuitem actionName="plMoveDownAction"/>
+      <a:menuitem actionName="plMoveBottomAction"/>
+      <a:menuitem actionName="plReorderAction"/>
+      <a:menuitem actionName="plRemoveAction"/>
+      <a:separator/>
+      <a:menuitem actionName="plActivateAction"/>
+      <a:menuitem actionName="plExportAction"/>
+    </a:menu>
+  </a:menubar>
+
+  <!-- The model of the playlist table. -->
+  <di:bean name="playlistTableModel" beanClassName="java.util.ArrayList"/>
+
+  <!-- Message bus registration -->
+  <di:bean name="LineDJ_messageBusRegistration"
+    beanClassName="de.oliver_heger.linedj.platform.bus.MessageBusRegistration">
+    <di:constructor>
+      <di:param>
+        <di:list>
+          <di:element refName="reorderHandler"/>
+          <di:element refName="playlistController"/>
+        </di:list>
+      </di:param>
+    </di:constructor>
+    <di:setProperty property="messageBus" refName="LineDJ_MessageBus"/>
+    <di:shutdown>
+      <di:methodInvocation method="removeRegistrations"/>
+    </di:shutdown>
+  </di:bean>
+
+  <!-- The main window -->
+  <w:frame titleres="main_title" menu="mainMenu">
+    <f:icon resource="app_icon.png"/>
+    <f:borderlayout canShrink="false"/>
+    <!-- A toolbar at the top of the window's content -->
+    <a:toolbar>
+      <f:borderconstr name="NORTH"/>
+      <a:toolbutton actionName="plNewAction"/>
+      <a:separator/>
+      <a:toolbutton actionName="plMoveTopAction"/>
+      <a:toolbutton actionName="plMoveUpAction"/>
+      <a:toolbutton actionName="plMoveDownAction"/>
+      <a:toolbutton actionName="plMoveBottomAction"/>
+      <a:toolbutton actionName="plReorderAction"/>
+      <a:toolbutton actionName="plRemoveAction"/>
+      <a:separator/>
+      <a:toolbutton actionName="plActivateAction"/>
+      <a:toolbutton actionName="plExportAction"/>
+    </a:toolbar>
+
+    <!-- The main panel -->
+    <f:panel>
+      <f:borderconstr name="CENTER"/>
+      <f:borderlayout leftMargin="5" rightMargin="5" topMargin="4"
+        bottomMargin="4" westGap="8" eastGap="8"/>
+      <f:table name="tablePlaylist" model="playlistTableModel" multiSelection="true">
+        <f:borderconstr name="CENTER"/>
+        <f:column name="title" percentWidth="40" headerres="media_tcol_title"
+          columnClass="String"/>
+        <f:column name="artist" percentWidth="25"
+          headerres="media_tcol_artist">
+        </f:column>
+        <f:column name="album" percentWidth="25"
+          headerres="media_tcol_album">
+        </f:column>
+        <f:column name="duration" percentWidth="10" headerres="media_tcol_duration">
+          <f:transformer type="write" beanName="durationTransformer"/>
+        </f:column>
+      </f:table>
+    </f:panel>
+
+    <!-- Status line -->
+    <f:panel>
+      <f:borderconstr name="SOUTH"/>
+      <f:borderlayout canShrink="false"/>
+
+      <f:statictext name="statusLine" textres="status_undefined"
+        alignment="center">
+        <f:borderconstr name="CENTER"/>
+      </f:statictext>
+    </f:panel>
+
+    <!-- Playlist controller -->
+    <di:bean name="playlistController"
+      beanClassName="de.oliver_heger.linedj.apps.pleditor.PlaylistController">
+      <di:constructor>
+        <di:param refName="pleditor_resolverService"/>
+        <di:param refName="comp:tablePlaylist"/>
+        <di:param refName="comp:statusLine"/>
+        <di:param refName="ACTION_STORE"/>
+        <di:param>
+          <f:localized resid="status_template"/>
+        </di:param>
+        <di:param>
+          <f:localized resid="status_error"/>
+        </di:param>
+      </di:constructor>
+    </di:bean>
+
+    <!-- Handler for playlist reorder results -->
+    <di:bean name="reorderHandler"
+      beanClassName="de.oliver_heger.linedj.apps.pleditor.reorder.ReorderResultHandler">
+      <di:constructor>
+        <di:param refName="comp:tablePlaylist"/>
+      </di:constructor>
+    </di:bean>
+  </w:frame>
+
+  <!-- Action tasks and commands -->
+
+  <!-- The action task for quitting the application -->
+  <di:bean name="exitTask"
+    beanClassName="net.sf.jguiraffe.gui.app.ApplicationShutdownActionTask">
+  </di:bean>
+
+  <!-- Task for the new playlist action -->
+  <di:bean name="playlistNewTask"
+    beanClassName="de.oliver_heger.linedj.apps.pleditor.NewPlaylistTask">
+    <di:constructor>
+      <di:param refName="playlistController"/>
+      <di:param refName="LineDJ_MessageBus"/>
+    </di:constructor>
+  </di:bean>
+
+  <!-- Task for the activate playlist action -->
+  <di:bean name="playlistActivateTask"
+    beanClassName="de.oliver_heger.linedj.apps.pleditor.ActivatePlaylistTask">
+    <di:constructor>
+      <di:param refName="pleditor_playlistService"/>
+      <di:param refName="LineDJ_MessageBus"/>
+      <di:param refName="playlistTableModel"/>
+    </di:constructor>
+  </di:bean>
+
+  <!-- Command and task for the playlist export dialog -->
+  <di:bean name="playlistExportTask"
+    beanClassName="net.sf.jguiraffe.gui.app.ApplicationShutdownActionTask">
+  </di:bean>
+
+  <!-- Tasks for actions that manipulate the playlist -->
+  <di:bean name="removeTask"
+           beanClassName="de.oliver_heger.linedj.apps.pleditor.PlaylistRemoveItemsTask">
+    <di:constructor>
+      <di:param refName="playlistController"/>
+    </di:constructor>
+  </di:bean>
+
+  <di:bean name="moveTopTask"
+           beanClassName="de.oliver_heger.linedj.apps.pleditor.PlaylistMoveTopTask">
+    <di:constructor>
+      <di:param refName="playlistController"/>
+    </di:constructor>
+  </di:bean>
+
+  <di:bean name="moveUpTask"
+           beanClassName="de.oliver_heger.linedj.apps.pleditor.PlaylistMoveUpTask">
+    <di:constructor>
+      <di:param refName="playlistController"/>
+    </di:constructor>
+  </di:bean>
+
+  <di:bean name="moveDownTask"
+           beanClassName="de.oliver_heger.linedj.apps.pleditor.PlaylistMoveDownTask">
+    <di:constructor>
+      <di:param refName="playlistController"/>
+    </di:constructor>
+  </di:bean>
+
+  <di:bean name="moveBottomTask"
+           beanClassName="de.oliver_heger.linedj.apps.pleditor.PlaylistMoveDownTask">
+    <di:constructor>
+      <di:param refName="playlistController"/>
+    </di:constructor>
+  </di:bean>
+
+  <!-- Command and task for opening the reorder dialog -->
+  <di:bean name="reorderTask"
+           beanClassName="net.sf.jguiraffe.gui.app.ApplicationShutdownActionTask">
+  </di:bean>
+
+  <!-- Enabler for playlist actions -->
+  <di:bean name="playlistActionEnabler"
+           beanClassName="de.oliver_heger.linedj.apps.pleditor.PlaylistActionEnabler">
+    <di:constructor>
+      <di:param refName="ACTION_STORE"/>
+      <di:param refName="comp:tablePlaylist"/>
+      <di:param>
+        <di:map>
+          <di:entry key="plRemoveAction" refName="removeTask"/>
+          <di:entry key="plMoveTopAction" refName="moveTopTask"/>
+          <di:entry key="plMoveUpAction" refName="moveUpTask"/>
+          <di:entry key="plMoveDownAction" refName="moveDownTask"/>
+          <di:entry key="plMoveBottomAction" refName="moveBottomTask"/>
+          <!--<di:entry key="plReorderAction" refName="reorderDlgCommand"/> -->
+        </di:map>
+      </di:param>
+    </di:constructor>
+  </di:bean>
+
+  <a:eventListener component="tablePlaylist" eventType="CHANGE" beanName="playlistActionEnabler"/>
+</j:jelly>
