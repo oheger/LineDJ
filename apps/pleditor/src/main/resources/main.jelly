@@ -274,8 +274,18 @@
   </di:bean>
 
   <!-- Command and task for opening the reorder dialog -->
+  <di:bean name="reorderDlgCommand"
+           beanClassName="de.oliver_heger.linedj.apps.pleditor.OpenReorderDlgCommand">
+    <di:constructor>
+      <di:param value="classpath:reorder.jelly"/>
+      <di:param refName="comp:tablePlaylist"/>
+    </di:constructor>
+  </di:bean>
+
   <di:bean name="reorderTask"
-           beanClassName="net.sf.jguiraffe.gui.app.ApplicationShutdownActionTask">
+           beanClassName="net.sf.jguiraffe.gui.app.CommandActionTask">
+    <di:setProperty property="commandBeanName" value="reorderDlgCommand"/>
+    <di:setProperty property="beforeEnabler" value="action:plReorderAction"/>
   </di:bean>
 
   <!-- Enabler for playlist actions -->
@@ -291,7 +301,7 @@
           <di:entry key="plMoveUpAction" refName="moveUpTask"/>
           <di:entry key="plMoveDownAction" refName="moveDownTask"/>
           <di:entry key="plMoveBottomAction" refName="moveBottomTask"/>
-          <!--<di:entry key="plReorderAction" refName="reorderDlgCommand"/> -->
+          <di:entry key="plReorderAction" refName="reorderDlgCommand"/>
         </di:map>
       </di:param>
     </di:constructor>
