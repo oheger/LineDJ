@@ -32,24 +32,6 @@ import scala.util.{Failure, Success}
 
 object PlaylistExporter:
   /**
-    * An enumeration class defining the different operation types that take
-    * place during a playlist export operation.
-    */
-  enum ExportOperationType:
-    /**
-      * Operation type _Remove_. This means that a file on the target directory
-      * is removed.
-      */
-    case Remove
-
-    /**
-      * Operation type _Copy_. This means that a song is downloaded from the 
-      * media archive and written to the target directory.
-      */
-    case Copy
-  end ExportOperationType
-
-  /**
     * An enumeration defining the possible outcomes of an export operation. At
     * the end of an export, [[PlaylistExporter]] publishes a message of this
     * type on the system message bus. Thus, interested parties can find out
@@ -71,24 +53,31 @@ object PlaylistExporter:
   end ExportResult
 
   /**
-    * A data class holding information about the current status of an export
-    * operation. [[PlaylistExporter]] publishes messages of this type 
-    * periodically on the system message bus. Interested parties can receive
-    * these messages and use them for instance to display a progress indicator.
-    *
-    * @param totalOperations  the total number of export operations
-    * @param totalSize        the total size to be copied (in bytes)
-    * @param currentOperation the index of the current operation
-    * @param currentSize      the number of bytes that have been copied so far
-    * @param currentPath      the path which is currently processed
-    * @param operationType    the type of the operation currently executed
+    * An enumeration defining progress notifications published by
+    * [[PlaylistExporter]] on the system message bus while executing specific
+    * operations. By following these notifications, consumers can keep track on
+    * the progress of the export operation.
     */
-  final case class ExportProgress(totalOperations: Int,
-                                  totalSize: Long,
-                                  currentOperation: Int,
-                                  currentSize: Long,
-                                  currentPath: Path,
-                                  operationType: ExportOperationType)
+  enum ProgressNotification:
+    /**
+      * Notification about a Copy operation. A media file referenced in the
+      * playlist is downloaded from the archive server and copied to the target
+      * directory.
+      *
+      * @param totalOperations  the total number of copy operations
+      * @param currentOperation the index of the current operation
+      * @param totalSize        the total size to be copied (in bytes)
+      * @param currentSize      the size for this operation (in bytes)
+      * @param progressedSize   the number of bytes copied for this operation
+      * @param fileName         the name of the file which is currently copied
+      */
+    case Copy(totalOperations: Int,
+              currentOperation: Int,
+              totalSize: Long,
+              currentSize: Long,
+              progressedSize: Long,
+              fileName: String)
+  end ProgressNotification
 
   /**
     * A data class that defines a full export operation.
@@ -122,6 +111,13 @@ object PlaylistExporter:
   private val ExportParallelism = 3
 
   /**
+    * The file extension to be used for a song whose file information is not
+    * available. In this case, the extension cannot be derived from the file
+    * URI, so a default is used.
+    */
+  private val DefaultFileExtension = ".mp3"
+
+  /**
     * Generates a sequence with the paths for storing the songs to be copied.
     *
     * The number of digits used for the numeric prefix of a file name is
@@ -139,13 +135,20 @@ object PlaylistExporter:
   /**
     * Generates the name of a song file on the target medium.
     *
+    * If the metadata of a song is not available, then the name of the file
+    * consists only of the numeric prefix and the default file extension.
+    *
     * @param s      the data of the affected song and its index
     * @param digits the number of digits for the song index
     * @return the song name
     */
   private def generateTargetFileName(s: (SongData, Int), digits: Int): String =
-    val uri = s._1.optFileInfo.map(_.fileUri.uri).getOrElse("")
-    s"${formatIndex(s._2, digits)} - ${validTitle(s._1.getTitle)}${extractExtension(uri)}"
+    val prefix = formatIndex(s._2, digits)
+    s._1.optFileInfo match
+      case Some(fileInfo) =>
+        val uri = fileInfo.fileUri.uri
+        s"$prefix - ${validTitle(s._1.getTitle)}${extractExtension(uri)}"
+      case None => s"$prefix$DefaultFileExtension"
 
   /**
     * Generates a song title that contains only valid characters to be used in
@@ -180,6 +183,17 @@ object PlaylistExporter:
     val sIdx = (index + 1).toString
     if sIdx.length >= digits then sIdx
     else "".padTo(digits - sIdx.length, '0') + sIdx
+
+  /**
+    * Returns the size of the media file which is referenced by the given song.
+    * The size is read from the metadata of the file. If this metadata is not
+    * available, then 0 is returned.
+    *
+    * @param song the song to check
+    * @return the size of the media file (in bytes)
+    */
+  private def songSize(song: SongData): Long =
+    song.optFileInfo.map(_.metadata.size).getOrElse(0L)
 end PlaylistExporter
 
 /**
@@ -216,9 +230,10 @@ class PlaylistExporter(archiveService: ArchiveService,
   def run(): Unit =
     val songs = exportData.songs
     val targetPaths = PlaylistExporter.generateTargetPaths(exportData.exportPath, songs)
-    Source(songs.map(_.fileID)).zip(Source(targetPaths))
+    val totalSize = songs.map(songSize).sum
+    Source(songs.zipWithIndex).zip(Source(targetPaths))
       .mapAsync(ExportParallelism):
-        case (fileID, path) => exportFile(fileID, path)
+        case ((song, index), path) => exportFile(index + 1, totalSize, song, path)
       .runWith(Sink.ignore)
       .onComplete:
         case Success(_) => messageBus.publish(PlaylistExporter.ExportResult.Success)
@@ -227,15 +242,36 @@ class PlaylistExporter(archiveService: ArchiveService,
   /**
     * Exports a single file from the playlist. The function queries the file's
     * content from the [[ArchiveService]] and writes it to the specified target
-    * path.
+    * path. While the file is copied, progress notifications are published on
+    * the message bus.
     *
-    * @param id         the ID of the file
-    * @param targetPath the path where to store the file
+    * @param operationIndex the index of this operation (starting with 1)
+    * @param totalSize      the total size of all files to be copied
+    * @param song           the song to be exported
+    * @param targetPath     the path where to store the file
     * @return a [[Future]] with the outcome of the operation
     */
-  private def exportFile(id: String, targetPath: Path): Future[Unit] =
-    val request = HttpRequest(uri = s"$ArchiveDownloadURIPrefix$id$ArchiveDownloadURISuffix")
+  private def exportFile(operationIndex: Int,
+                         totalSize: Long,
+                         song: SongData,
+                         targetPath: Path): Future[Unit] =
+    val request = HttpRequest(uri = s"$ArchiveDownloadURIPrefix${song.fileID}$ArchiveDownloadURISuffix")
+    val progressSize = config.progressSize
+    val currentSize = songSize(song)
+    val fileName = targetPath.getFileName.toString
+    val progressStage = new CopyProgressNotificationStage(
+      messageBus,
+      exportData.songs.size,
+      operationIndex,
+      totalSize,
+      currentSize,
+      fileName,
+      progressSize
+    )
+
     for
       response <- archiveService.sendRequest(request)
-      _ <- response.entity.dataBytes.runWith(FileIO.toPath(targetPath))
+      _ <- response.entity.dataBytes
+        .via(progressStage)
+        .runWith(FileIO.toPath(targetPath))
     yield ()

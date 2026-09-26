@@ -36,6 +36,8 @@ import org.scalatestplus.mockito.MockitoSugar
 
 import java.nio.file.Files
 import scala.annotation.tailrec
+import scala.collection.immutable.Seq
+import scala.collection.mutable.ListBuffer
 import scala.concurrent.Future
 import scala.reflect.ClassTag
 
@@ -53,7 +55,7 @@ object PlaylistExporterSpec:
   private val DownloadUriSuffix = "/download"
 
   /** The chunk size for simulating a download with multiple data chunks. */
-  private val DownloadChunkSize = 1024
+  private val DownloadChunkSize = 256
 
   /** The chunk size for sending out progress notifications. */
   private val ProgressChunkSize = 512
@@ -73,7 +75,20 @@ object PlaylistExporterSpec:
     * @param index the index of the file
     * @return the generated [[SongData]] object
     */
-  private def songData(index: Int): SongData =
+  private def songData(index: Int): SongData = songData(index, mediaFileContent(index).length.toLong)
+
+  /**
+    * Generates a synthetic [[SongData]] object for the media file with the
+    * given index and the given size. Tests can use this function to define a
+    * song with a specific file size. Note that a download request for this song
+    * needs to be answered with content of exactly this size, for instance by
+    * means of [[ExporterTestHelper.expectDownloadRequest]].
+    *
+    * @param index the index of the file
+    * @param size  the size of the file (in bytes)
+    * @return the generated [[SongData]] object
+    */
+  private def songData(index: Int, size: Long): SongData =
     val fileID = mediaFileID(index)
     val metadata = MediaMetadata(
       title = Some(s"Title $index"),
@@ -82,7 +97,7 @@ object PlaylistExporterSpec:
       inceptionYear = Some(2000 + index),
       trackNumber = Some(index),
       duration = Some(index * 60),
-      size = index * 100,
+      size = size,
       checksum = fileID
     )
     val fileInfo = ArchiveModel.MediaFileInfo(
@@ -100,6 +115,134 @@ object PlaylistExporterSpec:
     */
   private def mediaFileContent(index: Int): String =
     s"Media file $index content - ${FileTestHelper.TestData}" * index
+
+  /**
+    * Creates synthetic content for a media file with the given size. Tests can
+    * use this content to define a media file with a specific size.
+    *
+    * @param size the size of the content (in bytes)
+    * @return the generated content
+    */
+  private def testContent(size: Int): String = "0123456789" * (size / 10) + "0" * (size % 10)
+
+  /**
+    * Returns the index of the test media file which is referenced by the given
+    * song. The ID of a test media file is generated from its index.
+    *
+    * @param song the song to check
+    * @return the index of the referenced media file
+    */
+  private def mediaFileIndex(song: SongData): Int = song.fileID.stripPrefix(FileIDPrefix).toInt
+
+  /**
+    * Computes the size of the content which is served when the media file
+    * referenced by the given song is downloaded.
+    *
+    * @param song the song to check
+    * @return the size of the content (in bytes)
+    */
+  private def contentSize(song: SongData): Long = mediaFileContent(mediaFileIndex(song)).length.toLong
+
+  /**
+    * Computes the total size of the given playlist. The size of a song is
+    * taken from the metadata of the associated media file. Songs for which no
+    * metadata is available contribute a size of 0.
+    *
+    * @param songs the songs of the playlist
+    * @return the total size of all songs (in bytes)
+    */
+  private def totalSize(songs: Seq[SongData]): Long =
+    songs.map(_.optFileInfo.map(_.metadata.size).getOrElse(0L)).sum
+
+  /**
+    * Generates the name of the file which the export operation is expected to
+    * create for the given song. The numeric prefix of the name is padded to
+    * the given number of digits. Songs without metadata are named by this
+    * prefix and the file extension only.
+    *
+    * @param song   the song to be exported
+    * @param index  the index of the song
+    * @param digits the number of digits in the prefix of the file name
+    * @return the name of the file to be created
+    */
+  private def exportedFileName(song: SongData, index: Int, digits: Int): String =
+    val indexString = index.toString
+    val prefix =
+      if indexString.length >= digits then indexString
+      else "0" * (digits - indexString.length) + indexString
+    song.optFileInfo match
+      case Some(_) => s"$prefix - ${song.getTitle}.mp3"
+      case None => s"$prefix.mp3"
+
+  /**
+    * Generates all notifications that are expected to be published for the
+    * given song. Notifications are expected for each chunk of data that has
+    * been copied, plus a final one which reports that the copy operation has
+    * been completed.
+    *
+    * @param song     the song to be exported
+    * @param index    the index of the song
+    * @param totalOps the total number of operations
+    * @param totalSize the total size of the export process
+    * @param digits the number of digits in the prefix of the file name
+    * @return a list with the notifications for this song
+    */
+  private def progressNotifications(song: SongData,
+                                    index: Int,
+                                    totalOps: Int,
+                                    totalSize: Long,
+                                    digits: Int): List[PlaylistExporter.ProgressNotification] =
+    val fileName = exportedFileName(song, index, digits)
+    val currentSize = song.optFileInfo.map(_.metadata.size).getOrElse(0L)
+    val copyNotification = (progressedSize: Long) =>
+      PlaylistExporter.ProgressNotification.Copy(totalOps, index, totalSize, currentSize, progressedSize, fileName)
+    val chunks = (1L to currentSize / ProgressChunkSize)
+      .map(_ * ProgressChunkSize)
+      .filter(_ < currentSize)
+    (chunks.map(copyNotification) :+ copyNotification(currentSize)).toList
+
+  /**
+    * Generates the notifications that are expected to be published for a song
+    * whose metadata is not available. As the size of the file is not known
+    * upfront, progress can only be reported once the file has been copied
+    * completely. Thus, a single notification is expected. It reports the size
+    * of the file that has been copied.
+    *
+    * @param song     the song to be exported
+    * @param index    the index of the song
+    * @param totalOps the total number of operations
+    * @param totalSize the total size of the export process
+    * @param digits the number of digits in the prefix of the file name
+    * @return a list with the notification for this file
+    */
+  private def progressNotificationsWithoutMetadata(song: SongData,
+                                                   index: Int,
+                                                   totalOps: Int,
+                                                   totalSize: Long,
+                                                   digits: Int): List[PlaylistExporter.ProgressNotification] =
+    val currentSize = contentSize(song)
+    val fileName = exportedFileName(song, index, digits)
+    List(PlaylistExporter.ProgressNotification.Copy(totalOps, index, totalSize, currentSize, currentSize, fileName))
+
+  /**
+    * Generates all notifications that are expected to be published for the
+    * given playlist. Tests using this function operate on small playlists.
+    * Therefore, the number of digits in the file names can be hardcoded to 1.
+    * Note that songs are numbered starting with 1, as this is the way they
+    * are numbered by the export operation.
+    *
+    * @param playlist the list of songs in the playlist
+    * @return a list with the expected notifications for this playlist
+    */
+  private def progressNotifications(playlist: Seq[SongData]): List[PlaylistExporter.ProgressNotification] =
+    val digits = 1
+    val playlistSize = totalSize(playlist)
+    playlist.zipWithIndex.flatMap: (song, position) =>
+      val index = position + 1
+      if song.optFileInfo.isEmpty then
+        progressNotificationsWithoutMetadata(song, index, playlist.size, playlistSize, digits)
+      else progressNotifications(song, index, playlist.size, playlistSize, digits)
+    .toList
 end PlaylistExporterSpec
 
 /**
@@ -179,6 +322,64 @@ class PlaylistExporterSpec(testSystem: ActorSystem) extends TestKit(testSystem),
     Files.exists(expPath) should be(true)
     Files.readAllBytes(expPath) should be(FileTestHelper.toBytes(mediaFileContent(1)))
 
+  it should "export a song without metadata using the minimum file name" in :
+    val Count = 3
+    val NoMetadataIndex = 3
+    val songs = (1 to Count).map(songData)
+      .updated(NoMetadataIndex - 1, songData(NoMetadataIndex).copy(optFileInfo = None))
+    val data = PlaylistExporter.ExportData(songs, testDirectory, clearTarget = false, overrideFiles = false)
+    val helper = new ExporterTestHelper
+
+    helper.expectDownloadRequests(1, Count)
+      .triggerExport(data)
+      .waitForExportSuccess()
+
+    val song = songs(NoMetadataIndex - 1)
+    val expPath = testDirectory.resolve(exportedFileName(song, NoMetadataIndex, digits = 1))
+    Files.exists(expPath) should be(true)
+    Files.readAllBytes(expPath) should be(FileTestHelper.toBytes(mediaFileContent(NoMetadataIndex)))
+
+  it should "publish progress notifications for copy operations" in :
+    val TotalOps = 3
+    val songs = (1 to TotalOps).map(songData)
+    val expectedNotifications = progressNotifications(songs)
+
+    val data = PlaylistExporter.ExportData(songs, testDirectory, clearTarget = false, overrideFiles = false)
+    val helper = new ExporterTestHelper
+
+    helper.expectDownloadRequests(1, TotalOps)
+      .triggerExport(data)
+
+    helper.gatherProgressNotifications() should contain theSameElementsAs expectedNotifications
+
+  it should "publish only a single notification for a song without metadata" in :
+    val TotalOps = 3
+    val NoMetadataIndex = 3
+    val songs = (1 to TotalOps).map(songData)
+      .updated(NoMetadataIndex - 1, songData(NoMetadataIndex).copy(optFileInfo = None))
+    val expectedNotifications = progressNotifications(songs)
+
+    val data = PlaylistExporter.ExportData(songs, testDirectory, clearTarget = false, overrideFiles = false)
+    val helper = new ExporterTestHelper
+
+    helper.expectDownloadRequests(1, TotalOps)
+      .triggerExport(data)
+
+    helper.gatherProgressNotifications() should contain theSameElementsAs expectedNotifications
+
+  it should "not repeat the final notification if the file size is a multiple of the progress size" in :
+    val FileSize = ProgressChunkSize * 3
+    val song = songData(1, FileSize)
+    val expectedNotifications = progressNotifications(List(song))
+
+    val data = PlaylistExporter.ExportData(List(song), testDirectory, clearTarget = false, overrideFiles = false)
+    val helper = new ExporterTestHelper
+
+    helper.expectDownloadRequest(1, testContent(FileSize))
+      .triggerExport(data)
+
+    helper.gatherProgressNotifications() should contain theSameElementsAs expectedNotifications
+
   /**
     * Checks that an export produced the expected files on the target
     * directory.
@@ -194,10 +395,7 @@ class PlaylistExporterSpec(testSystem: ActorSystem) extends TestKit(testSystem),
     */
   private def checkExportedFiles(fromIndex: Int, toIndex: Int, digits: Int): Unit =
     (fromIndex to toIndex).foreach: index =>
-      val prefix = index.toString
-      val paddedPrefix = if prefix.length >= digits then prefix
-      else "0" * (digits - prefix.length) + prefix
-      val expPath = testDirectory.resolve(s"$paddedPrefix - ${songData(index).getTitle}.mp3")
+      val expPath = testDirectory.resolve(exportedFileName(songData(index), index, digits))
       Files.exists(expPath) should be(true)
       Files.readAllBytes(expPath) should be(FileTestHelper.toBytes(mediaFileContent(index)))
 
@@ -213,6 +411,13 @@ class PlaylistExporterSpec(testSystem: ActorSystem) extends TestKit(testSystem),
     private val messageBus = new MessageBusTestImpl
 
     /**
+      * A buffer for the progress notifications that have been received on the
+      * message bus. Notifications are collected while waiting for the end of
+      * the export operation.
+      */
+    private val receivedProgress = ListBuffer.empty[PlaylistExporter.ProgressNotification]
+
+    /**
       * Prepares the mock for the [[ArchiveService]] to expect a request to 
       * download the media file with an ID derived from the given index. The
       * request is answered with the content of the test media file based on
@@ -221,10 +426,22 @@ class PlaylistExporterSpec(testSystem: ActorSystem) extends TestKit(testSystem),
       * @param index the index of the media file
       * @return this test helper
       */
-    def expectDownloadRequest(index: Int): ExporterTestHelper =
+    def expectDownloadRequest(index: Int): ExporterTestHelper = expectDownloadRequest(index, mediaFileContent(index))
+
+    /**
+      * Prepares the mock for the [[ArchiveService]] to expect a request to
+      * download the media file with an ID derived from the given index. The
+      * request is answered with the given content instead of the content of
+      * the test media file for this index. Tests can use this to define a
+      * media file with a specific size.
+      *
+      * @param index   the index of the media file
+      * @param content the content the download request is answered with
+      * @return this test helper
+      */
+    def expectDownloadRequest(index: Int, content: String): ExporterTestHelper =
       val fileID = mediaFileID(index)
       val request = HttpRequest(uri = s"$DownloadUriPrefix$fileID$DownloadUriSuffix")
-      val content = mediaFileContent(index)
       val entity = HttpEntity(ContentTypes.`application/octet-stream`,
         Source.fromIterator(() => ByteString(content).grouped(DownloadChunkSize)))
       when(archiveService.sendRequest(request))
@@ -256,25 +473,38 @@ class PlaylistExporterSpec(testSystem: ActorSystem) extends TestKit(testSystem),
     def nextMessage[M](using t: ClassTag[M]): M = messageBus.expectMessageType[M]
 
     /**
-      * Listens on the message bus, ignoring progress messages, until an export
-      * result message is received. This message is then returned.
+      * Listens on the message bus until an export result message is received.
+      * Progress notifications are recorded so they can be inspected by tests
+      * later on. This message is then returned.
       *
       * @return the result message that was received
       */
     @tailrec final def waitForExportEnd(): PlaylistExporter.ExportResult =
-      nextMessage[PlaylistExporter.ExportProgress | PlaylistExporter.ExportResult] match
+      nextMessage[PlaylistExporter.ProgressNotification | PlaylistExporter.ExportResult] match
+        case n: PlaylistExporter.ProgressNotification =>
+          receivedProgress += n
+          waitForExportEnd()
         case r: PlaylistExporter.ExportResult => r
-        case _ => waitForExportEnd()
 
     /**
       * Listens on the message bus until a success result for the export 
-      * operation is received. Progress messages are ignored.
+      * operation is received. Progress messages are recorded.
       *
       * @return this test helper
       */
     def waitForExportSuccess(): ExporterTestHelper =
       waitForExportEnd() should be(PlaylistExporter.ExportResult.Success)
       this
+
+    /**
+      * Listens on the message bus until the export operation has ended and
+      * returns all progress notifications that have been received meanwhile.
+      *
+      * @return the notifications in the order of their reception
+      */
+    def gatherProgressNotifications(): List[PlaylistExporter.ProgressNotification] =
+      waitForExportEnd()
+      receivedProgress.toList
 
     /**
       * Starts an asynchronous export operation with the given parameters.
