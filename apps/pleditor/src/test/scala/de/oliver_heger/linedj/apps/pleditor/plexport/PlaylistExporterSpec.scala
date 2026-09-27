@@ -180,22 +180,22 @@ object PlaylistExporterSpec:
     * been copied, plus a final one which reports that the copy operation has
     * been completed.
     *
-    * @param song     the song to be exported
-    * @param index    the index of the song
-    * @param totalOps the total number of operations
-    * @param totalSize the total size of the export process
-    * @param digits the number of digits in the prefix of the file name
+    * @param song           the song to be exported
+    * @param fileName       the name of the file the song is copied to
+    * @param operationIndex the index of the copy operation
+    * @param totalOps       the total number of operations
+    * @param totalSize      the total size of the export process
     * @return a list with the notifications for this song
     */
   private def progressNotifications(song: SongData,
-                                    index: Int,
+                                    fileName: String,
+                                    operationIndex: Int,
                                     totalOps: Int,
-                                    totalSize: Long,
-                                    digits: Int): List[PlaylistExporter.ProgressNotification] =
-    val fileName = exportedFileName(song, index, digits)
+                                    totalSize: Long): List[PlaylistExporter.ProgressNotification] =
     val currentSize = song.optFileInfo.map(_.metadata.size).getOrElse(0L)
     val copyNotification = (progressedSize: Long) =>
-      PlaylistExporter.ProgressNotification.Copy(totalOps, index, totalSize, currentSize, progressedSize, fileName)
+      PlaylistExporter.ProgressNotification.Copy(totalOps, operationIndex, totalSize, currentSize, progressedSize,
+        fileName)
     val chunks = (1L to currentSize / ProgressChunkSize)
       .map(_ * ProgressChunkSize)
       .filter(_ < currentSize)
@@ -208,40 +208,59 @@ object PlaylistExporterSpec:
     * completely. Thus, a single notification is expected. It reports the size
     * of the file that has been copied.
     *
-    * @param song     the song to be exported
-    * @param index    the index of the song
-    * @param totalOps the total number of operations
-    * @param totalSize the total size of the export process
-    * @param digits the number of digits in the prefix of the file name
+    * @param song           the song to be exported
+    * @param fileName       the name of the file the song is copied to
+    * @param operationIndex the index of the copy operation
+    * @param totalOps       the total number of operations
+    * @param totalSize      the total size of the export process
     * @return a list with the notification for this file
     */
   private def progressNotificationsWithoutMetadata(song: SongData,
-                                                   index: Int,
+                                                   fileName: String,
+                                                   operationIndex: Int,
                                                    totalOps: Int,
-                                                   totalSize: Long,
-                                                   digits: Int): List[PlaylistExporter.ProgressNotification] =
+                                                   totalSize: Long): List[PlaylistExporter.ProgressNotification] =
     val currentSize = contentSize(song)
-    val fileName = exportedFileName(song, index, digits)
-    List(PlaylistExporter.ProgressNotification.Copy(totalOps, index, totalSize, currentSize, currentSize, fileName))
+    List(PlaylistExporter.ProgressNotification.Copy(totalOps, operationIndex, totalSize, currentSize, currentSize,
+      fileName))
 
   /**
-    * Generates all notifications that are expected to be published for the
-    * given playlist. Tests using this function operate on small playlists.
-    * Therefore, the number of digits in the file names can be hardcoded to 1.
-    * Note that songs are numbered starting with 1, as this is the way they
-    * are numbered by the export operation.
+    * Generates progress notifications for copy operations for all songs in the
+    * given playlist.
     *
-    * @param playlist the list of songs in the playlist
+    * @param playlist the playlist
     * @return a list with the expected notifications for this playlist
     */
   private def progressNotifications(playlist: Seq[SongData]): List[PlaylistExporter.ProgressNotification] =
+    progressNotifications(playlist, playlist.indices)
+
+  /**
+    * Generates all notifications that are expected to be published for a
+    * subset of the songs in the given playlist. Tests using this function
+    * operate on small playlists. Therefore, the number of digits in the file
+    * names can be hardcoded to 1. Note that songs are numbered starting with 1,
+    * as this is the way they are numbered by the export operation.
+    *
+    * Songs can be filtered out before they are copied, for instance, because a
+    * file with the same name already exists on the target medium. The names of
+    * the files to be created are still derived from the positions of the songs
+    * in the playlist, while the copy operations are numbered consecutively.
+    *
+    * @param playlist the list of songs in the playlist
+    * @param copied   the positions of the copied songs in this playlist
+    * @return a list with the expected notifications for this playlist
+    */
+  private def progressNotifications(playlist: Seq[SongData],
+                                    copied: Seq[Int]): List[PlaylistExporter.ProgressNotification] =
     val digits = 1
-    val playlistSize = totalSize(playlist)
-    playlist.zipWithIndex.flatMap: (song, position) =>
-      val index = position + 1
+    val totalOps = copied.size
+    val exportSize = totalSize(copied.map(playlist))
+    copied.zipWithIndex.flatMap: (position, operation) =>
+      val song = playlist(position)
+      val fileName = exportedFileName(song, position + 1, digits)
       if song.optFileInfo.isEmpty then
-        progressNotificationsWithoutMetadata(song, index, playlist.size, playlistSize, digits)
-      else progressNotifications(song, index, playlist.size, playlistSize, digits)
+        progressNotificationsWithoutMetadata(song, fileName, operation + 1, totalOps, exportSize)
+      else progressNotifications(song, fileName, operation + 1, totalOps, exportSize)
     .toList
 end PlaylistExporterSpec
 
@@ -338,6 +357,125 @@ class PlaylistExporterSpec(testSystem: ActorSystem) extends TestKit(testSystem),
     val expPath = testDirectory.resolve(exportedFileName(song, NoMetadataIndex, digits = 1))
     Files.exists(expPath) should be(true)
     Files.readAllBytes(expPath) should be(FileTestHelper.toBytes(mediaFileContent(NoMetadataIndex)))
+
+  it should "not override existing files if the override flag is not set" in :
+    val Count = 3
+    val ExistingIndex = 2
+    val existingContent = FileTestHelper.toBytes("This file must not be overridden!")
+    val songs = (1 to Count).map(songData)
+    val existingPath = testDirectory.resolve(exportedFileName(songs(ExistingIndex - 1), ExistingIndex, digits = 1))
+    Files.write(existingPath, existingContent)
+    val data = PlaylistExporter.ExportData(songs, testDirectory, clearTarget = false, overrideFiles = false)
+    val helper = new ExporterTestHelper
+
+    helper.expectDownloadRequests(1, Count)
+      .triggerExport(data)
+      .waitForExportSuccess()
+
+    Files.readAllBytes(existingPath) should be(existingContent)
+    // the remaining files have been exported as usual
+    checkExportedFiles(1, ExistingIndex - 1, digits = 1)
+    checkExportedFiles(ExistingIndex + 1, Count, digits = 1)
+
+  it should "override existing files if the override flag is set" in :
+    val Count = 3
+    val ExistingIndex = 2
+    val songs = (1 to Count).map(songData)
+    val existingPath = testDirectory.resolve(exportedFileName(songs(ExistingIndex - 1), ExistingIndex, digits = 1))
+    Files.write(existingPath, FileTestHelper.toBytes("This file is to be overridden!"))
+    val data = PlaylistExporter.ExportData(songs, testDirectory, clearTarget = false, overrideFiles = true)
+    val helper = new ExporterTestHelper
+
+    helper.expectDownloadRequests(1, Count)
+      .triggerExport(data)
+      .waitForExportSuccess()
+
+    Files.readAllBytes(existingPath) should be(FileTestHelper.toBytes(mediaFileContent(ExistingIndex)))
+    checkExportedFiles(1, Count, digits = 1)
+
+  it should "clear the target directory if the flag is set" in :
+    val Count = 3
+    val songs = (1 to Count).map(songData)
+    val data = PlaylistExporter.ExportData(songs, testDirectory, clearTarget = true, overrideFiles = false)
+    val helper = new ExporterTestHelper
+    val matchingFile = testDirectory.resolve(exportedFileName(songs.head, 1, digits = 1))
+    Files.write(matchingFile, FileTestHelper.toBytes("This file is to be deleted!"))
+    val obsoletePaths = List(
+      writeFileContent(testDirectory.resolve("OtherFile.txt"), "Other file content."),
+      writeFileContent(testDirectory.resolve("Folder/FolderFile.txt"), "Folder file content."),
+      writeFileContent(testDirectory.resolve("Folder/SubFolder/NestedFile.txt"), "Nested file content."),
+      testDirectory.resolve("Folder"),
+      testDirectory.resolve("Folder/SubFolder")
+    )
+
+    helper.expectDownloadRequests(1, Count)
+      .triggerExport(data)
+      .waitForExportSuccess()
+
+    checkExportedFiles(1, Count, digits = 1)
+    obsoletePaths.filter(Files.exists(_)) shouldBe empty
+    Files.exists(testDirectory) should be(true)
+
+  it should "not clear the target directory if the flag is not set" in :
+    val Count = 2
+    val songs = (1 to Count).map(songData)
+    val otherContent = FileTestHelper.toBytes("This file must not be deleted!")
+    val otherFile = testDirectory.resolve("OtherFile.txt")
+    Files.write(otherFile, otherContent)
+    val data = PlaylistExporter.ExportData(songs, testDirectory, clearTarget = false, overrideFiles = true)
+    val helper = new ExporterTestHelper
+
+    helper.expectDownloadRequests(1, Count)
+      .triggerExport(data)
+      .waitForExportSuccess()
+
+    Files.readAllBytes(otherFile) should be(otherContent)
+    checkExportedFiles(1, Count, digits = 1)
+
+  it should "publish notifications for deleted elements" in :
+    val Count = 2
+    val songs = (1 to Count).map(songData)
+    // writing the nested files also creates the folders containing them
+    val expFileNames = List(
+      exportedFileName(songs.head, 1, digits = 1),
+      "OtherFile.txt",
+      "Folder/FolderFile.txt",
+      "Folder/SubFolder/NestedFile.txt"
+    )
+    expFileNames.foreach: name =>
+      writeFileContent(testDirectory.resolve(name), "Some content.")
+    val expNames = expFileNames ++ List("Folder/SubFolder", "Folder")
+    val data = PlaylistExporter.ExportData(songs, testDirectory, clearTarget = true, overrideFiles = false)
+    val helper = new ExporterTestHelper
+
+    helper.expectDownloadRequests(1, Count)
+      .triggerExport(data)
+    val notifications = helper.gatherDeleteNotifications()
+
+    // the elements may be deleted in an arbitrary order, so only the set of
+    // names and the set of operation indices can be checked
+    val expTotalOps = expNames.size
+    notifications.map(_.totalOperations) should contain theSameElementsAs
+      List.fill(expTotalOps)(expTotalOps)
+    notifications.map(_.currentOperation) should contain theSameElementsAs (1 to expTotalOps)
+    notifications.map(_.elementName) should contain theSameElementsAs expNames
+
+  it should "publish progress notifications only for the files that are not filtered out" in :
+    val TotalOps = 3
+    val ExistingIndex = 2
+    val existingContent = FileTestHelper.toBytes("This file must not be overridden!")
+    val songs = (1 to TotalOps).map(songData)
+    val existingPath = testDirectory.resolve(exportedFileName(songs(ExistingIndex - 1), ExistingIndex, digits = 1))
+    Files.write(existingPath, existingContent)
+    val expectedNotifications = progressNotifications(songs, copied = Seq(0, 2))
+    val data = PlaylistExporter.ExportData(songs, testDirectory, clearTarget = false, overrideFiles = false)
+    val helper = new ExporterTestHelper
+
+    helper.expectDownloadRequests(1, TotalOps)
+      .triggerExport(data)
+
+    helper.gatherProgressNotifications() should contain theSameElementsAs expectedNotifications
+    Files.readAllBytes(existingPath) should be(existingContent)
 
   it should "publish progress notifications for copy operations" in :
     val TotalOps = 3
@@ -505,6 +643,18 @@ class PlaylistExporterSpec(testSystem: ActorSystem) extends TestKit(testSystem),
     def gatherProgressNotifications(): List[PlaylistExporter.ProgressNotification] =
       waitForExportEnd()
       receivedProgress.toList
+
+    /**
+      * Listens on the message bus until the export operation has ended and
+      * returns the notifications about delete operations that have been
+      * received meanwhile.
+      *
+      * @return the delete notifications in the order of their reception
+      */
+    def gatherDeleteNotifications(): List[PlaylistExporter.ProgressNotification.Delete] =
+      val notifications = gatherProgressNotifications()
+      notifications.collect:
+        case d: PlaylistExporter.ProgressNotification.Delete => d
 
     /**
       * Starts an asynchronous export operation with the given parameters.

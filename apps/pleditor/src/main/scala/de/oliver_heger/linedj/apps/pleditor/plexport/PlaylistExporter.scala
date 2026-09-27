@@ -16,11 +16,15 @@
 
 package de.oliver_heger.linedj.apps.pleditor.plexport
 
+import com.github.cloudfiles.core.Model
+import com.github.cloudfiles.core.utils.Walk
 import de.oliver_heger.linedj.apps.pleditor.SongData
 import de.oliver_heger.linedj.apps.pleditor.plexport.PlaylistExporter.ExportData
+import de.oliver_heger.linedj.io.LocalFsUtils
 import de.oliver_heger.linedj.platform.archiveclient.ArchiveService
 import de.oliver_heger.linedj.platform.comm.MessageBus
-import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.actor.{ActorSystem, typed}
+import org.apache.pekko.actor.typed.scaladsl.adapter.*
 import org.apache.pekko.http.scaladsl.model.HttpRequest
 import org.apache.pekko.stream.scaladsl.{FileIO, Sink, Source}
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
@@ -77,6 +81,20 @@ object PlaylistExporter:
               currentSize: Long,
               progressedSize: Long,
               fileName: String)
+
+    /**
+      * Notification about a Delete operation. An element on the target
+      * directory is removed because this directory is to be cleared before the
+      * media files of the playlist are copied. The affected element is
+      * identified by its relative path to the target directory.
+      *
+      * @param totalOperations  the total number of delete operations
+      * @param currentOperation the index of the current operation
+      * @param elementName      the name of the affected element
+      */
+    case Delete(totalOperations: Int,
+                currentOperation: Int,
+                elementName: String)
   end ProgressNotification
 
   /**
@@ -109,6 +127,13 @@ object PlaylistExporter:
 
   /** The parallelism level for exporting single files. */
   private val ExportParallelism = 3
+
+  /**
+    * The parallelism level for removing files from the target directory. As
+    * folders can only be removed after their content, the elements need to be
+    * processed one after the other.
+    */
+  private val DeleteParallelism = 1
 
   /**
     * The file extension to be used for a song whose file information is not
@@ -221,6 +246,15 @@ class PlaylistExporter(archiveService: ArchiveService,
   /** The execution context for the stream and future interactions. */
   given ExecutionContext = actorSystem.dispatcher
 
+  /** The actor system in the typed form, as required by the local file system. */
+  private given typed.ActorSystem[_] = actorSystem.toTyped
+
+  /**
+    * A local file system for accessing the target directory. It is used for
+    * scanning the directory and for removing files.
+    */
+  private lazy val localFs = LocalFsUtils.createLocalFs(exportData.exportPath, actorSystem)
+
   /**
     * Runs the configured export operation asynchronously. Information about
     * the progress is published on the system message bus. When the export is
@@ -230,14 +264,139 @@ class PlaylistExporter(archiveService: ArchiveService,
   def run(): Unit =
     val songs = exportData.songs
     val targetPaths = PlaylistExporter.generateTargetPaths(exportData.exportPath, songs)
-    val totalSize = songs.map(songSize).sum
-    Source(songs.zipWithIndex).zip(Source(targetPaths))
-      .mapAsync(ExportParallelism):
-        case ((song, index), path) => exportFile(index + 1, totalSize, song, path)
+    val futExport =
+      for
+        (elementsToDelete, filesToPreserve) <- prepareTarget()
+        _ <- deleteElements(elementsToDelete)
+        _ <- exportSongs(songs, targetPaths, filesToPreserve)
+      yield ()
+    futExport.onComplete:
+      case Success(_) => messageBus.publish(PlaylistExporter.ExportResult.Success)
+      case Failure(exception) => messageBus.publish(PlaylistExporter.ExportResult.Failure(exception))
+
+  /**
+    * Prepares the target directory of the export operation. Based on the
+    * options of the current export, this function determines the elements that
+    * need to be removed from the target directory and the files that already
+    * exist there and thus must not be overridden. The target directory is
+    * scanned only if this is necessary, which is the case if it is to be
+    * cleared or if existing files are not to be overridden.
+    *
+    * @return a [[Future]] with a tuple containing the elements to be deleted
+    *         and the paths of the files that must not be overridden; both
+    *         results are empty if the target directory did not need to be
+    *         scanned
+    */
+  private def prepareTarget(): Future[(Seq[Model.Element[Path]], Set[Path])] =
+    if exportData.clearTarget || !exportData.overrideFiles then
+      scanTarget().map: content =>
+        val elementsToDelete = if exportData.clearTarget then content else Seq.empty
+        val filesToPreserve =
+          if exportData.clearTarget || exportData.overrideFiles then Set.empty[Path]
+          else content.collect :
+            case f: Model.File[?] => f.id
+          .toSet
+        (elementsToDelete, filesToPreserve)
+    else Future.successful((Seq.empty, Set.empty))
+
+  /**
+    * Scans the target directory of the export operation. The result contains
+    * all files and folders below this directory. The elements are stored in
+    * reverse order of the walk, so that a folder appears after its content.
+    * This way the elements can be removed safely, see [[deleteElements]].
+    *
+    * @return a [[Future]] with the elements found in the target directory
+    */
+  private def scanTarget(): Future[List[Model.Element[Path]]] =
+    val walkConfig = Walk.WalkConfig(localFs, null, exportData.exportPath)
+    Walk.dfsSource(walkConfig)
+      .runWith(Sink.fold[List[Model.Element[Path]], Model.Element[Path]](List.empty)((l, e) => e :: l))
+
+  /**
+    * Removes the given elements from the target directory. The elements are
+    * processed in the order they were returned by [[scanTarget]]: first all
+    * files, then all folders. Since the scan stores folders after their
+    * content, a folder is always empty when it needs to be removed. For this
+    * reason, the elements must be processed one after the other. Before an
+    * element is removed, a corresponding [[ProgressNotification.Delete]] is
+    * published on the message bus.
+    *
+    * @param elements the elements to be removed
+    * @return a [[Future]] which is completed when all elements are removed
+    */
+  private def deleteElements(elements: Seq[Model.Element[Path]]): Future[Unit] =
+    val (folders, files) = elements.partition(!_.isInstanceOf[Model.File[?]])
+    val elementsToDelete = files ++ folders
+    val totalOperations = elementsToDelete.size
+    Source(elementsToDelete.zipWithIndex)
+      .mapAsync(DeleteParallelism):
+        (element, index) =>
+          messageBus.publish(ProgressNotification.Delete(totalOperations, index + 1, elementName(element.id)))
+          deleteElement(element)
       .runWith(Sink.ignore)
-      .onComplete:
-        case Success(_) => messageBus.publish(PlaylistExporter.ExportResult.Success)
-        case Failure(exception) => messageBus.publish(PlaylistExporter.ExportResult.Failure(exception))
+      .map(_ => ())
+
+  /**
+    * Returns the name of an element in the target directory of the export
+    * operation. As only the name is relevant for consumers of the progress
+    * notifications, the path is made relative to the target directory.
+    *
+    * @param path the path of the element in question
+    * @return the name of the element relative to the target directory
+    */
+  private def elementName(path: Path): String =
+    exportData.exportPath.relativize(path).toString
+
+  /**
+    * Removes a single element from the target directory. The function supports
+    * both files and folders.
+    *
+    * @param element the element to be removed
+    * @return a [[Future]] which is completed when the element is removed
+    */
+  private def deleteElement(element: Model.Element[Path]): Future[Unit] =
+    element match
+      case file: Model.File[?] => localFs.deleteFile(file.id).run(null)
+      case folder: Model.Folder[?] => localFs.deleteFolder(folder.id).run(null)
+      case _ => Future.successful(())
+
+  /**
+    * Copies the songs of the playlist to the target directory.
+    *
+    * @param songs           the songs to be exported
+    * @param targetPaths     the target paths of these songs
+    * @param filesToPreserve the paths of files that exist in the target
+    *                        directory and must not be overridden
+    * @return a [[Future]] which is completed when all songs have been copied
+    */
+  private def exportSongs(songs: Seq[SongData],
+                          targetPaths: Seq[Path],
+                          filesToPreserve: Set[Path]): Future[Unit] =
+    val songsToExport = selectSongsToExport(songs, targetPaths, filesToPreserve)
+    val totalOperations = songsToExport.size
+    val totalSize = songsToExport.map(s => songSize(s._1)).sum
+    Source(songsToExport)
+      .zipWithIndex
+      .mapAsync(ExportParallelism):
+        case ((song, path), index) => exportFile(index.toInt + 1, totalOperations, totalSize, song, path)
+      .runWith(Sink.ignore)
+      .map(_ => ())
+
+  /**
+    * Determines the songs that need to be copied together with their target
+    * paths. Songs whose target file is contained in the set of files to
+    * preserve are filtered out. As this set is empty unless existing files
+    * must not be overridden, all songs are copied in any other case.
+    *
+    * @param songs           the songs to be exported
+    * @param targetPaths     the target paths of these songs
+    * @param filesToPreserve the paths of files that must not be overridden
+    * @return the songs to be copied and their target paths
+    */
+  private def selectSongsToExport(songs: Seq[SongData],
+                                  targetPaths: Seq[Path],
+                                  filesToPreserve: Set[Path]): Seq[(SongData, Path)] =
+    songs.zip(targetPaths).filterNot(s => filesToPreserve.contains(s._2))
 
   /**
     * Exports a single file from the playlist. The function queries the file's
@@ -246,32 +405,25 @@ class PlaylistExporter(archiveService: ArchiveService,
     * the message bus.
     *
     * @param operationIndex the index of this operation (starting with 1)
+    * @param totalOperations the total number of copy operations
     * @param totalSize      the total size of all files to be copied
     * @param song           the song to be exported
     * @param targetPath     the path where to store the file
     * @return a [[Future]] with the outcome of the operation
     */
   private def exportFile(operationIndex: Int,
-                         totalSize: Long,
-                         song: SongData,
-                         targetPath: Path): Future[Unit] =
+                          totalOperations: Int,
+                          totalSize: Long,
+                          song: SongData,
+                          targetPath: Path): Future[Unit] =
     val request = HttpRequest(uri = s"$ArchiveDownloadURIPrefix${song.fileID}$ArchiveDownloadURISuffix")
     val progressSize = config.progressSize
     val currentSize = songSize(song)
     val fileName = targetPath.getFileName.toString
-    val progressStage = new CopyProgressNotificationStage(
-      messageBus,
-      exportData.songs.size,
-      operationIndex,
-      totalSize,
-      currentSize,
-      fileName,
-      progressSize
-    )
-
     for
       response <- archiveService.sendRequest(request)
       _ <- response.entity.dataBytes
-        .via(progressStage)
+        .via(new CopyProgressNotificationStage(messageBus, totalOperations, operationIndex, totalSize,
+          currentSize, fileName, progressSize))
         .runWith(FileIO.toPath(targetPath))
     yield ()
