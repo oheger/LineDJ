@@ -27,7 +27,7 @@ import org.apache.pekko.actor.{ActorSystem, typed}
 import org.apache.pekko.actor.typed.scaladsl.adapter.*
 import org.apache.pekko.http.scaladsl.model.HttpRequest
 import org.apache.pekko.stream.scaladsl.{FileIO, Sink, Source}
-import org.apache.pekko.stream.{Materializer, SystemMaterializer}
+import org.apache.pekko.stream.{FlowShape, Graph, KillSwitch, KillSwitches, Materializer, SharedKillSwitch, SystemMaterializer}
 
 import java.nio.file.Path
 import scala.collection.immutable.Seq
@@ -256,12 +256,29 @@ class PlaylistExporter(archiveService: ArchiveService,
   private lazy val localFs = LocalFsUtils.createLocalFs(exportData.exportPath, actorSystem)
 
   /**
+    * The kill switch for aborting a running export operation. The same switch
+    * is linked to all streams of the operation, so shutting it down stops the
+    * deletion of the target directory's content, the iteration over the songs
+    * to be exported, and the copies of the single files.
+    */
+  private val killSwitch = KillSwitches.shared(s"playlist-export-${exportData.exportPath}")
+
+  /**
     * Runs the configured export operation asynchronously. Information about
     * the progress is published on the system message bus. When the export is
     * done, the function publishes a corresponding [[ExportResult]] on the 
     * message bus.
+    *
+    * The returned [[KillSwitch]] allows aborting a running export operation.
+    * As all streams of the operation are linked to this switch, it can be shut
+    * down to stop the whole operation. Note that this makes the streams
+    * complete normally, so a [[ExportResult.Success]] is published. To get a
+    * [[ExportResult.Failure]] instead, the switch needs to be aborted with an
+    * exception.
+    *
+    * @return the kill switch for aborting the export operation
     */
-  def run(): Unit =
+  def run(): KillSwitch =
     val songs = exportData.songs
     val targetPaths = PlaylistExporter.generateTargetPaths(exportData.exportPath, songs)
     val futExport =
@@ -273,6 +290,7 @@ class PlaylistExporter(archiveService: ArchiveService,
     futExport.onComplete:
       case Success(_) => messageBus.publish(PlaylistExporter.ExportResult.Success)
       case Failure(exception) => messageBus.publish(PlaylistExporter.ExportResult.Failure(exception))
+    killSwitch
 
   /**
     * Prepares the target directory of the export operation. Based on the
@@ -293,7 +311,7 @@ class PlaylistExporter(archiveService: ArchiveService,
         val elementsToDelete = if exportData.clearTarget then content else Seq.empty
         val filesToPreserve =
           if exportData.clearTarget || exportData.overrideFiles then Set.empty[Path]
-          else content.collect :
+          else content.collect:
             case f: Model.File[?] => f.id
           .toSet
         (elementsToDelete, filesToPreserve)
@@ -333,6 +351,7 @@ class PlaylistExporter(archiveService: ArchiveService,
         (element, index) =>
           messageBus.publish(ProgressNotification.Delete(totalOperations, index + 1, elementName(element.id)))
           deleteElement(element)
+      .via(killFlow)
       .runWith(Sink.ignore)
       .map(_ => ())
 
@@ -379,6 +398,7 @@ class PlaylistExporter(archiveService: ArchiveService,
       .zipWithIndex
       .mapAsync(ExportParallelism):
         case ((song, path), index) => exportFile(index.toInt + 1, totalOperations, totalSize, song, path)
+      .via(killFlow)
       .runWith(Sink.ignore)
       .map(_ => ())
 
@@ -404,18 +424,18 @@ class PlaylistExporter(archiveService: ArchiveService,
     * path. While the file is copied, progress notifications are published on
     * the message bus.
     *
-    * @param operationIndex the index of this operation (starting with 1)
+    * @param operationIndex  the index of this operation (starting with 1)
     * @param totalOperations the total number of copy operations
-    * @param totalSize      the total size of all files to be copied
-    * @param song           the song to be exported
-    * @param targetPath     the path where to store the file
+    * @param totalSize       the total size of all files to be copied
+    * @param song            the song to be exported
+    * @param targetPath      the path where to store the file
     * @return a [[Future]] with the outcome of the operation
     */
   private def exportFile(operationIndex: Int,
-                          totalOperations: Int,
-                          totalSize: Long,
-                          song: SongData,
-                          targetPath: Path): Future[Unit] =
+                         totalOperations: Int,
+                         totalSize: Long,
+                         song: SongData,
+                         targetPath: Path): Future[Unit] =
     val request = HttpRequest(uri = s"$ArchiveDownloadURIPrefix${song.fileID}$ArchiveDownloadURISuffix")
     val progressSize = config.progressSize
     val currentSize = songSize(song)
@@ -425,5 +445,16 @@ class PlaylistExporter(archiveService: ArchiveService,
       _ <- response.entity.dataBytes
         .via(new CopyProgressNotificationStage(messageBus, totalOperations, operationIndex, totalSize,
           currentSize, fileName, progressSize))
+        .via(killFlow)
         .runWith(FileIO.toPath(targetPath))
     yield ()
+
+  /**
+    * Returns the graph that links a stream to the [[killSwitch]] of this export
+    * operation. As the graph can be materialized multiple times, the same
+    * switch can be used for all streams of the operation.
+    *
+    * @tparam T the type of the elements passing through the stream
+    * @return the graph to be inserted into a stream
+    */
+  private def killFlow[T]: Graph[FlowShape[T, T], SharedKillSwitch] = killSwitch.flow[T]
