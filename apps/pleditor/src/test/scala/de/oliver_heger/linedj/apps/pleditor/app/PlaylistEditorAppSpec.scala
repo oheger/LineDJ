@@ -17,8 +17,10 @@
 package de.oliver_heger.linedj.apps.pleditor.app
 
 import de.oliver_heger.linedj.apps.pleditor.PlaylistActionEnabler
+import de.oliver_heger.linedj.apps.pleditor.plexport.PlaylistExportConfig
 import de.oliver_heger.linedj.apps.pleditor.reorder.ReorderService
 import de.oliver_heger.linedj.platform.app.*
+import de.oliver_heger.linedj.platform.archiveclient.ArchiveService
 import de.oliver_heger.linedj.platform.audio2.playlist.{MediaFileInfoResolverService, Playlist, PlaylistService}
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import org.apache.pekko.actor.Actor
@@ -43,10 +45,12 @@ class PlaylistEditorAppSpec extends AnyFlatSpec with Matchers with MockitoSugar 
     val reorderService = mock[ReorderService]
     val playlistService = mock[PlaylistService[Playlist, String]]
     val resolverService = mock[MediaFileInfoResolverService]
-    val app = new PlaylistEditorAppTestImpl(reorderService, playlistService, resolverService)
+    val archiveService = mock[ArchiveService]
+    val app = new PlaylistEditorAppTestImpl(reorderService, playlistService, resolverService, archiveService)
     app.initReorderService(reorderService)
     app.initPlaylistService(playlistService)
     app.initResolverService(resolverService)
+    app.initArchiveService(archiveService)
     activateApp(app)
 
   "A PlaylistEditorApp" should "register message bus listeners correctly" in :
@@ -86,6 +90,16 @@ class PlaylistEditorAppSpec extends AnyFlatSpec with Matchers with MockitoSugar 
 
     queryBean[MediaFileInfoResolverService](app, PlaylistEditorApp.BeanResolverService) should be(app.resolverService)
 
+  it should "create a bean for the archive service" in:
+    val app = createApp()
+
+    queryBean[ArchiveService](app, PlaylistEditorApp.BeanArchiveService) should be(app.archiveService)
+
+  it should "create a bean for the export configuration" in :
+    val app = createApp()
+    val config = queryBean[PlaylistExportConfig](app, PlaylistEditorApp.BeanConfig)
+    config.userConfiguration should be(app.getUserConfiguration)
+
 /**
   * A test implementation of the main application class that makes sure that
   * builder scripts are executed against the test platform.
@@ -93,8 +107,10 @@ class PlaylistEditorAppSpec extends AnyFlatSpec with Matchers with MockitoSugar 
   * @param reorderService  the [[ReorderService]] mock
   * @param playlistService the [[PlaylistService]] mock
   * @param resolverService the [[MediaFileInfoResolverService]]
+  * @param archiveService the [[ArchiveService]]
   */
 private class PlaylistEditorAppTestImpl(val reorderService: ReorderService,
                                         val playlistService: PlaylistService[Playlist, String],
-                                        val resolverService: MediaFileInfoResolverService)
+                                        val resolverService: MediaFileInfoResolverService,
+                                        val archiveService: ArchiveService)
   extends PlaylistEditorApp with ApplicationSyncStartup with AppWithTestPlatform

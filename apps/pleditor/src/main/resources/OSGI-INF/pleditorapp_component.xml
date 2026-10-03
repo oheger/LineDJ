@@ -39,6 +39,8 @@
              name="playlistService" bind="initPlaylistService"/>
   <reference interface="de.oliver_heger.linedj.platform.audio2.playlist.MediaFileInfoResolverService"
              name="resolverService" bind="initResolverService"/>
+  <reference interface="de.oliver_heger.linedj.platform.archiveclient.ArchiveService"
+             name="archiveService" bind="initArchiveService"/>
 
   <reference interface="de.oliver_heger.linedj.platform.comm.ServiceDependencies$ServiceDependency"
              name="playerController" target="(serviceName=lineDJ.audioPlayerController)"/>

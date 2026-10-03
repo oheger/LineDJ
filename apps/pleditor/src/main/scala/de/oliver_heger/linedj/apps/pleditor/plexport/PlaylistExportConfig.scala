@@ -60,7 +60,7 @@ class PlaylistExportConfig(app: Application):
   import PlaylistExportConfig.*
 
   /** The wrapped user configuration. */
-  private val userConfiguration: Configuration = app.getUserConfiguration
+  val userConfiguration: Configuration = app.getUserConfiguration
 
   /**
     * Returns the default path to be used for export operations.

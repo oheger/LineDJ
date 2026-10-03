@@ -233,8 +233,19 @@
   </di:bean>
 
   <!-- Command and task for the playlist export dialog -->
+  <di:bean name="playlistExportCommand"
+           beanClassName="de.oliver_heger.linedj.apps.pleditor.plexport.OpenExportSettingsDlgCommand">
+    <di:constructor>
+      <di:param value="classpath:exportsettings.jelly"/>
+      <di:param refName="pleditorApp_ExportConfiguration"/>
+      <di:param refName="playlistTableModel"/>
+    </di:constructor>
+  </di:bean>
+
   <di:bean name="playlistExportTask"
-    beanClassName="net.sf.jguiraffe.gui.app.ApplicationShutdownActionTask">
+           beanClassName="net.sf.jguiraffe.gui.app.CommandActionTask">
+    <di:setProperty property="commandBeanName" value="playlistExportCommand"/>
+    <di:setProperty property="beforeEnabler" value="action:plExportAction"/>
   </di:bean>
 
   <!-- Tasks for actions that manipulate the playlist -->

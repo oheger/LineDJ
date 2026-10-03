@@ -20,5 +20,11 @@
   Global bean definitions for the LineDJ playlist generator application.
 -->
 <j:jelly xmlns:j="jelly:core" xmlns:di="diBuilder">
-
+    <!-- The configuration for the export functionality -->
+    <di:bean name="pleditorApp_ExportConfiguration"
+             beanClassName="de.oliver_heger.linedj.apps.pleditor.plexport.PlaylistExportConfig">
+        <di:constructor>
+            <di:param refName="jguiraffe.application"/>
+        </di:constructor>
+    </di:bean>
 </j:jelly>
