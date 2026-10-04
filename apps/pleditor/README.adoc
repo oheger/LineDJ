@@ -1,0 +1,30 @@
+= Playlist Editor Application
+
+This module implements an application that supports users in defining playlists.
+
+== Functionality
+The application mainly consists of a table view that displays the current playlist. On selected table rows, some manipulations can be performed:
+
+* Elements can be removed from the playlist.
+* Elements can be moved upwards, downwards, to the top, or to the bottom of the playlist.
+* Elements can be reordered based on _Reorderer_ components. Such components are implementations of a service provider interface defined by the link:../../reorder/spi/[Reorder SPI] module.
+
+There are also operations on the whole playlist:
+
+* A new, empty playlist can be created, replacing the existing one.
+* The playlist can be closed. This is an indication for the audio player that it is now complete.
+* The playlist can be exported into a configurable directory.
+
+What this application does not support is adding songs to the playlist. This is done by other applications implementing browser functionality on a connected media archive.
+
+== Configuration
+This application does not support any configuration options.
+
+There is a UI to set default values for the export functionality. The values are stored in the user configuration (i.e. the application-specific configuration). No external configuration files are processed.
+
+== Design Notes
+The Playlist Editor application is based on the audio player functionality provided by the link:../../audioPlatformNew/README.adoc[Audio Platform] module. The interaction with this module mainly takes place via notifications sent and received on the system message bus.
+
+The audio platform manages the current playlist and sends notifications on the message bus when there are changes in the playlist state. This application listens for such changes and is thus informed when there are changes in the list of songs to be played.
+
+Manipulations on the playlist are done by sending messages to set a new playlist via the bus. Such messages are processed by the audio platform.
