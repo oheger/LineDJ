@@ -16,8 +16,10 @@
 
 package de.oliver_heger.linedj.apps.archive.browser
 
-import de.oliver_heger.linedj.platform.app.{AppWithTestPlatform, ApplicationSyncStartup, ApplicationTestSupport}
+import de.oliver_heger.linedj.platform.app.{AppWithTestPlatform, ApplicationSyncStartup, ApplicationTestSupport, ClientApplication}
 import de.oliver_heger.linedj.platform.archiveclient.ArchiveService
+import de.oliver_heger.linedj.platform.bus.MessageBusRegistration
+import de.oliver_heger.linedj.platform.comm.MessageBusListener
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
@@ -40,10 +42,25 @@ class BrowserAppSpec extends AnyFlatSpec, Matchers, MockitoSugar, ApplicationTes
 
     queryBean[ArchiveService](app, BrowserApp.BeanArchiveService) should be(archiveService)
 
-  it should "correctly configure the controller" in:
+  it should "correctly configure the controller" in :
     val app = new BrowserApp with ApplicationSyncStartup with AppWithTestPlatform
 
     app.initArchiveService(mock)
     activateApp(app)
 
     queryBean[Controller](app.getMainWindowBeanContext, "mediaController") should not be null
+
+  it should "define a correct message bus registration bean" in :
+    val app = new BrowserApp with ApplicationSyncStartup with AppWithTestPlatform
+
+    app.initArchiveService(mock)
+    activateApp(app)
+
+    val beanContext = app.getMainWindowBeanContext
+    val busReg = queryBean[MessageBusRegistration](beanContext, ClientApplication.BeanMessageBusRegistration)
+    val albumSongsLoader = queryBean[MessageBusListener](beanContext, "albumSongsLoader")
+    val artistSongsLoader = queryBean[MessageBusListener](beanContext, "artistSongsLoader")
+    val controller = queryBean[MessageBusListener](beanContext, "mediaController")
+    val selectionChangeListener = queryBean[MessageBusListener](beanContext, "mediaSelectionChangeListener")
+
+    busReg.listeners should contain only(albumSongsLoader, artistSongsLoader, controller, selectionChangeListener)

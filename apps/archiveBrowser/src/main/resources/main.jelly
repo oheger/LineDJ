@@ -115,6 +115,7 @@
           <di:element refName="albumSongsLoader"/>
           <di:element refName="artistSongsLoader"/>
           <di:element refName="mediaController"/>
+          <di:element refName="mediaSelectionChangeListener"/>
         </di:list>
       </di:param>
     </di:constructor>

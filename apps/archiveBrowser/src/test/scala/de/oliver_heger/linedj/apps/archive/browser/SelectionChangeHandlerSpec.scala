@@ -18,6 +18,8 @@ package de.oliver_heger.linedj.apps.archive.browser
 
 import de.oliver_heger.linedj.archive.server.model.ArchiveModel
 import de.oliver_heger.linedj.platform.ActionTestHelper
+import de.oliver_heger.linedj.platform.audio2.AudioPlayerState
+import de.oliver_heger.linedj.platform.audio2.playlist.Playlist
 import de.oliver_heger.linedj.shared.archive.metadata.Checksums
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 import net.sf.jguiraffe.gui.builder.components.model.{ListComponentHandler, TableHandler, TreeHandler, TreeNodePath}
@@ -45,6 +47,33 @@ object SelectionChangeHandlerSpec:
     SelectionChangeHandler.AddArtistAlbumSongsAction,
     SelectionChangeHandler.AddMediumAction
   )
+
+  /**
+    * Constant for a player state object with basic properties. For the
+    * selection change handler, the closed state of the playlist is relevant.
+    * This object is used to simulate updates of the player state with a
+    * defined closed state of the playlist.
+    */
+  private val BasePlayerState = AudioPlayerState(
+    playlist = Playlist(List("song1", "song2"), List("song0")),
+    playlistSeqNo = 1,
+    playbackActive = false,
+    playlistActivated = false,
+    playlistClosed = false
+  )
+
+  /**
+    * Returns a dummy [[AudioPlayerState]] object with a specific closed state
+    * of the playlist.
+    *
+    * @param playlistClosed flag whether the playlist is open or closed
+    * @return
+    */
+  private def playerState(playlistClosed: Boolean): AudioPlayerState =
+    if playlistClosed then
+      BasePlayerState.copy(playlistClosed = true)
+    else
+      BasePlayerState
 end SelectionChangeHandlerSpec
 
 /**
@@ -62,12 +91,16 @@ class SelectionChangeHandlerSpec extends AnyFlatSpec, Matchers, MockitoSugar, Ac
     * controller and a test action store that provides the tracked actions.
     *
     * @param controller the controller
+    * @param state      the player state to pass to the handler
     * @return the test handler instance
     */
-  private def createHandler(controller: Controller): SelectionChangeHandler =
+  private def createHandler(controller: Controller,
+                            state: AudioPlayerState = playerState(playlistClosed = false)): SelectionChangeHandler =
     ManagedActions.foreach(action => createAction(action))
     actionStore = createActionStore()
-    new SelectionChangeHandler(controller, actionStore)
+    val handler = new SelectionChangeHandler(controller, actionStore)
+    handler.receive(state)
+    handler
 
   "A SelectionChangeHandler" should "notify the controller about a changed medium selection" in :
     val controller = mock[Controller]
@@ -114,6 +147,17 @@ class SelectionChangeHandlerSpec extends AnyFlatSpec, Matchers, MockitoSugar, Ac
     handler.elementChanged(event)
 
     isActionEnabled(SelectionChangeHandler.AddMediumAction) shouldBe true
+
+  it should "disable the add medium action if the playlist is closed" in :
+    val listHandler = mock[ListComponentHandler]
+    doReturn(Checksums.MediumChecksum("some-medium-id")).when(listHandler).getData
+    val event = new FormChangeEvent("someSource", listHandler, "comboMedia")
+
+    val handler = createHandler(mock, state = playerState(playlistClosed = true))
+    actionStore.getAction(SelectionChangeHandler.AddMediumAction).setEnabled(false)
+    handler.elementChanged(event)
+
+    isActionEnabled(SelectionChangeHandler.AddMediumAction) shouldBe false
 
   /**
     * Initializes a mock tree handler to return a selected path that points to
@@ -226,6 +270,20 @@ class SelectionChangeHandlerSpec extends AnyFlatSpec, Matchers, MockitoSugar, Ac
 
     isActionEnabled(SelectionChangeHandler.AddAlbumAction) shouldBe false
 
+  it should "disable the add album action if the playlist is closed" in :
+    val tabHandler = mock[TableHandler]
+    val tableModel = new util.ArrayList[AnyRef]
+    tableModel.add(AlbumData(ArchiveModel.AlbumInfo("alb1", "Album1", "art1"), "Artist1"))
+    doReturn(tableModel).when(tabHandler).getModel
+    doReturn(Array(0)).when(tabHandler).getSelectedIndices
+    val event = new FormChangeEvent("someSource", tabHandler, "tableAlbums")
+
+    val handler = createHandler(mock, state = playerState(playlistClosed = true))
+    actionStore.getAction(SelectionChangeHandler.AddAlbumAction).setEnabled(false)
+    handler.elementChanged(event)
+
+    isActionEnabled(SelectionChangeHandler.AddAlbumAction) shouldBe false
+
   it should "enable the add album songs action when songs are selected in the album songs table" in :
     val tabHandler = mock[TableHandler]
     doReturn(Array(1, 2)).when(tabHandler).getSelectedIndices
@@ -244,6 +302,17 @@ class SelectionChangeHandlerSpec extends AnyFlatSpec, Matchers, MockitoSugar, Ac
 
     val handler = createHandler(mock)
     actionStore.getAction(SelectionChangeHandler.AddAlbumSongsAction).setEnabled(true)
+    handler.elementChanged(event)
+
+    isActionEnabled(SelectionChangeHandler.AddAlbumSongsAction) shouldBe false
+
+  it should "disable the add album songs action if the playlist is closed" in :
+    val tabHandler = mock[TableHandler]
+    doReturn(Array(1, 2)).when(tabHandler).getSelectedIndices
+    val event = new FormChangeEvent("someSource", tabHandler, "tableAlbumSongs")
+
+    val handler = createHandler(mock, state = playerState(playlistClosed = true))
+    actionStore.getAction(SelectionChangeHandler.AddAlbumSongsAction).setEnabled(false)
     handler.elementChanged(event)
 
     isActionEnabled(SelectionChangeHandler.AddAlbumSongsAction) shouldBe false
@@ -270,6 +339,17 @@ class SelectionChangeHandlerSpec extends AnyFlatSpec, Matchers, MockitoSugar, Ac
 
     isActionEnabled(SelectionChangeHandler.AddArtistAlbumSongsAction) shouldBe false
 
+  it should "disable the add artist album songs action if the playlist is closed" in :
+    val tabHandler = mock[TableHandler]
+    doReturn(Array(1, 2)).when(tabHandler).getSelectedIndices
+    val event = new FormChangeEvent("someSource", tabHandler, "tableArtistSongs")
+
+    val handler = createHandler(mock, state = playerState(playlistClosed = true))
+    actionStore.getAction(SelectionChangeHandler.AddArtistAlbumSongsAction).setEnabled(false)
+    handler.elementChanged(event)
+
+    isActionEnabled(SelectionChangeHandler.AddArtistAlbumSongsAction) shouldBe false
+
   it should "enable the artist-related actions if an album is selected in the artist treeview" in :
     val treeHandler = mock[TreeHandler]
     initSelectedPath(treeHandler, Controller.AlbumID("someAlbum"))
@@ -282,6 +362,19 @@ class SelectionChangeHandlerSpec extends AnyFlatSpec, Matchers, MockitoSugar, Ac
 
     isActionEnabled(SelectionChangeHandler.AddArtistAlbumAction) shouldBe true
     isActionEnabled(SelectionChangeHandler.AddArtistAction) shouldBe true
+
+  it should "disable the artist-related actions if the playlist is closed" in :
+    val treeHandler = mock[TreeHandler]
+    initSelectedPath(treeHandler, Controller.AlbumID("someAlbum"))
+    val event = new FormChangeEvent("someSource", treeHandler, "treeArtists")
+
+    val handler = createHandler(mock, state = playerState(playlistClosed = true))
+    actionStore.getAction(SelectionChangeHandler.AddArtistAlbumAction).setEnabled(false)
+    actionStore.getAction(SelectionChangeHandler.AddArtistAction).setEnabled(false)
+    handler.elementChanged(event)
+
+    isActionEnabled(SelectionChangeHandler.AddArtistAlbumAction) shouldBe false
+    isActionEnabled(SelectionChangeHandler.AddArtistAction) shouldBe false
 
   it should "enable the add artist action if an artist is selected in the artist treeview" in :
     val treeHandler = mock[TreeHandler]
@@ -309,6 +402,19 @@ class SelectionChangeHandlerSpec extends AnyFlatSpec, Matchers, MockitoSugar, Ac
     isActionEnabled(SelectionChangeHandler.AddArtistAlbumAction) shouldBe false
     isActionEnabled(SelectionChangeHandler.AddArtistAction) shouldBe true
 
+  it should "disable the add artist action if the playlist is closed" in :
+    val treeHandler = mock[TreeHandler]
+    initSelectedPath(treeHandler, Controller.ArtistWithoutAlbumsID("someArtist"))
+    val event = new FormChangeEvent("someSource", treeHandler, "treeArtists")
+
+    val handler = createHandler(mock, state = playerState(playlistClosed = true))
+    actionStore.getAction(SelectionChangeHandler.AddArtistAlbumAction).setEnabled(true)
+    actionStore.getAction(SelectionChangeHandler.AddArtistAction).setEnabled(false)
+    handler.elementChanged(event)
+
+    isActionEnabled(SelectionChangeHandler.AddArtistAlbumAction) shouldBe false
+    isActionEnabled(SelectionChangeHandler.AddArtistAction) shouldBe false
+
   it should "disable the artist-related actions if the selection in the artist treeview is reset" in :
     val treeHandler = mock[TreeHandler]
     doReturn(null).when(treeHandler).getSelectedPath
@@ -322,3 +428,30 @@ class SelectionChangeHandlerSpec extends AnyFlatSpec, Matchers, MockitoSugar, Ac
 
     isActionEnabled(SelectionChangeHandler.AddArtistAlbumAction) shouldBe false
     isActionEnabled(SelectionChangeHandler.AddArtistAction) shouldBe false
+
+  it should "update action states when the playlist state changes" in :
+    val mediaListHandler = mock[ListComponentHandler]
+    doReturn(Checksums.MediumChecksum("some-medium-id")).when(mediaListHandler).getData
+    val eventMedia = new FormChangeEvent("someSource", mediaListHandler, "comboMedia")
+    val tabAlbumHandler = mock[TableHandler]
+    val tableModel = new util.ArrayList[AnyRef]
+    tableModel.add(AlbumData(ArchiveModel.AlbumInfo("alb1", "Album1", "art1"), "Artist1"))
+    doReturn(tableModel).when(tabAlbumHandler).getModel
+    doReturn(Array(0)).when(tabAlbumHandler).getSelectedIndices
+    val eventAlbums = new FormChangeEvent("someSource", tabAlbumHandler, "tableAlbums")
+    val tabAlbumSongsHandler = mock[TableHandler]
+    doReturn(Array(1, 2)).when(tabAlbumSongsHandler).getSelectedIndices
+    val eventAlbumSongs = new FormChangeEvent("someSource", tabAlbumSongsHandler, "tableAlbumSongs")
+    val tabArtistSongsHandler = mock[TableHandler]
+    doReturn(Array(1, 2)).when(tabArtistSongsHandler).getSelectedIndices
+    val eventArtistSongs = new FormChangeEvent("someSource", tabArtistSongsHandler, "tableArtistSongs")
+    val treeArtistHandler = mock[TreeHandler]
+    initSelectedPath(treeArtistHandler, Controller.AlbumID("someAlbum"))
+    val eventArtists = new FormChangeEvent("someSource", treeArtistHandler, "treeArtists")
+
+    val handler = createHandler(mock, state = playerState(playlistClosed = true))
+    List(eventAlbums, eventAlbumSongs, eventArtists, eventArtistSongs, eventMedia).foreach(handler.elementChanged)
+    handler.receive(playerState(playlistClosed = false))
+
+    forEvery(ManagedActions): action =>
+      isActionEnabled(action) shouldBe true
