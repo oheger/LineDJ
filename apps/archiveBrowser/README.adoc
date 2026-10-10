@@ -1,0 +1,21 @@
+= Media Archive Browser Application
+
+This module implements an application that serves as a browser for a media archive that is connected to the platform.
+
+== Functionality
+The UI of the application consists of multiple views that allow drilling down the songs in the archive based on different selection criteria. At the top, there is a combobox listing the _media_ available in the archive. When selecting a specific medium in this box, its content is displayed in the views.
+
+A medium contains multiple albums from various artists. Which structure fits best to explore the content depends on the albums and their songs:
+
+* If the songs on the albums are all from a single artist, an artist-centric view is ideal: This is a tree-like structure with the artists on the first level and their albums on the second level. When selecting an album, its songs are shown.
+* For compilation albums, this hierarchical organization is less suitable, as it will contain many artist nodes under which only few songs are grouped. For this scenario, the application also offers an album-centric view: a table with the found albums which can be used to drill down to the songs per album.
+
+The application defines a number of actions to add the currently selected songs to the playlist managed by the link:../../audioPlatformNew/README.adoc[Audio Platform]. The actions handle different containers for songs, such as a complete medium, an artist, an album, or the current selection in a table with songs. The actions are enabled if there is a playlist that can be extended.
+
+== Configuration
+This application does not support any configuration options currently.
+
+== Design Notes
+The main application logic is implemented in the `Controller` class which manages the UI of the application. To receive notifications about changes in the set of available media, the controller registers itself as change listener at the `ArchiveService` (which is an OSGi dependency of the application class). Based on such notifications, it can update the combobox with media.
+
+The controller uses the `ArchiveService` for all communication with the archive server, especially to download the songs for the selected albums or artists. This is done with the help of the `SongsLoader` class which also manages a cache with the data that has already been retrieved.
