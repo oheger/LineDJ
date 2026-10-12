@@ -1201,11 +1201,12 @@ lazy val persistentPlaylistHandler = (project in file("persistentPLHandler"))
     name := "linedj-persistent-playlist-handler",
     libraryDependencies ++= osgiDependencies,
     OsgiKeys.privatePackage := Seq(
-      "de.oliver_heger.linedj.playlist.persistence.*"
+      "de.oliver_heger.linedj.playlist.persistence.*",
+      "de.oliver_heger.linedj.platform.audio.playlist.persistence"
     ),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
-  ).dependsOn(shared % "compile->compile;test->test", platform % "compile->compile;test->test", audioPlatform)
+  ).dependsOn(shared % "compile->compile;test->test", platform % "compile->compile;test->test", audioPlatform, audioPlatformNew)
 
 /**
   * Project for the audio player UI. This project implements a UI for an
