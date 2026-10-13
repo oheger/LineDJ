@@ -19,13 +19,11 @@ package de.oliver_heger.linedj.platform.audio.playlist.persistence
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.platform.audio2.AudioPlayerCommands
 import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.scaladsl.Framing
 import org.apache.pekko.testkit.TestKit
-import org.scalatest.{Assertion, BeforeAndAfterAll, OptionValues}
 import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
-import spray.json.*
-import DefaultJsonProtocol.*
-import org.apache.pekko.stream.scaladsl.Framing
+import org.scalatest.{Assertion, BeforeAndAfterAll, OptionValues}
 
 import java.nio.file.Path
 import scala.concurrent.Future
@@ -33,60 +31,6 @@ import scala.concurrent.Future
 object PlaylistLoaderSpec:
   /** The maximum file size used by the test cases. */
   private val DefaultMaxFileSize = 64000
-
-  /**
-    * Generates the ID of a test media file based on the given index.
-    *
-    * @param index the index of the test file
-    * @return the ID of this file
-    */
-  private def fileID(index: Int): String = s"test-file-id-$index"
-
-  /**
-    * Generates a list with the IDs of test media files in the given range.
-    *
-    * @param fromIndex the start index
-    * @param toIndex   the end index (including)
-    * @return the list with file IDs
-    */
-  private def fileIDs(fromIndex: Int, toIndex: Int): List[String] =
-    (fromIndex to toIndex).map(fileID).toList
-
-  /**
-    * Generates a test playlist item based on the given index.
-    *
-    * @param index the index
-    * @return the test item with this index
-    */
-  private def playlistItem(index: Int): PlaylistModel.PlaylistItem =
-    PlaylistModel.PlaylistItem(fileID(index))
-
-  /**
-    * Generates a list with test playlist items with a specific size.
-    *
-    * @param count the number of items in the playlist
-    * @return the list with playlist items
-    */
-  private def playlistItems(count: Int): List[PlaylistModel.PlaylistItem] =
-    (1 to count).map(playlistItem).toList
-
-  /**
-    * Returns a JSON representation of the given list of playlist items.
-    *
-    * @param items the playlist items
-    * @return the JSON representation of this list
-    */
-  private def toJson(items: List[PlaylistModel.PlaylistItem]): String =
-    items.toJson.prettyPrint
-
-  /**
-    * Returns a JSON representation of the given playlist position.
-    *
-    * @param position the position
-    * @return the JSON representation of this position
-    */
-  private def toJson(position: PlaylistModel.CurrentPlaylistPosition): String =
-    position.toJson.prettyPrint
 end PlaylistLoaderSpec
 
 /**
@@ -102,6 +46,7 @@ class PlaylistLoaderSpec(testSystem: ActorSystem) extends TestKit(testSystem), A
     super.afterAll()
 
   import PlaylistLoaderSpec.*
+  import PlaylistTestHelper.*
 
   /**
     * Invokes the default loader function provided by [[PlaylistLoader]] with
@@ -159,7 +104,7 @@ class PlaylistLoaderSpec(testSystem: ActorSystem) extends TestKit(testSystem), A
 
   it should "load a playlist with no position file" in :
     val ItemCount = 32
-    val itemsPath = writeFileContent(createPathInDirectory("playlist-no-pos.lst"), toJson(playlistItems(ItemCount)))
+    val itemsPath = writeFileContent(createPathInDirectory("playlist-no-pos.lst"), playlistItems(ItemCount).toJson)
     val positionPath = testDirectory.resolve("non-existing-file.pos")
 
     loadPlaylistAndCheckSuccess(itemsPath, positionPath):
@@ -175,9 +120,9 @@ class PlaylistLoaderSpec(testSystem: ActorSystem) extends TestKit(testSystem), A
     val CurrentIndex = 8
     val PositionOffset = 1024L
     val TimeOffset = 6000L
-    val itemsPath = writeFileContent(createPathInDirectory("playlist-with-pos.lst"), toJson(playlistItems(ItemCount)))
+    val itemsPath = writeFileContent(createPathInDirectory("playlist-with-pos.lst"), playlistItems(ItemCount).toJson)
     val position = PlaylistModel.CurrentPlaylistPosition(CurrentIndex, PositionOffset, TimeOffset)
-    val positionPath = writeFileContent(createPathInDirectory("playlist-with-pos.pos"), toJson(position))
+    val positionPath = writeFileContent(createPathInDirectory("playlist-with-pos.pos"), position.toJson)
 
     loadPlaylistAndCheckSuccess(itemsPath, positionPath):
       case setPl: AudioPlayerCommands.SetPlaylist =>
@@ -189,9 +134,9 @@ class PlaylistLoaderSpec(testSystem: ActorSystem) extends TestKit(testSystem), A
 
   it should "handle a position file with all values 0" in :
     val ItemCount = 20
-    val itemsPath = writeFileContent(createPathInDirectory("playlist-zero-pos.lst"), toJson(playlistItems(ItemCount)))
+    val itemsPath = writeFileContent(createPathInDirectory("playlist-zero-pos.lst"), playlistItems(ItemCount).toJson)
     val position = PlaylistModel.CurrentPlaylistPosition(0, 0, 0)
-    val positionPath = writeFileContent(createPathInDirectory("playlist-zero-pos.pos"), toJson(position))
+    val positionPath = writeFileContent(createPathInDirectory("playlist-zero-pos.pos"), position.toJson)
 
     loadPlaylistAndCheckSuccess(itemsPath, positionPath):
       case setPl: AudioPlayerCommands.SetPlaylist =>
@@ -205,7 +150,7 @@ class PlaylistLoaderSpec(testSystem: ActorSystem) extends TestKit(testSystem), A
     val ItemCount = 12
     val itemsPath = writeFileContent(
       createPathInDirectory("playlist-invalid-pos.lst"),
-      toJson(playlistItems(ItemCount))
+      playlistItems(ItemCount).toJson
     )
     val positionPath = writeFileContent(createPathInDirectory("playlist-invalid-pos.pos"), FileTestHelper.TestData)
 
@@ -218,8 +163,8 @@ class PlaylistLoaderSpec(testSystem: ActorSystem) extends TestKit(testSystem), A
         setPl.playlist.pendingSongs should contain theSameElementsInOrderAs fileIDs(1, ItemCount)
 
   it should "ignore a position file that exceeds the maximum file size" in :
-    val playlistJson = toJson(List(PlaylistModel.PlaylistItem("1")))
-    val positionJson = toJson(PlaylistModel.CurrentPlaylistPosition(0, Long.MaxValue, Long.MaxValue))
+    val playlistJson = List(PlaylistModel.PlaylistItem("1")).toJson
+    val positionJson = PlaylistModel.CurrentPlaylistPosition(0, Long.MaxValue, Long.MaxValue).toJson
     val itemsPath = writeFileContent(createPathInDirectory("playlist-pos-too-long.lst"), playlistJson)
     val positionPath = writeFileContent(createPathInDirectory("huge-position.pos"), positionJson)
 
