@@ -242,6 +242,7 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
 
     helper.activate()
       .triggerShutdown()
+      .expectShutdownCompletionNotification()
       .deactivate()
     helper.numberOfStateWriterStops should be(1)
 
