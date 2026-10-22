@@ -24,7 +24,7 @@ import scalaz.State.*
 
 import java.nio.file.Path
 import scala.collection.immutable.Seq
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration.{DurationLong, FiniteDuration}
 
 object PlaylistWriteStateUpdateService:
   /**
@@ -119,7 +119,7 @@ trait PlaylistWriteStateUpdateService:
   def initPlaylist(plService: PlaylistService[Playlist, String],
                    playlist: Playlist,
                    positionOffset: Long,
-                   timeOffset: Long): StateUpdate[Unit]
+                   timeOffset: FiniteDuration): StateUpdate[Unit]
 
   /**
     * Updates the state for an update of the audio player state. This may cause
@@ -148,7 +148,7 @@ trait PlaylistWriteStateUpdateService:
     */
   def playbackProgress(saveService: PlaylistSaveService,
                        posOfs: Long,
-                       timeOfs: Long,
+                       timeOfs: FiniteDuration,
                        writeConfig: PlaylistWriteConfig): StateUpdate[Unit]
 
   /**
@@ -225,7 +225,7 @@ trait PlaylistWriteStateUpdateService:
     */
   def handlePlaybackProgress(saveService: PlaylistSaveService,
                              posOfs: Long,
-                             timeOfs: Long,
+                             timeOfs: FiniteDuration,
                              writeConfig: PlaylistWriteConfig): StateUpdate[WriteStateTransitionActions] =
     for
       _ <- playbackProgress(saveService, posOfs, timeOfs, writeConfig)
@@ -302,12 +302,12 @@ object PlaylistWriteStateUpdateServiceImpl extends PlaylistWriteStateUpdateServi
   override def initPlaylist(plService: PlaylistService[Playlist, String],
                             playlist: Playlist,
                             positionOffset: Long,
-                            timeOffset: Long): StateUpdate[Unit] = modify: s =>
+                            timeOffset: FiniteDuration): StateUpdate[Unit] = modify: s =>
     s.initialPlaylist match
       case Some(_) => s
       case None =>
         val index = extractIndex(plService, playlist)
-        val position = PlaylistModel.CurrentPlaylistPosition(index, positionOffset, timeOffset)
+        val position = PlaylistModel.CurrentPlaylistPosition(index, positionOffset, timeOffset.toSeconds)
         s.copy(
           initialPlaylist = Some(playlist),
           currentPosition = position,
@@ -351,13 +351,13 @@ object PlaylistWriteStateUpdateServiceImpl extends PlaylistWriteStateUpdateServi
 
   override def playbackProgress(saveService: PlaylistSaveService,
                                 posOfs: Long,
-                                timeOfs: Long,
+                                timeOfs: FiniteDuration,
                                 writeConfig: PlaylistWriteConfig): StateUpdate[Unit] =
     modify: s =>
       if s.initialPlaylist.isEmpty || s.closeRequested then s
       else
-        val updatedPos = s.updatedPosition.copy(position = posOfs, time = timeOfs)
-        val writes = if timeOfs - s.currentPosition.time >= writeConfig.autoSaveInterval.toSeconds then
+        val updatedPos = s.updatedPosition.copy(position = posOfs, time = timeOfs.toSeconds)
+        val writes = if timeOfs - s.currentPosition.time.seconds >= writeConfig.autoSaveInterval then
           val posSource = saveService.createPositionSource(updatedPos)
           List(PlaylistSaveService.WriteOperation(writeConfig.pathPosition, posSource))
         else

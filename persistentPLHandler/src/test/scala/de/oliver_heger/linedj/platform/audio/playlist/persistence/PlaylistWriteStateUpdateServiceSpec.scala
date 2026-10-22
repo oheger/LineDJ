@@ -284,8 +284,9 @@ class PlaylistWriteStateUpdateServiceSpec(testSystem: ActorSystem) extends TestK
     when(plService.currentIndex(playlist)).thenReturn(None)
     when(plService.size(playlist)).thenReturn(PlaylistSize)
 
-    val next = modifyState(PlaylistWriteStateUpdateServiceImpl.initPlaylist(plService, playlist,
-      PositionOffset, TimeOffset))
+    val next = modifyState(
+      PlaylistWriteStateUpdateServiceImpl.initPlaylist(plService, playlist, PositionOffset, TimeOffset.seconds)
+    )
     next.initialPlaylist should be(Some(playlist))
     next.currentPosition should be(PlaylistModel.CurrentPlaylistPosition(PlaylistSize, PositionOffset, TimeOffset))
     next.updatedPosition should be(next.currentPosition)
@@ -303,7 +304,7 @@ class PlaylistWriteStateUpdateServiceSpec(testSystem: ActorSystem) extends TestK
         plService,
         playlist,
         PositionOffset,
-        TimeOffset
+        TimeOffset.seconds
       )
     )
     next.initialPlaylist should be(Some(playlist))
@@ -316,7 +317,7 @@ class PlaylistWriteStateUpdateServiceSpec(testSystem: ActorSystem) extends TestK
       .copy(initialPlaylist = Some(mock[Playlist]))
 
     val next = modifyState(
-      PlaylistWriteStateUpdateServiceImpl.initPlaylist(plService, mock[Playlist], 20261019220712L, 221036),
+      PlaylistWriteStateUpdateServiceImpl.initPlaylist(plService, mock[Playlist], 20261019220712L, 221036.seconds),
       state
     )
     next should be theSameInstanceAs state
@@ -544,7 +545,7 @@ class PlaylistWriteStateUpdateServiceSpec(testSystem: ActorSystem) extends TestK
       PlaylistWriteStateUpdateServiceImpl.playbackProgress(
         saveService(),
         PosOffset,
-        TimeOffset,
+        TimeOffset.seconds,
         WriteConfig
       ),
       StateWithPlaylist
@@ -555,7 +556,7 @@ class PlaylistWriteStateUpdateServiceSpec(testSystem: ActorSystem) extends TestK
 
   it should "ignore a progress event if there is no initial playlist" in :
     val next = modifyState(
-      PlaylistWriteStateUpdateServiceImpl.playbackProgress(saveService(), 20261020214114L, 42, WriteConfig)
+      PlaylistWriteStateUpdateServiceImpl.playbackProgress(saveService(), 20261020214114L, 42.seconds, WriteConfig)
     )
 
     next should be theSameInstanceAs PlaylistWriteStateUpdateServiceImpl.InitialState
@@ -564,7 +565,7 @@ class PlaylistWriteStateUpdateServiceSpec(testSystem: ActorSystem) extends TestK
     val state = StateWithPlaylist.copy(closeRequested = true)
 
     val next = modifyState(
-      PlaylistWriteStateUpdateServiceImpl.playbackProgress(saveService(), 20261020214333L, 24, WriteConfig),
+      PlaylistWriteStateUpdateServiceImpl.playbackProgress(saveService(), 20261020214333L, 24.seconds, WriteConfig),
       state
     )
 
@@ -590,7 +591,7 @@ class PlaylistWriteStateUpdateServiceSpec(testSystem: ActorSystem) extends TestK
       _ <- PlaylistWriteStateUpdateServiceImpl.playbackProgress(
         saveService(),
         PosOffset,
-        TimeOffset.toSeconds,
+        TimeOffset,
         WriteConfig
       )
     yield ()
@@ -606,7 +607,7 @@ class PlaylistWriteStateUpdateServiceSpec(testSystem: ActorSystem) extends TestK
       PlaylistWriteStateUpdateServiceImpl.playbackProgress(
         saveService(),
         20261020214944L,
-        WriteConfig.autoSaveInterval.toSeconds,
+        WriteConfig.autoSaveInterval,
         WriteConfig
       ),
       state
@@ -754,7 +755,7 @@ class PlaylistWriteStateUpdateServiceSpec(testSystem: ActorSystem) extends TestK
 
     val update = for
       _ <- service.playerStateChange(PlaylistServiceImpl, saveService(), playerState, WriteConfig)
-      msg <- service.handlePlaybackProgress(saveService(), PosOffset, TimeOffset.toSeconds, WriteConfig)
+      msg <- service.handlePlaybackProgress(saveService(), PosOffset, TimeOffset, WriteConfig)
     yield msg
     val (next, ops) = updateState(update, StateWithPlaylist)
 
