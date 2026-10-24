@@ -260,7 +260,7 @@ class PlaylistWriteStateUpdateServiceSpec(testSystem: ActorSystem) extends TestK
     *
     * @return the save service
     */
-  private def saveService(): PlaylistSaveService = PlaylistSaveService(PlaylistServiceImpl)
+  private def saveService(): PlaylistSaveService = PlaylistSaveService.create(PlaylistServiceImpl)
 
   "A PlaylistWriteStateUpdateService" should "have a correct initial state" in :
     val state = PlaylistWriteStateUpdateServiceImpl.InitialState

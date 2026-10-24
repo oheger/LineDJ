@@ -41,26 +41,37 @@ object PlaylistSaveService:
                                   data: Source[ByteString, Any])
 
   /**
-    * Creates a new instance of [[PlaylistSaveService]].
-    *
-    * @param playlistService the service to interact with the playlist
-    * @param system          the actor system
-    * @return the new [[PlaylistSaveService]] instance
+    * A factory trait for creating new service instances.
     */
-  def apply(playlistService: PlaylistService[Playlist, String])(using system: ActorSystem): PlaylistSaveService =
-    new PlaylistSaveService:
-      override def createPlaylistSource(playlist: Playlist): Source[ByteString, Any] =
-        val fileIDSource = Source(playlistService.toSongList(playlist))
-        val jsonStage = ListSeparatorStage.jsonStage[PlaylistModel.PlaylistItem]
-        fileIDSource.map(PlaylistModel.PlaylistItem.apply).via(jsonStage)
+  trait Factory:
+    /**
+      * Returns a new [[PlaylistSaveService]] instance for the provided 
+      * parameters.
+      *
+      * @param playlistService the service to manage playlists
+      * @param system          the actor system
+      * @return the new service instance
+      */
+    def apply(playlistService: PlaylistService[Playlist, String])(using system: ActorSystem): PlaylistSaveService
+  end Factory
 
-      override def createPositionSource(position: PlaylistModel.CurrentPlaylistPosition): Source[ByteString, Any] =
-        val posJson = position.toJson.prettyPrint
-        Source.single(ByteString(posJson))
+  /** A default [[Factory]] object for creating new service instances. */
+  final val create: Factory = new Factory:
+    override def apply(playlistService: PlaylistService[Playlist, String])
+                      (using system: ActorSystem): PlaylistSaveService =
+      new PlaylistSaveService:
+        override def createPlaylistSource(playlist: Playlist): Source[ByteString, Any] =
+          val fileIDSource = Source(playlistService.toSongList(playlist))
+          val jsonStage = ListSeparatorStage.jsonStage[PlaylistModel.PlaylistItem]
+          fileIDSource.map(PlaylistModel.PlaylistItem.apply).via(jsonStage)
 
-      override def store(operation: WriteOperation): Future[Done] =
-        val sink = FileIO.toPath(operation.target)
-        operation.data.runWith(sink).map(_ => Done)(using system.dispatcher)
+        override def createPositionSource(position: PlaylistModel.CurrentPlaylistPosition): Source[ByteString, Any] =
+          val posJson = position.toJson.prettyPrint
+          Source.single(ByteString(posJson))
+
+        override def store(operation: WriteOperation): Future[Done] =
+          val sink = FileIO.toPath(operation.target)
+          operation.data.runWith(sink).map(_ => Done)(using system.dispatcher)
 end PlaylistSaveService
 
 /**

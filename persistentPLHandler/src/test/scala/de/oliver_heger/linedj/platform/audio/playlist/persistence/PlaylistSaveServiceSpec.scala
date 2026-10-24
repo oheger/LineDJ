@@ -74,7 +74,7 @@ class PlaylistSaveServiceSpec(testSystem: ActorSystem) extends TestKit(testSyste
     *
     * @return
     */
-  private def createService(): PlaylistSaveService = PlaylistSaveService(PlaylistServiceImpl)
+  private def createService(): PlaylistSaveService = PlaylistSaveService.create(PlaylistServiceImpl)
 
   "PlaylistSaveService" should "save a position file" in :
     val position = PlaylistModel.CurrentPlaylistPosition(17, 32000, 60000)
