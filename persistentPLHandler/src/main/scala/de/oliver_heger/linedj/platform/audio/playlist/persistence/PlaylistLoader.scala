@@ -78,29 +78,39 @@ object PlaylistLoader:
     */
   private final val NoPosition = PlaylistModel.CurrentPlaylistPosition(0, 0L, 0L)
 
+  /**
+    * A factory trait for creating a [[LoaderFunc]].
+    */
+  trait Factory:
+    /**
+      * Returns a [[LoaderFunc]] that makes use of the provided actor system.
+      *
+      * @param system the actor system
+      * @return the [[LoaderFunc]]
+      */
+    def apply(using system: ActorSystem): LoaderFunc
+  end Factory
+
   import de.oliver_heger.linedj.shared.actors.ActorFactory.given
 
   /**
-    * Returns a default [[LoaderFunc]] that loads a persistent playlist 
-    * according to the provided configuration.
-    *
-    * @param system the actor system
-    * @return the default [[LoaderFunc]]
+    * A [[Factory]] instance to create the default [[LoaderFunc]].
     */
-  def defaultLoaderFunc(using system: ActorSystem): LoaderFunc = config =>
-    if Files.exists(config.playlistPath) then
-      log.info("Trying to load the playlist from file '{}'.", config.playlistPath)
-      log.info("Trying to load position info from file '{}'.", config.positionPath)
-      val futPlaylist = loadPlaylistFile(config.playlistPath, config.maxFileSize)
-      val futPosition = loadPositionFile(config.positionPath, config.maxFileSize)
-      for
-        playlist <- futPlaylist
-        optPosition <- futPosition
-      yield
-        Some(applyPosition(playlist.reverse, optPosition.getOrElse(NoPosition)))
-    else
-      log.info("File '{}' does not exist. No playlist is loaded", config.playlistPath)
-      Future.successful(None)
+  final val default: Factory = new Factory:
+    override def apply(using system: ActorSystem): LoaderFunc = config =>
+      if Files.exists(config.playlistPath) then
+        log.info("Trying to load the playlist from file '{}'.", config.playlistPath)
+        log.info("Trying to load position info from file '{}'.", config.positionPath)
+        val futPlaylist = loadPlaylistFile(config.playlistPath, config.maxFileSize)
+        val futPosition = loadPositionFile(config.positionPath, config.maxFileSize)
+        for
+          playlist <- futPlaylist
+          optPosition <- futPosition
+        yield
+          Some(applyPosition(playlist.reverse, optPosition.getOrElse(NoPosition)))
+      else
+        log.info("File '{}' does not exist. No playlist is loaded", config.playlistPath)
+        Future.successful(None)
 
   /**
     * Starts a stream to load the file with playlist items at the provided 

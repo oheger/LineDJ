@@ -93,7 +93,7 @@ class PlaylistLoaderSpec(testSystem: ActorSystem) extends TestKit(testSystem), A
                            positionPath: Path,
                            maxSize: Int = DefaultMaxFileSize): Future[Option[AudioPlayerCommands]] =
     val config = PlaylistLoader.Config(itemsPath, positionPath, maxSize)
-    PlaylistLoader.defaultLoaderFunc(config)
+    PlaylistLoader.default(config)
 
   "PlaylistLoader" should "return None if the items file does not exist" in :
     val positionPath = writeFileContent(createPathInDirectory("irrelevant.pos"), "no position")

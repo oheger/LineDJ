@@ -228,7 +228,7 @@ class PlaylistWriteStateUpdateServiceSpec(testSystem: ActorSystem) extends TestK
     * @return the playlist obtained from the load function
     */
   private def saveAndLoadPlaylist(writeOperations: Iterable[PlaylistSaveService.WriteOperation]): AudioPlayerCommands =
-    val loadFunc = PlaylistLoader.defaultLoaderFunc
+    val loadFunc = PlaylistLoader.default
     val pathMapping = createTempFiles()
 
     given ExecutionContext = system.dispatcher
