@@ -79,7 +79,9 @@ object PlaylistSaveActor:
     * limited to stopping the instance. Since there may be some actions to be
     * performed on shutdown (saving data that has been updated, but not yet
     * persisted), this is an asynchronous operation. The handle therefore 
-    * provides a [[Future]] that completes when the operation is done.
+    * provides a [[Future]] that completes when the operation is done. The
+    * _close()_ function can be called multiple times; only the first
+    * invocation has an effect.
     */
   trait Handle extends AutoCloseable:
     /**
@@ -171,22 +173,35 @@ object PlaylistSaveActor:
   final val newInstance: Factory = new Factory:
     override def apply(params: Params)(using actorFactory: ActorFactory): Handle =
       val promiseShutdown = Promise[Done]()
-      val behavior = setupActor(params, promiseShutdown)
+      val promiseClose = Promise[Unit]()
+      val behavior = setupActor(params, promiseShutdown, promiseClose.future)
       val actor = actorFactory.createTypedActor(behavior, ActorName)
-      createHandle(actor, promiseShutdown)
+      createHandle(actor, promiseShutdown, promiseClose)
 
   /**
-    * Sets up the behavior for a new actor instance.
+    * Sets up the behavior for a new actor instance. The shutdown of an
+    * instance is tricky, since some unsaved data may have to be persisted
+    * first before the instance can actually stop itself. Also, consumers may
+    * trigger a shutdown multiple times. To deal with these requirements, the
+    * implementation uses promises:
+    *  - One promise indicates consumers that it is safe to shut down, since
+    *    all data has been saved now.
+    *  - Another promise is used to pass the shutdown request to the actor;
+    *    when it completes, the actor sends itself a _Stop_ command. This makes
+    *    it easy to react only on the first shutdown request.
     *
     * @param params          the parameters of the new actor instance
     * @param promiseShutdown the promise to control the shutdown future
+    * @param futureStop      the future to trigger the stop operation
     * @return the behavior of the new instance
     */
-  private def setupActor(params: Params, promiseShutdown: Promise[Done]): Behavior[Command] =
+  private def setupActor(params: Params, promiseShutdown: Promise[Done], futureStop: Future[Unit]): Behavior[Command] =
     Behaviors.setup: context =>
       given ExecutionContext = context.executionContext
 
       val registrationID = params.messageBus.registerListener(messageBusReceive(context.self))
+
+      futureStop.foreach(_ => context.self ! Command.Stop)
 
       /**
         * The main command handler function of this actor.
@@ -295,10 +310,14 @@ object PlaylistSaveActor:
     *
     * @param actor           the underlying actor
     * @param promiseShutdown the promise for the shutdown future
+    * @param promiseClose    the promise to trigger a close operation
     * @return the handle for this actor
     */
-  private def createHandle(actor: ActorRef[Command], promiseShutdown: Promise[Done]): Handle =
+  private def createHandle(actor: ActorRef[Command],
+                           promiseShutdown: Promise[Done],
+                           promiseClose: Promise[Unit]): Handle =
     new Handle:
       override def shutdownFuture: Future[Done] = promiseShutdown.future
 
-      override def close(): Unit = actor ! Command.Stop
+      override def close(): Unit =
+        promiseClose.trySuccess(())

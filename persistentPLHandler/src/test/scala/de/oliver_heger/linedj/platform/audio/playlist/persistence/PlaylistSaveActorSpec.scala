@@ -183,6 +183,18 @@ class PlaylistSaveActorSpec extends ScalaTestWithActorTestKit, AnyFlatSpecLike, 
     .closeHandle()
     .verifyMessageBusUnregistration()
 
+  it should "not produce dead letter messages when close on the handle is called multiple times" in :
+    val actions = NoActions.copy(closePossible = true)
+    val helper = new SaveActorTestHelper
+
+    helper.stub(actions, mock[PlaylistWriteStateUpdateService.PlaylistWriteState]): svc =>
+      svc.handleCloseRequest(helper.saveService, TestWriteConfig)
+    .closeHandle()
+
+    val deadLetterProbe = testKit.createDeadLetterProbe()
+    helper.closeHandle()
+    deadLetterProbe.expectNoMessage(200.millis)
+
   /**
     * A test helper class to manage an actor to test and its dependencies.
     */
