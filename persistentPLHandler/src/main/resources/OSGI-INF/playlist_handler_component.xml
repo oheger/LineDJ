@@ -21,11 +21,15 @@
   component.
 -->
 <component xmlns="http://www.osgi.org/xmlns/scr/v1.1.0"
-           name="lineDJ.PersistentPlaylistManager" immediate="true">
-  <implementation class="de.oliver_heger.linedj.playlist.persistence.PlaylistHandler" />
+           name="lineDJ.PersistentPlaylistHandlerComponent" immediate="true">
+  <implementation class="de.oliver_heger.linedj.platform.audio.playlist.persistence.PlaylistHandlerComponent" />
 
   <reference interface="de.oliver_heger.linedj.platform.app.ClientApplicationContext"
              name="clientContext" bind="initClientContext"/>
+  <reference interface="de.oliver_heger.linedj.platform.audio2.playlist.PlaylistService"
+             name="playlistService" bind="initPlaylistService"/>
+  <reference interface="de.oliver_heger.linedj.platform.audio2.playlist.MediaFileInfoResolverService"
+             name="resolverService" bind="initResolverService"/>
   <reference interface="de.oliver_heger.linedj.platform.comm.ServiceDependencies$ServiceDependency"
              name="playerController" target="(serviceName=lineDJ.audioPlayerController)"/>
 </component>
