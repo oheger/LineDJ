@@ -17,16 +17,14 @@
 package de.oliver_heger.linedj.platform.audio.playlist.persistence
 
 import de.oliver_heger.linedj.platform.audio2.AudioPlayerCommands
-import de.oliver_heger.linedj.platform.audio2.playlist.MediaFileInfoResolverService
+import de.oliver_heger.linedj.platform.audio2.playlist.{MediaFileInfoResolverService, Playlist}
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.shared.actors.{ActorFactory, BackoffActor}
 import org.apache.pekko.actor.typed.Behavior
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
 
 import scala.concurrent.{ExecutionContext, Promise}
-import scala.util.Failure
-import scala.util.Try
-import scala.util.Success
+import scala.util.{Failure, Success, Try}
 
 /**
   * An actor implementation that is responsible for loading an already existing
@@ -41,6 +39,9 @@ import scala.util.Success
   * connected media archive. This is done periodically with the help of a 
   * [[BackoffActor]] until all files could be resolved. Then the playlist is
   * activated by publishing a corresponding command on the system message bus.
+  * If no playlist could be loaded (e.g. if no file could be found at the
+  * configured path or the file could not be read), the actor publishes an
+  * empty playlist.
   */
 object PlaylistLoaderActor:
   /** The name of the actor instance. */
@@ -196,7 +197,12 @@ object PlaylistLoaderActor:
       def handleCommand(optBackoffHandle: Option[BackoffActor.BackoffHandle]): Behavior[LoaderCommand] =
         Behaviors.receiveMessage:
           case LoaderCommand.LoaderFuncResult(result) =>
-            handleCommand(handleLoadFunctionResult(result))
+            val optHandle = handleLoadFunctionResult(result)
+            if optHandle.isEmpty then
+              context.log.info("No playlist information could be loaded. Setting an empty playlist.")
+              params.messageBus.publish(AudioPlayerCommands.SetPlaylist(Playlist(Nil, Nil), closePlaylist = false))
+            handleCommand(optHandle)
+
           case LoaderCommand.Stop =>
             optBackoffHandle.foreach(_.close())
             Behaviors.stopped

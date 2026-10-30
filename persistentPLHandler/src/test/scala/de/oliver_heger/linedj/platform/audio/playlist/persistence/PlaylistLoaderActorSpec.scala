@@ -121,7 +121,7 @@ class PlaylistLoaderActorSpec extends ScalaTestWithActorTestKit, AsyncFlatSpecLi
     val helper = new LoaderActorTestHelper
 
     helper.setLoadPlaylistResult(None)
-      .expectNoPlaylistPublished()
+      .expectEmptyPlaylistPublished()
       .expectNoBackoffActorCreation()
     succeed
 
@@ -129,7 +129,7 @@ class PlaylistLoaderActorSpec extends ScalaTestWithActorTestKit, AsyncFlatSpecLi
     val helper = new LoaderActorTestHelper
 
     helper.setLoadPlaylistFailure()
-      .expectNoPlaylistPublished()
+      .expectEmptyPlaylistPublished()
       .expectNoBackoffActorCreation()
     succeed
 
@@ -137,7 +137,7 @@ class PlaylistLoaderActorSpec extends ScalaTestWithActorTestKit, AsyncFlatSpecLi
     val helper = new LoaderActorTestHelper
 
     helper.setLoadPlaylistResult(Some(AudioPlayerCommands.StartAudioPlayback))
-      .expectNoPlaylistPublished()
+      .expectEmptyPlaylistPublished()
       .expectNoBackoffActorCreation()
     succeed
 
@@ -250,13 +250,14 @@ class PlaylistLoaderActorSpec extends ScalaTestWithActorTestKit, AsyncFlatSpecLi
       this
 
     /**
-      * Expects that a command to set the test playlist was published on the 
-      * system message bus.
+      * Expects that a command to set a playlist was published on the system
+      * message bus.
       *
+      * @param expectedPlaylist the expected playlist
       * @return this test helper
       */
-    def expectPlaylistPublished(): LoaderActorTestHelper =
-      messageBus.expectMessageType[AudioPlayerCommands] should be(SetPlaylistCommand)
+    def expectPlaylistPublished(expectedPlaylist: AudioPlayerCommands = SetPlaylistCommand): LoaderActorTestHelper =
+      messageBus.expectMessageType[AudioPlayerCommands] should be(expectedPlaylist)
       this
 
     /**
@@ -268,6 +269,17 @@ class PlaylistLoaderActorSpec extends ScalaTestWithActorTestKit, AsyncFlatSpecLi
     def expectNoPlaylistPublished(): LoaderActorTestHelper =
       messageBus.expectNoMessage(100.millis)
       this
+
+    /**
+      * Expects that a command to set an empty playlist was published on the
+      * system message bus. Such a command needs to be sent when no playlist
+      * could be loaded for whatever reason.
+      *
+      * @return this test helper
+      */
+    def expectEmptyPlaylistPublished(): LoaderActorTestHelper =
+      val emptyPlaylist = AudioPlayerCommands.SetPlaylist(Playlist(Nil, Nil), closePlaylist = false)
+      expectPlaylistPublished(emptyPlaylist)
 
     /**
       * Verifies that the handle to the backoff actor was closed.
