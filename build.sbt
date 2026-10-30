@@ -220,6 +220,7 @@ lazy val LineDJ = (project in file("."))
   archiveUnion,
   audioPlatform,
   audioPlatformNew,
+  audioPlayer,
   audioPlayerShell,
   audioPlayerUI,
   cloudAccess,
@@ -1233,6 +1234,30 @@ lazy val audioPlayerUI = (project in file("audioPlayerUI"))
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
   ).dependsOn(platform % "compile->compile;test->test", audioPlatform)
+
+/**
+  * Project for the new audio player UI. This project implements a UI for an
+  * audio player.
+  */
+lazy val audioPlayer = (project in file("apps/audioPlayer"))
+  .enablePlugins(SbtOsgi)
+  .settings(defaultSettings)
+  .settings(OSGi.osgiSettings)
+  .settings(
+    name := "linedj-audio-player",
+    libraryDependencies ++= jguiraffeDependencies,
+    libraryDependencies ++= osgiDependencies,
+    OsgiKeys.privatePackage := Seq(
+      "de.oliver_heger.linedj.apps.player.*"
+    ),
+    OsgiKeys.importPackage := Seq(
+      "de.oliver_heger.linedj.platform.bus",
+      OSGi.ScalaImport,
+      "*"
+    ),
+    OsgiKeys.additionalHeaders :=
+      Map("Service-Component" -> "OSGI-INF/*.xml")
+  ).dependsOn(platform % "compile->compile;test->test", audioPlatformNew)
 
 /**
   * A project that implements a simple audio player that can be controlled via
