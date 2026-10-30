@@ -11,11 +11,7 @@ information about a playlist is available on disk in configurable paths. If so,
 the files are loaded, a playlist is generated, and it is passed to the
 link:../audioPlatform/[Audio Platform] in order to activate it.
 
-Before the playlist is activated, it is checked whether all media it references
-are available. The module also receives notifications about changes in the 
-state of available media. Thus, it can delay the activation of the playlist
-until all songs to be played can actually be accessed. This is useful if 
-link:../mediaArchive/[Media archives] are involved that are added dynamically.
+Before the playlist is activated, it is checked whether all media it references are available. This is done periodically with a configurable backoff until all media files in the playlist could be resolved. This makes sure that no attempt to start playback is made until a media archive is connected and initialized that hosts the desired songs.
 
 After setting the playlist, the module remains active and listens for change
 notifications for the audio player state and its playlist. Relevant changes are
@@ -32,30 +28,17 @@ The data managed by this module is stored in two (JSON) files:
   played. It consists of references to songs that can be downloaded from a
   media archive.
 * The other file stores information about the current position in the playlist.
-  This consists of the song that is currently played, the offset into the
-  binary media file, and the elapsed playback time. With this information,
-  playback can start at the very position where it has been interrupted, even
-  if in the middle of a song.
+  This contains the ID of the song that is currently played, the offset into the binary media file, and the elapsed playback time. With this information, playback can start at the very position where it has been interrupted, even in the middle of a song.
 
-If no playlist file is found when the component starts up, it assumes that no
-current playlist is available and does not take any actions to set a playlist.
-(However, it stays active to monitor further changes on the playlist that may
-have to be persisted.)
+If no playlist file is found when the component starts up, it assumes that no current playlist is available and does not take any actions to set a playlist. (However, it stays active to monitor further changes on the playlist that may have to be persisted.)
 
-If no position file is found, playback will start with the first song
-referenced in the playlist.
+If no position file is found, playback will start with the first song referenced in the playlist.
 
-Note that the same assumptions are taken if files with playlist information
-cannot be loaded or contain invalid or corrupt data.
+Note that the same assumptions are taken if files with playlist information cannot be loaded or contain invalid or corrupt data.
   
 == Configuration
 
-The configuration of the playlist handler module is read from the management
-configuration of the hosting application (a file typically named
-`lineDJ-XXX-management.xml`, where _XXX_ is the name of the application; the
-file is located in the current user's home directory). The options are expected
-in a section named _audio.playlist.persistence_. The following fragment shows
-an example configuration:
+The configuration of the playlist handler module is read from the management configuration of the hosting application (a file typically named `lineDJ-XXX-management.xml`, where _XXX_ is the name of the application; the file is located in the current user's home directory). The options are expected in a section named _audio.playlist.persistence_. The following fragment shows an example configuration:
 
 [source,xml]
 ----
@@ -64,9 +47,14 @@ an example configuration:
     <persistence>
       <path>${sys:user.home}/.lineDJ/playlist.json</path>
       <pathPosition>${sys:user.home}/.lineDJ/position.json</pathPosition>
-      <autoSave>90</autoSave>
+      <autoSave>90s</autoSave>
       <maxFileSize>262144</maxFileSize>
-      <shutdownTimeout>8000</shutdownTimeout>
+      <shutdownTimeout>8s</shutdownTimeout>
+      <availabilityCheck>
+        <minBackoff>500ms</minBackoff>
+        <maxBackoff>90s</maxBackoff>
+        <factor>1.5</factor>
+      </availabilityCheck>
     </persistence>
   </playlist>
 </audio>
@@ -78,28 +66,38 @@ The properties have the following meaning:
 [cols="1,1,2",options="header"]
 |====
 | Setting | Type | Description
-| path | String | Defines the path of the file with playlist information. Note
-that variables can be used to reference a file in the current user's home
-directory.
-| pathPosition | String | Like _path_, but defines the path to the file with
-position information.
-| autoSave | Int | A time interval (in seconds) that determines when updates of
-the playback position are to be written to disk. The position file is written
-per default every time playback of a song finishes. By defining this property
-it is possible to write an update during playback of a song when a specific
-amount of playback time has elapsed. This makes sure that playback can start
-again after a restart at a position close to the most recent one, even if the
-application crashes. (During a normal shutdown, this information is persisted;
-so this property only relates to an unexpected termination of the application.)
-| maxFileSize | Long | The files with playlist information are read into
-memory. With this property a maximum file size (in bytes) can be specified to
-avoid _OutOfMemory_ exceptions if the files are unexpectedly large.
-| shutdownTimeout | Long | When the playlist handler module is deactivated it
-has to flush any updates regarding the playlist position to disk. This is done
-in an asynchronous operation. With this property a maximum duration of this
-operation (in milliseconds) can be specified. If the save operation takes
-longer, the component stops anyway to avoid blocking the shutdown operation of
-the hosting application in an unbounded manner.
+
+| path
+| String
+| Defines the path of the file with playlist information. Note that variables can be used to reference a file in the current user's home directory.
+
+| pathPosition
+| String
+| Like _path_, but defines the path to the file with position information.
+
+| autoSave
+| Int with Unit
+| A time interval that determines when updates of the playback position are to be written to disk. The position file is written per default every time playback of a song finishes. By defining this property it is possible to write an update during playback of a song when a specific amount of playback time has elapsed. This makes sure that playback can start again after a restart at a position close to the most recent one, even if the application crashes. (During a normal shutdown, this information is persisted; so this property only relates to an unexpected termination of the application.)
+
+| maxFileSize
+| Long
+| The files with playlist information are read into memory. With this property a maximum file size (in bytes) can be specified to avoid _OutOfMemory_ exceptions if the files are unexpectedly large.
+
+| shutdownTimeout
+| Int with unit
+| When the playlist handler module is deactivated it has to flush any updates regarding the playlist position to disk. This is done in an asynchronous operation. With this property a maximum duration of this operation can be specified. If the save operation takes longer, the component stops anyway to avoid blocking the shutdown operation of the hosting application in an unbounded manner.
+
+| availabilityCheck / minBackoff
+| Int with Unit
+| On startup, after successfully loading a playlist, the module checks whether all referenced songs are available in the connected media archive. If this is not the case, the check is repeated with incremental backoff. A number of properties define the timing of this check. _minBackoff_ defines the initial delay before a failed availability check is retried.
+
+| availabilityCheck / maxBackoff
+| Int with Unit
+| This property defines the maximum delay between two availability checks.
+
+| availabilityCheck / factor
+| Double
+| The factor by which the delay between two availability checks is incremented.
 |====
 
 The settings for the file paths are mandatory. The other configuration settings 
