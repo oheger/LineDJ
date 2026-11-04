@@ -16,100 +16,19 @@
 
 package de.oliver_heger.linedj.apps.player
 
-import de.oliver_heger.linedj.archive.server.model.ArchiveModel
-import de.oliver_heger.linedj.platform.audio2.AudioPlayerState
-import de.oliver_heger.linedj.platform.audio2.impl.PlaylistServiceImpl
 import de.oliver_heger.linedj.platform.audio2.playlist.PlaylistService
-import de.oliver_heger.linedj.shared.archive.media.MediaFileUri
-import de.oliver_heger.linedj.shared.archive.metadata.{Checksums, MediaMetadata}
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import scala.util.{Failure, Success}
 
-object AudioPlayerUIStateSpec:
-  /** A test medium ID. */
-  private val TestMedium = Checksums.MediumChecksum("test-medium-id")
-
-  /**
-    * Generates an ID for a test file based on the given index.
-    *
-    * @param idx the index
-    * @return the ID for this test file
-    */
-  private def fileID(idx: Int): String = "testFile_" + idx + "01234567890abcdef9876543210"
-
-  /**
-    * Generates a test song data object based on the given index.
-    *
-    * @param idx the index
-    * @return the test song with this index
-    */
-  private def songData(idx: Int): SongData =
-    val fileInfo = ArchiveModel.MediaFileInfo(
-      fileUri = MediaFileUri("testFileUri" + idx),
-      mediumID = TestMedium,
-      metadata = MediaMetadata.UndefinedMediaData.copy(title = Some("Title" + idx), checksum = fileID(idx))
-    )
-    SongData(fileInfo)
-
-  /**
-    * Generates a [[SongData]] object which does not contain metadata.
-    *
-    * @param idx the index of the test song
-    * @return the undefined [[SongData]] object with this index
-    */
-  private def undefinedSongData(idx: Int): SongData =
-    val fid = fileID(idx)
-    val fileInfo = ArchiveModel.MediaFileInfo(
-      fileUri = MediaFileUri(fid),
-      mediumID = Checksums.MediumChecksum(""),
-      metadata = MediaMetadata.UndefinedMediaData.copy(
-        checksum = fid,
-        title = Some(fid.take(AudioPlayerUIState.UndefinedSongDataTitleLength))
-      )
-    )
-    SongData(fileInfo)
-
-  /**
-    * Generates a list of test [[SongData]] objects within the given range.
-    *
-    * @param from      the start index
-    * @param to        the end index (including)
-    * @param generator the generator function
-    * @return the resulting list with test songs
-    */
-  private def songDataList(from: Int, to: Int)(generator: Int => SongData = songData): List[SongData] =
-    (from to to).map(generator).toList
-
-  /**
-    * Returns a list with the IDs of the given songs.
-    *
-    * @param songs a list with songs
-    * @return a list with the IDs of these songs
-    */
-  private def extractIDs(songs: List[SongData]): List[String] = songs.map(_.fileInfo.metadata.checksum)
-
-  /**
-    * Returns a map for the result of a resolve operation that contains the
-    * provided songs.
-    *
-    * @param songs the list of songs
-    * @return the resolve result containing these songs
-    */
-  private def resolveResult(songs: List[SongData]): Map[String, ArchiveModel.MediaFileInfo] =
-    songs.map: songData =>
-      songData.fileInfo.metadata.checksum -> songData.fileInfo
-    .toMap
-end AudioPlayerUIStateSpec
-
 /**
   * Test class for [[AudioPlayerUIState]].
   */
 class AudioPlayerUIStateSpec extends AnyFlatSpec, Matchers, OptionValues:
 
-  import AudioPlayerUIStateSpec.*
+  import PlaylistTestHelper.*
 
   "The initial UI state" should "have correct properties" in :
     AudioPlayerUIState.Initial.playlist shouldBe empty
@@ -119,24 +38,6 @@ class AudioPlayerUIStateSpec extends AnyFlatSpec, Matchers, OptionValues:
     AudioPlayerUIState.Initial.idsToResolve shouldBe empty
     AudioPlayerUIState.Initial.pendingResolveCnt should be(0)
 
-  /**
-    * Creates an [[AudioPlayerState]] object from the provided parameters,
-    * setting irrelevant properties to default values.
-    *
-    * @param songs        the list with song IDs
-    * @param currentIndex the index of the current song
-    * @param seqNo        the sequence number of the playlist
-    * @return the corresponding [[AudioPlayerState]]
-    */
-  private def createPlayerState(songs: List[String], currentIndex: Int, seqNo: Int): AudioPlayerState =
-    AudioPlayerState(
-      playlist = PlaylistServiceImpl.toPlaylist(songs, currentIndex).value,
-      playlistSeqNo = seqNo,
-      playbackActive = false,
-      playlistClosed = false,
-      playlistActivated = false
-    )
-
   "An AudioPlayerUIState" should "update itself for a new playlist" in :
     val songs = songDataList(1, 3)(undefinedSongData)
     val songIDs = extractIDs(songs)
@@ -144,7 +45,7 @@ class AudioPlayerUIStateSpec extends AnyFlatSpec, Matchers, OptionValues:
     val SeqNo = 28
     val playerState = createPlayerState(songIDs, CurrentIndex, SeqNo)
 
-    val uiState = AudioPlayerUIState.Initial.playerStateChanged(playerState, PlaylistServiceImpl)
+    val uiState = updateUiState(playerState)
 
     uiState.playlist should contain theSameElementsInOrderAs songs
     uiState.playlistSeqNo should be(SeqNo)
@@ -161,8 +62,8 @@ class AudioPlayerUIStateSpec extends AnyFlatSpec, Matchers, OptionValues:
     val playerState1 = createPlayerState(songIDs, 1, SeqNo)
     val playerState2 = createPlayerState(songIDs, CurrentIndex, SeqNo)
 
-    val uiState1 = AudioPlayerUIState.Initial.playerStateChanged(playerState1, PlaylistServiceImpl)
-    val uiState = uiState1.playerStateChanged(playerState2, PlaylistServiceImpl)
+    val uiState1 = updateUiState(playerState1)
+    val uiState = updateUiState(playerState2, uiState1)
 
     uiState.playlist should be(uiState1.playlist)
     uiState.idsToResolve should be(uiState1.idsToResolve)
@@ -177,8 +78,8 @@ class AudioPlayerUIStateSpec extends AnyFlatSpec, Matchers, OptionValues:
     val playerState1 = createPlayerState(songIDs, 1, 30)
     val playerState2 = playerState1.copy(playlistClosed = true)
 
-    val uiState1 = AudioPlayerUIState.Initial.playerStateChanged(playerState1, PlaylistServiceImpl)
-    val uiState = uiState1.playerStateChanged(playerState2, PlaylistServiceImpl)
+    val uiState1 = updateUiState(playerState1)
+    val uiState = updateUiState(playerState2, uiState1)
 
     uiState shouldBe theSameInstanceAs(uiState1)
 
@@ -187,7 +88,7 @@ class AudioPlayerUIStateSpec extends AnyFlatSpec, Matchers, OptionValues:
     val songIds = extractIDs(songs)
     val playerState = createPlayerState(songIds, 0, 31)
 
-    val uiState1 = AudioPlayerUIState.Initial.playerStateChanged(playerState, PlaylistServiceImpl)
+    val uiState1 = updateUiState(playerState)
     val uiState = uiState1.fileInfoResolved(Failure(new IllegalStateException("Test exception: Resolve failed.")))
 
     uiState.playlist should be(uiState1.playlist)
@@ -205,7 +106,7 @@ class AudioPlayerUIStateSpec extends AnyFlatSpec, Matchers, OptionValues:
     val expectedSongs = songs.head :: resolvedSongs.slice(1, 10)
     val playerState = createPlayerState(songIDs, CurrentIndex, 32)
 
-    val uiState1 = AudioPlayerUIState.Initial.playerStateChanged(playerState, PlaylistServiceImpl)
+    val uiState1 = updateUiState(playerState)
     val uiState = uiState1.fileInfoResolved(Success(resolveResult(resolvedSongs.drop(1))))
 
     uiState.optCurrentIndex should be(uiState1.optCurrentIndex)
@@ -221,8 +122,8 @@ class AudioPlayerUIStateSpec extends AnyFlatSpec, Matchers, OptionValues:
     val playerState1 = createPlayerState(extractIDs(songs1), 0, 33)
     val playerState2 = createPlayerState(extractIDs(songs2), 1, 34)
 
-    val uiState1 = AudioPlayerUIState.Initial.playerStateChanged(playerState1, PlaylistServiceImpl)
-    val uiState2 = uiState1.playerStateChanged(playerState2, PlaylistServiceImpl)
+    val uiState1 = updateUiState(playerState1)
+    val uiState2 = updateUiState(playerState2, uiState1)
 
     uiState2.pendingResolveCnt should be(2)
     uiState2.idsToResolve should contain theSameElementsAs extractIDs(songs2)
