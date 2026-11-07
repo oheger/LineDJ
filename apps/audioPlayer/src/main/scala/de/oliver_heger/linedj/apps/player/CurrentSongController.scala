@@ -20,6 +20,8 @@ import de.oliver_heger.linedj.archive.server.model.ArchiveModel
 import de.oliver_heger.linedj.platform.audio2.PlaybackProgress
 import de.oliver_heger.linedj.platform.ui.TextTimeFunctions.TextTimeFunc
 import de.oliver_heger.linedj.platform.ui.{DurationTransformer, TextTimeFunctions}
+import de.oliver_heger.linedj.shared.archive.media.MediaFileUri
+import de.oliver_heger.linedj.shared.archive.metadata.{Checksums, MediaMetadata}
 import net.sf.jguiraffe.gui.builder.components.model.{ProgressBarHandler, StaticTextHandler, TableHandler}
 
 object CurrentSongController:
@@ -28,6 +30,18 @@ object CurrentSongController:
 
   /** Constant for an unknown duration. */
   private val UnknownDuration = "?"
+
+  /**
+    * Constant for a song data object with all properties undefined. This is
+    * used to populate UI fields if no current song is available.
+    */
+  private val UndefinedSong = SongData(
+    ArchiveModel.MediaFileInfo(
+      fileUri = MediaFileUri(""),
+      mediumID = Checksums.MediumChecksum(""),
+      metadata = MediaMetadata(size = 0, checksum = "")
+    )
+  )
 
   /**
     * A function to calculate a single value to be assigned to a field in the
@@ -60,23 +74,30 @@ object CurrentSongController:
     * Internally used data class with all information about the current song in
     * the playlist.
     *
-    * @param index        the index in the playlist
+    * @param optIndex     the index in the playlist if available
     * @param playlistSize the size of the playlist
-    * @param song         information about the current song
+    * @param optSong      information about the current song if available
     * @param sDuration    the formatted duration
     */
-  private case class CurrentSongData(index: Int, 
-                                     playlistSize: Int, 
-                                     song: SongData,
-                                     sDuration: String)
-  
-  extension(opt: Option[String])
+  private case class CurrentSongData(optIndex: Option[Int],
+                                     playlistSize: Int,
+                                     optSong: Option[SongData],
+                                     sDuration: String):
     /**
-      * Returns the value of this string [[Option]] or an empty string if it is
-      * undefined.
-      * @return a string for this [[Option]]
+      * Returns the index of the current song or a negative value if there is
+      * none.
+      *
+      * @return the index of the current song
       */
-    private def orEmpty: String = opt.getOrElse(Empty)
+    def index: Int = optIndex.map(_ + 1).getOrElse(-1)
+
+    /**
+      * Returns a data object for the current song. If there is none, a special
+      * object with only undefined properties is returned.
+      *
+      * @return a data object for the current song
+      */
+    def song: SongData = optSong.getOrElse(UndefinedSong)
 end CurrentSongController
 
 /**
@@ -108,13 +129,13 @@ end CurrentSongController
   * @param txtYear         text control for the year
   * @param progressHandler the playback progress bar
   */
-class CurrentSongController(tableHandler: TableHandler, 
+class CurrentSongController(tableHandler: TableHandler,
                             config: AudioPlayerConfig,
-                            txtTitle: StaticTextHandler, 
+                            txtTitle: StaticTextHandler,
                             txtArtist: StaticTextHandler,
                             txtAlbum: StaticTextHandler,
                             txtTime: StaticTextHandler,
-                            txtIndex: StaticTextHandler, 
+                            txtIndex: StaticTextHandler,
                             txtYear: StaticTextHandler,
                             progressHandler: ProgressBarHandler):
 
@@ -135,26 +156,27 @@ class CurrentSongController(tableHandler: TableHandler,
     * Stores the latest current song. This is used to find out whether there is
     * a change that needs to be reflected in the UI.
     */
-  private var currentSong: Option[CurrentSongData] = None
+  private var currentSong = CurrentSongData(
+    optIndex = None,
+    optSong = None,
+    playlistSize = 0,
+    sDuration = ""
+  )
 
   /**
-    * Notifies this controller that there was a change in the state of the
-    * playlist. If necessary, the UI controls in the details panel are
-    * updated.
-    */
-  def playlistStateChanged(): Unit =
-    handlePlaylistChange(fetchCurrentSong())
-
-  /**
-    * Notifies this controller that there was a change in the data of the
-    * playlist. (Probably new metadata arrived.) If the current song is
-    * affected, the UI has to be updated.
+    * Notifies this object about a change in the state of the audio player.
+    * If necessary, the labels for the current song are updated.
     *
-    * @param current an ''Option'' with the index of the current song in the
-    *                playlist
+    * @param state the updated state
     */
-  def playlistDataChanged(current: Option[Int]): Unit =
-    handlePlaylistChange(current map (c => createCurrentSongData(c)))
+  def handleStateUpdate(state: AudioPlayerUIState): Unit =
+    if updateRequired(state) then
+      val nextCurrentSong = createCurrentSongData(state)
+      if nextCurrentSong.optSong.isDefined then
+        updateUIUForCurrentSong(nextCurrentSong)
+      else
+        clearAllFields()
+      currentSong = nextCurrentSong
 
   /**
     * Notifies this controller about progress in the playback of the current
@@ -168,27 +190,12 @@ class CurrentSongController(tableHandler: TableHandler,
     calcPlaybackProgress(progress) foreach updateProgress
 
   /**
-    * Handles a change of the playlist. If the change affects the current song,
-    * the UI is updated accordingly.
-    *
-    * @param optData an [[Option]] with information about the current song
-    */
-  private def handlePlaylistChange(optData: Option[CurrentSongData]): Unit =
-    if optData != currentSong then
-      optData match
-        case Some(data) =>
-          updateDataForCurrentSong(data)
-        case None =>
-          clearAllFields()
-      currentSong = optData
-
-  /**
     * Updates the UI and some internal fields after a change of the current
     * song in the playlist.
     *
     * @param data data about the new current song
     */
-  private def updateDataForCurrentSong(data: CurrentSongData): Unit =
+  private def updateUIUForCurrentSong(data: CurrentSongData): Unit =
     val values = fieldValues(playlistUpdateFunctions, data)
     values foreach (e => e._1 setText e._2)
     updateProgress(0)
@@ -208,7 +215,7 @@ class CurrentSongController(tableHandler: TableHandler,
   private def createTimeUpdateFunctions(data: CurrentSongData, maxLen: Int, speed: Double,
                                         texts: Map[StaticTextHandler, String]): Map[StaticTextHandler, TextTimeFunc] =
     val rotates = texts.filter(e => e._2.length >= maxLen)
-      .foldLeft(Map.empty[StaticTextHandler, TextTimeFunc]) : (m, e) =>
+      .foldLeft(Map.empty[StaticTextHandler, TextTimeFunc]): (m, e) =>
         m + (e._1 -> TextTimeFunctions.rotateText(e._2, maxLen, scale = speed))
     rotates + (txtTime -> TextTimeFunctions.withSuffix(" / " + data.sDuration)(TextTimeFunctions.formattedTime()))
 
@@ -229,8 +236,8 @@ class CurrentSongController(tableHandler: TableHandler,
     * @return an [[Option]] with the playback progress
     */
   private def calcPlaybackProgress(progress: PlaybackProgress): Option[Int] = for
-    s <- currentSong
-    d <- s.song.fileInfo.metadata.duration
+    s <- currentSong.optSong
+    d <- s.fileInfo.metadata.duration
   yield scala.math.round(100 * progress.playbackTime.toMillis.toFloat / d)
 
   /**
@@ -242,31 +249,28 @@ class CurrentSongController(tableHandler: TableHandler,
     progressHandler.setValue(v)
 
   /**
-    * Returns an [[Option]] with information about the current song. The
-    * information is obtained from the table handler, based on its current
-    * selection. If there is no selection, result is _None_.
+    * Checks whether the given state has changed in a way that requires an
+    * update of the UI.
     *
-    * @return an [[Option]] with data about the current song
+    * @param state the updated state
+    * @return a flag whether the UI needs to be updated
     */
-  private def fetchCurrentSong(): Option[CurrentSongData] =
-    val index = tableHandler.getSelectedIndex
-    if index < 0 then None
-    else Some(createCurrentSongData(index))
+  private def updateRequired(state: AudioPlayerUIState): Boolean =
+    state.optCurrentSong != currentSong.optSong || state.optCurrentIndex != currentSong.optIndex ||
+      state.playlist.size != currentSong.playlistSize
 
   /**
-    * Creates a [[CurrentSongData]] object from the given position in the 
-    * playlist.
+    * Creates a [[CurrentSongData]] object from the given state object.
     *
-    * @param index the index in the playlist
+    * @param state the current state of the player UID
     * @return the [[CurrentSongData]]
     */
-  private def createCurrentSongData(index: Int): CurrentSongData =
-    val songData = tableHandler.getModel.get(index).asInstanceOf[SongData]
+  private def createCurrentSongData(state: AudioPlayerUIState): CurrentSongData =
     CurrentSongData(
-      index + 1,
-      tableHandler.getModel.size(),
-      songData,
-      extractDuration(songData.fileInfo)
+      optIndex = state.optCurrentIndex,
+      optSong = state.optCurrentSong,
+      playlistSize = state.playlist.size,
+      sDuration = extractDuration(state.optCurrentSong)
     )
 
   /**
@@ -276,8 +280,9 @@ class CurrentSongController(tableHandler: TableHandler,
     * @param songData the current song
     * @return the formatted duration
     */
-  private def extractDuration(songData: ArchiveModel.MediaFileInfo): String =
-    songData.metadata.duration.map(d => DurationTransformer.formatDuration(d))
+  private def extractDuration(songData: Option[SongData]): String =
+    songData.flatMap(_.fileInfo.metadata.duration)
+      .map(d => DurationTransformer.formatDuration(d))
       .getOrElse(UnknownDuration)
 
   /**

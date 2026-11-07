@@ -88,6 +88,38 @@ object CurrentSongControllerSpec:
     metadata = MediaMetadata.UndefinedMediaData
   )
 
+  /** A state object that references the test song. */
+  private val StateWithDefinedSong = createUiState(Some(TestSongData))
+
+  /**
+    * Creates an [[AudioPlayerUIState]] object that references the provided
+    * current song and has dummy values for other fields.
+    *
+    * @param optCurrent the optional current song
+    * @return the UI state object
+    */
+  private def createUiState(optCurrent: Option[SongData]): AudioPlayerUIState =
+    AudioPlayerUIState(
+      playlist = PlaylistTestHelper.songDataList(1, PlaylistSize)(),
+      playlistSeqNo = 0,
+      optCurrentIndex = Some(Index),
+      idsToResolve = Nil,
+      pendingResolveCnt = 0,
+      optCurrentSong = optCurrent
+    )
+
+  /**
+    * Allows changing the metadata of the defined test song using a specified
+    * modification function.
+    *
+    * @param fMeta a function to update the metadata
+    * @return this test helper
+    */
+  private def updateCurrentMetaData(fMeta: MediaMetadata => MediaMetadata): AudioPlayerUIState =
+    val updatedFileInfo = TestSongData.fileInfo.copy(metadata = fMeta(TestSongData.fileInfo.metadata))
+    val newSongData = SongData(updatedFileInfo)
+    createUiState(Some(newSongData))
+
   /**
     * Creates a configuration object for the UI application. Some properties
     * relevant for the class under test can be set.
@@ -120,76 +152,79 @@ class CurrentSongControllerSpec extends AnyFlatSpec, Matchers, MockitoSugar:
 
   import CurrentSongControllerSpec.*
 
-  "A CurrentSongController" should "init the title field" in:
+  "A CurrentSongController" should "init the title field" in :
     val helper = new ControllerTestHelper
 
-    helper.triggerPlaylistChanged()
+    helper.triggerStateChange(StateWithDefinedSong)
       .verifyTitle()
 
-  it should "init the artist field" in:
+  it should "init the artist field" in :
     val helper = new ControllerTestHelper
 
-    helper.triggerPlaylistChanged()
+    helper.triggerStateChange(StateWithDefinedSong)
       .verifyArtist()
 
-  it should "init the index field" in:
+  it should "init the index field" in :
     val helper = new ControllerTestHelper
 
-    helper.triggerPlaylistChanged()
+    helper.triggerStateChange(StateWithDefinedSong)
       .verifyIndex(s"${Index + 1} / $PlaylistSize")
 
-  it should "init the album field" in:
+  it should "init the album field" in :
     val helper = new ControllerTestHelper
 
-    helper.triggerPlaylistChanged()
+    helper.triggerStateChange(StateWithDefinedSong)
       .verifyAlbum(s"$Album ($Track)")
 
-  it should "init the year field" in:
+  it should "init the year field" in :
     val helper = new ControllerTestHelper
 
-    helper.triggerPlaylistChanged()
+    helper.triggerStateChange(StateWithDefinedSong)
       .verifyYear(Year.toString)
 
-  it should "init the time field" in:
+  it should "init the time field" in :
     val helper = new ControllerTestHelper
 
-    helper.triggerPlaylistChanged()
+    helper.triggerStateChange(StateWithDefinedSong)
       .verifyDuration(s"0:00 / $DurationFmt")
 
-  it should "init the album field if there is no track number" in:
+  it should "init the album field if there is no track number" in :
+    val state = updateCurrentMetaData(_.copy(trackNumber = None))
     val helper = new ControllerTestHelper
 
-    helper.updateCurrentMetaData(_.copy(trackNumber = None))
-      .triggerPlaylistChanged()
+    helper.triggerStateChange(state)
       .verifyAlbum(Album + " (-)")
 
-  it should "init the time field if there is no duration" in:
+  it should "init the time field if there is no duration" in :
+    val state = updateCurrentMetaData(_.copy(duration = None))
     val helper = new ControllerTestHelper
 
-    helper.updateCurrentMetaData(_.copy(duration = None))
-      .triggerPlaylistChanged()
+    helper.triggerStateChange(state)
       .verifyDuration("0:00 / ?")
 
-  it should "init the year field if there is no year in metadata" in:
+  it should "init the year field if there is no year in metadata" in :
+    val state = updateCurrentMetaData(_.copy(inceptionYear = None))
     val helper = new ControllerTestHelper
 
-    helper.updateCurrentMetaData(_.copy(inceptionYear = None))
-      .triggerPlaylistChanged()
+    helper.triggerStateChange(state)
       .verifyYear("-")
 
-  it should "update fields only if there is a change in the current song" in:
+  it should "update fields only if there is a change in the current song" in :
+    val nextState = StateWithDefinedSong.copy(
+      playlistSeqNo = 17,
+      idsToResolve = List("some-song"),
+      pendingResolveCnt = 2
+    )
     val helper = new ControllerTestHelper
 
-    helper.triggerPlaylistChanged()
-      .triggerPlaylistChanged()
-      .verifyTitle()
+    helper.triggerStateChange(StateWithDefinedSong)
+      .triggerStateChange(nextState)
+      .verifyTitle() // Only one update.
 
-  it should "clear all fields if there is no current song" in:
+  it should "clear all fields if there is no current song" in :
     val helper = new ControllerTestHelper
 
-    helper.triggerPlaylistChanged()
-      .clearTableSelection()
-      .triggerPlaylistChanged()
+    helper.triggerStateChange(createUiState(None))
       .verifyTitle("")
       .verifyArtist("")
       .verifyAlbum("")
@@ -197,103 +232,90 @@ class CurrentSongControllerSpec extends AnyFlatSpec, Matchers, MockitoSugar:
       .verifyYear("")
       .verifyIndex("")
 
-  it should "update the current song on a playlist data change" in:
+  it should "update properties if there is a change in the current index" in :
+    val nextState = StateWithDefinedSong.copy(optCurrentIndex = Some(Index + 1))
     val helper = new ControllerTestHelper
 
-    helper.triggerPlaylistDataChanged(Some(Index))
-      .verifyTitle()
-      .verifyIndex(s"${Index + 1} / $PlaylistSize")
+    helper.triggerStateChange(StateWithDefinedSong)
+      .triggerStateChange(nextState)
+      .verifyIndex(s"${Index + 2} / $PlaylistSize")
 
-  it should "update the current song on a playlist data change only if needed" in:
+  it should "update properties if there is a change in the playlist" in :
+    val nextState = StateWithDefinedSong.copy(playlist = PlaylistTestHelper.songDataList(1, PlaylistSize + 1)())
     val helper = new ControllerTestHelper
 
-    helper.triggerPlaylistDataChanged(Some(Index))
-      .triggerPlaylistDataChanged(Some(Index))
-      .verifyTitle()
+    helper.triggerStateChange(StateWithDefinedSong)
+      .triggerStateChange(nextState)
+      .verifyIndex(s"${Index + 1} / ${PlaylistSize + 1}")
 
-  it should "clear all fields if the current song on a data change is None" in:
+
+  it should "update the playback time on a progress event" in :
     val helper = new ControllerTestHelper
 
-    helper.triggerPlaylistChanged()
-      .triggerPlaylistDataChanged(None)
-      .verifyTitle("")
-
-  it should "update the playback time on a progress event" in:
-    val helper = new ControllerTestHelper
-
-    helper.triggerPlaylistChanged()
+    helper.triggerStateChange(StateWithDefinedSong)
       .sendProgress(posOfs = 0, timeOfs = 63)
       .verifyDuration("1:03 / " + DurationFmt)
 
-  it should "handle a progress event gracefully if there is no current song" in:
+  it should "handle a progress event gracefully if there is no current song" in :
     val helper = new ControllerTestHelper
 
     helper.sendProgress(0, 1)
 
-  it should "reset the map with time update functions if there is no current song" in:
-    val helper = new ControllerTestHelper
-
-    helper.triggerPlaylistChanged()
-      .clearTableSelection()
-      .triggerPlaylistChanged()
-      .sendProgress(timeOfs = 0, posOfs = 25)
-      .verifyDuration(s"0:00 / $DurationFmt")
-
-  it should "rotate fields that are too long" in:
+  it should "rotate fields that are too long" in :
     val helper = new ControllerTestHelper(config = createUIConfig(fieldSize = Some(MaxFieldSize)))
 
-    helper.triggerPlaylistChanged()
+    helper.triggerStateChange(StateWithDefinedSong)
       .sendProgress(timeOfs = 1, posOfs = 0)
       .verifyTitle(rotate(Title, 1))
       .verifyAlbum(rotate(Album, 1))
       .verifyArtist(Artist)
 
-  it should "handle larger offsets when rotating" in:
+  it should "handle larger offsets when rotating" in :
     val Offset = 12
     val Time = (Title.length + 3) * 5 + Offset
     val helper = new ControllerTestHelper(config = createUIConfig(fieldSize = Some(MaxFieldSize)))
 
-    helper.triggerPlaylistChanged()
+    helper.triggerStateChange(StateWithDefinedSong)
       .sendProgress(timeOfs = Time, posOfs = 0)
       .verifyTitle(rotate(Title, Offset))
 
-  it should "handle the rotation speed" in:
-    val helper = new ControllerTestHelper(config = createUIConfig(fieldSize = Some(MaxFieldSize),
-      speed = Some(2)))
+  it should "handle the rotation speed" in :
+    val helper = new ControllerTestHelper(config = createUIConfig(fieldSize = Some(MaxFieldSize), speed = Some(2)))
 
-    helper.triggerPlaylistChanged()
+    helper.triggerStateChange(StateWithDefinedSong)
       .sendProgress(timeOfs = 2, posOfs = 0)
       .verifyTitle(rotate(Title, 4))
 
-  it should "update the progress bar correctly" in:
+  it should "update the progress bar correctly" in :
     val helper = new ControllerTestHelper
 
-    helper.triggerPlaylistChanged()
+    helper.triggerStateChange(StateWithDefinedSong)
       .sendProgress(posOfs = 0, timeOfs = 88)
       .verifyProgress(42)
 
-  it should "reset the position when the current song changes" in:
+  it should "reset the position when the current song changes" in :
+    val nextState = StateWithDefinedSong.copy(optCurrentIndex = Some(Index + 1))
     val helper = new ControllerTestHelper
 
-    helper.triggerPlaylistChanged()
-      .verifyProgress(0)
+    helper.triggerStateChange(StateWithDefinedSong)
+      .triggerStateChange(nextState)
+      .verifyProgress(0, expCount = 2)
 
-  it should "handle a song with no duration when calculating progress" in:
+  it should "handle a song with no duration when calculating progress" in :
+    val state = updateCurrentMetaData(_.copy(duration = None))
     val helper = new ControllerTestHelper
 
-    helper.updateCurrentMetaData(_.copy(duration = None))
-      .triggerPlaylistChanged()
+    helper.triggerStateChange(state)
       .sendProgress(posOfs = 100, timeOfs = 1)
       .verifyProgress(0)
       .verifyNoMoreProgressUpdates()
 
-  it should "reset the progress bar if there is no current song" in:
+  it should "reset the progress bar if there is no current song" in :
     val helper = new ControllerTestHelper
 
-    helper.triggerPlaylistChanged()
+    helper.triggerStateChange(StateWithDefinedSong)
       .sendProgress(posOfs = 0, timeOfs = 100)
-      .clearTableSelection()
-      .triggerPlaylistChanged()
+      .triggerStateChange(createUiState(None))
       .verifyProgress(0, expCount = 2)
 
   /**
@@ -333,23 +355,13 @@ class CurrentSongControllerSpec extends AnyFlatSpec, Matchers, MockitoSugar:
     private val controller = createController()
 
     /**
-      * Notifies the test controller about a change in the playlist.
+      * Notifies the test controller about a change in the UI state.
       *
+      * @param state the new UI state
       * @return this test helper
       */
-    def triggerPlaylistChanged(): ControllerTestHelper =
-      controller.playlistStateChanged()
-      this
-
-    /**
-      * Notifies the test controller about a change in the data of the
-      * playlist.
-      *
-      * @param current the index of the current song
-      * @return this test helper
-      */
-    def triggerPlaylistDataChanged(current: Option[Int]): ControllerTestHelper =
-      controller.playlistDataChanged(current)
+    def triggerStateChange(state: AudioPlayerUIState): ControllerTestHelper =
+      controller.handleStateUpdate(state)
       this
 
     /**
@@ -374,16 +386,6 @@ class CurrentSongControllerSpec extends AnyFlatSpec, Matchers, MockitoSugar:
       val oldSong = tableModel.get(Index).asInstanceOf[SongData]
       val updatedFileInfo = oldSong.fileInfo.copy(metadata = fMeta(oldSong.fileInfo.metadata))
       tableModel.set(Index, SongData(updatedFileInfo))
-      this
-
-    /**
-      * Prepares the mock for the table controller to report a cleared
-      * selection.
-      *
-      * @return this test helper
-      */
-    def clearTableSelection(): ControllerTestHelper =
-      when(tableHandler.getSelectedIndex).thenReturn(-1)
       this
 
     /**
