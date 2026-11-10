@@ -1,0 +1,138 @@
+/*
+ * Copyright 2015-2026 The Developers Team.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package de.oliver_heger.linedj.apps.player
+
+import de.oliver_heger.linedj.platform.audio2.AudioPlayerCommands
+import de.oliver_heger.linedj.platform.audio2.playlist.{Playlist, PlaylistService}
+import de.oliver_heger.linedj.platform.comm.MessageBus
+import net.sf.jguiraffe.gui.builder.components.model.TableHandler
+
+/**
+  * A base action task class that needs to interact with a
+  * [[Controller]] instance.
+  *
+  * This class manages a reference to the controller. It already offers some
+  * functionality to handle a default task execution.
+  *
+  * @param controller the [[Controller]]
+  * @param messageBus the system message bus
+  */
+abstract class PlayerActionTask(val controller: Controller,
+                                messageBus: MessageBus) extends Runnable:
+  override def run(): Unit =
+    playerCommand foreach : cmd =>
+      controller.playerActionTriggered()
+      messageBus.publish(cmd)
+
+  /**
+    * Returns the command to be published on the message bus on behalf of this
+    * task. An implementation may decide that no command can be published.
+    *
+    * @return the optional message bus command
+    */
+  protected def playerCommand: Option[AudioPlayerCommands]
+end PlayerActionTask
+
+/**
+  * Task implementation for starting playback.
+  *
+  * @param controller the [[Controller]]
+  * @param messageBus the system message bus
+  */
+class StartPlaybackTask(controller: Controller,
+                        messageBus: MessageBus) extends PlayerActionTask(controller, messageBus):
+  override protected val playerCommand: Option[AudioPlayerCommands] = Some(AudioPlayerCommands.StartAudioPlayback)
+
+/**
+  * Task implementation for stopping playback.
+  *
+  * @param controller the [[Controller]]
+  * @param messageBus the system message bus
+  */
+class StopPlaybackTask(controller: Controller,
+                       messageBus: MessageBus) extends PlayerActionTask(controller, messageBus):
+  override protected val playerCommand: Option[AudioPlayerCommands] = Some(AudioPlayerCommands.StopAudioPlayback)
+
+/**
+  * Task implementation for moving to the next song in the playlist.
+  *
+  * @param controller the [[Controller]]
+  * @param messageBus the system message bus
+  */
+class NextSongTask(controller: Controller,
+                   messageBus: MessageBus) extends PlayerActionTask(controller, messageBus):
+  override protected val playerCommand: Option[AudioPlayerCommands] = Some(AudioPlayerCommands.SkipCurrentSource)
+
+/**
+  * Task implementation for moving backwards in the current playlist.
+  *
+  * The exact behavior of this task depends on the playback progress and the
+  * configured threshold for moving backwards: If the playback time in the
+  * current song is below the threshold, and the current song is not the first
+  * one in the playlist, the current position is moved to the previous song.
+  * Otherwise, playback of the current song starts again.
+  *
+  * @param controller      the [[Controller]]
+  * @param messageBus      the system message bus
+  * @param config          the configuration of the audio player
+  * @param playlistService the playlist service
+  */
+class PreviousSongTask(controller: Controller,
+                       messageBus: MessageBus,
+                       config: AudioPlayerConfig,
+                       playlistService: PlaylistService[Playlist, String])
+  extends PlayerActionTask(controller, messageBus):
+  override protected def playerCommand: Option[AudioPlayerCommands] =
+    nextPlaylist(controller.lastPlayerState.playlist) map : pl =>
+      AudioPlayerCommands.SetPlaylist(pl, closePlaylist = controller.lastPlayerState.playlistClosed)
+
+  /**
+    * Determines the updated playlist based on the playback progress in the
+    * current song.
+    *
+    * @param currentPlaylist the current playlist
+    * @return an option for the updated playlist
+    */
+  private def nextPlaylist(currentPlaylist: Playlist): Option[Playlist] =
+    if controller.lastProgressEvent.playbackTime < config.skipBackwardsThreshold then
+      playlistService.currentIndex(currentPlaylist) flatMap : index =>
+        if index > 0 then playlistService.setCurrentSong(currentPlaylist, index - 1)
+        else Some(currentPlaylist)
+    else Some(currentPlaylist)
+
+/**
+  * Task implementation for setting a specific song as current song in the
+  * playlist.
+  *
+  * This task obtains the current selection from the playlist table control.
+  * The selected song - if defined - becomes the new current song.
+  *
+  * @param controller      the [[Controller]]
+  * @param messageBus      the system message bus
+  * @param tableHandler    the handler for the playlist table
+  * @param playlistService the playlist service
+  */
+class GotoSongTask(controller: Controller,
+                   messageBus: MessageBus,
+                   tableHandler: TableHandler,
+                   playlistService: PlaylistService[Playlist, String])
+  extends PlayerActionTask(controller, messageBus):
+  override protected def playerCommand: Option[AudioPlayerCommands] =
+    val index = tableHandler.getSelectedIndex
+    val state = controller.lastPlayerState
+    playlistService.setCurrentSong(state.playlist, index) map : pl =>
+      AudioPlayerCommands.SetPlaylist(pl, closePlaylist = state.playlistClosed)
