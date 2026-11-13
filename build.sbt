@@ -1405,7 +1405,7 @@ lazy val browserOsgiImage = (project in file("images/browser"))
     dependencyOverrides ++= asmOverrides
   ).dependsOn(appWindowHiding, log4jApiFragment, log4jConfFragment, mediaIfcDisabled, platform, reorderAlbum,
   reorderArtist, reorderMedium, reorderRandomAlbums, reorderRandomArtists, reorderRandomSongs, trayWindowList,
-    mp3PlaybackContextFactory, persistentPlaylistHandler, archiveLogin, archiveBrowser, playlistEditorNew)
+    mp3PlaybackContextFactory, archiveLogin, archiveBrowser, playlistEditorNew)
 
 /**
   * Project for the (local) audio player application.
@@ -1423,9 +1423,10 @@ lazy val playerOsgiImage = (project in file("images/player"))
     libraryDependencies ++= remotingDependencies,
     libraryDependencies ++= osgiLogDependencies,
     dependencyOverrides ++= asmOverrides
-  ).dependsOn(mediaBrowser, playlistEditor, audioPlayerUI, reorderAlbum, reorderArtist, reorderMedium,
-  reorderRandomAlbums, reorderRandomArtists, reorderRandomSongs, mediaIfcRemote, appWindowHiding,
-  trayWindowList, persistentPlaylistHandler, mp3PlaybackContextFactory, log4jApiFragment, log4jConfFragment)
+  ).dependsOn(appWindowHiding, log4jApiFragment, log4jConfFragment, mediaIfcDisabled, platform, reorderAlbum,
+    reorderArtist, reorderMedium, reorderRandomAlbums, reorderRandomArtists, reorderRandomSongs, trayWindowList,
+    mp3PlaybackContextFactory, persistentPlaylistHandler, archiveLogin, archiveBrowser, playlistEditorNew,
+    audioPlayer)
 
 /**
   * Project for the advanced audio player application.
