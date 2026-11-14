@@ -49,9 +49,9 @@ To avoid this, the platform registers a dummy dependency as OSGi service that re
 OSGi will then ensure that this component is not activated before the corresponding listeners are registered at the message bus.
 
 == Configuration
-The metadata resolver service defines some configuration properties that support a certain customization of its behavior. The properties are defined in the central platform configuration file managed by the xref:../platformStartup/README.adoc[Platform Startup] module, in a section named `platform.infoResolver`. The following fragment shows an XML configuration with the supported properties:
+Some services provided by the audio platform support a certain customization of their behavior. The corresponding properties are defined in the central platform configuration file managed by the xref:../platformStartup/README.adoc[Platform Startup] module. The following fragment shows an XML configuration with the supported properties:
 
-.Configuration example for the metadata resolver service
+.Configuration example for audio platform
 [source,xml]
 ----
 <platform>
@@ -60,28 +60,45 @@ The metadata resolver service defines some configuration properties that support
     <cacheSize>2500</cacheSize>
     <queryParallelism>8</queryParallelism>
   </infoResolver>
+  <playbackBuffer>
+    <bufferFolder>${sys:user.home}/.lineDJ</bufferFolder>
+    <bufferFileSize>4194394</bufferFileSize>
+    <bufferFullSources>true</bufferFullSources>
+  </playbackBuffer>
 </platform>
 ----
 
 Table <<tab_resolver_config>> describes the properties and their default values.
 
 [#tab_resolver_config]
-.Configuration properties supported by the metadata resolver service
+.Configuration properties supported by the audio platform
 [cols="1,3,1",options="header"]
 |====
 | Setting
 | Description
 | Default value
 
-| cacheQueryTimeout
+| infoResolver / cacheQueryTimeout
 | A timeout (a value with a unit) for a request to the archive server when requesting the metadata of a media file. If no response is received within this time, the request is considered a failure.
 | 30 sec
 
-| cacheSize
+| infoResolver / cacheSize
 | The resolver service maintains an LRU cache for metadata that has already been requested. This property defines the size of this cache.
 | 1000
 
-| queryParallelism
+| infoResolver / queryParallelism
 | The resolver service sends multiple requests to the archive server in parallel when querying metadata for media files. This property allows limiting the number of concurrent requests. This prevents overloading the server with a flood of requests.
 | no limit
+
+| playbackBuffer / bufferFolder
+| When media files are played from an HTTP-based media archive, they typically cannot be streamed and played directly, since this would cause timeouts in the HTTP calls. Therefore, the audio player engine supports a buffering mode. In this mode, the files are downloaded first to buffer files on the local hard disc and played from there. The _bufferFolder_ property defines the directory in which to store these buffer files. If this property is present, the buffering mode is active; otherwise, it is disabled.
+| none
+
+|playbackBuffer / bufferFileSize
+| Defines the size of buffer files (in bytes).
+| 4MB
+
+| playbackBuffer / bufferFullSources
+| A boolean flag that controls whether files should be fully downloaded to the buffer directory for playback. If set to *false*, the engine downloads only portions of the media files that are sufficient to fill the buffer. This can again cause timeouts in HTTP calls; therefore, the value *true* is recommended.
+| true
 |====
