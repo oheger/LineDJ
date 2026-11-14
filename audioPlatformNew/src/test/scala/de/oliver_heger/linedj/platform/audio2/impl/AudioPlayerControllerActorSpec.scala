@@ -16,14 +16,15 @@
 
 package de.oliver_heger.linedj.platform.audio2.impl
 
+import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.archiveclient.ArchiveService
-import de.oliver_heger.linedj.platform.audio2.impl.AudioPlayerActor.AudioPlayerCommand
+import de.oliver_heger.linedj.platform.audio2.impl.AudioPlayerActor.{AudioPlayerCommand, PlaylistEntry}
 import de.oliver_heger.linedj.platform.audio2.playlist.{Playlist, PlaylistService}
 import de.oliver_heger.linedj.platform.audio2.{AudioPlayerCommands, AudioPlayerState, PlaybackProgress}
 import de.oliver_heger.linedj.platform.startup.ConfigService
 import de.oliver_heger.linedj.player.engine.AsyncAudioStreamFactory
-import de.oliver_heger.linedj.player.engine.stream.{LineWriterStage, PausePlaybackStage}
+import de.oliver_heger.linedj.player.engine.stream.{AudioStreamPlayerStage, LineWriterStage, PausePlaybackStage}
 import org.apache.commons.configuration2.BaseHierarchicalConfiguration
 import org.apache.pekko.actor.testkit.typed.scaladsl.{ScalaTestWithActorTestKit, TestProbe}
 import org.apache.pekko.actor.typed.ActorRef
@@ -34,6 +35,7 @@ import org.mockito.Mockito
 import org.mockito.Mockito.*
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
+import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
@@ -83,7 +85,8 @@ end AudioPlayerControllerActorSpec
 /**
   * Test class for [[AudioPlayerControllerActor]].
   */
-class AudioPlayerControllerActorSpec extends ScalaTestWithActorTestKit, AnyFlatSpecLike, Matchers, MockitoSugar:
+class AudioPlayerControllerActorSpec extends ScalaTestWithActorTestKit, AnyFlatSpecLike, Matchers, MockitoSugar,
+  FileTestHelper, OptionValues:
 
   import AudioPlayerControllerActorSpec.*
 
@@ -657,10 +660,58 @@ class AudioPlayerControllerActorSpec extends ScalaTestWithActorTestKit, AnyFlatS
       progress.playbackTime should be(chunk2.duration)
 
   /**
+    * Sets a property for the buffer configuration. Makes sure that the correct
+    * prefix is added to the property.
+    *
+    * @param config the configuration to populate
+    * @param key    the key (without the section prefix)
+    * @param value  the value
+    */
+  private def setBufferProperty(config: BaseHierarchicalConfiguration, key: String, value: AnyRef): Unit =
+    config.setProperty(s"${AudioPlayerControllerActor.BufferConfigSection}.$key", value)
+
+  it should "create a correct buffer function when the configuration contains the corresponding options" in :
+    val playlist = createPlaylist(pending = 1, played = 0)
+    val BufferFolder = "my/buffer/path"
+    val BufferFileSize = 32000
+    val platformConfig = new BaseHierarchicalConfiguration
+    setBufferProperty(platformConfig, AudioPlayerControllerActor.PropBufferFolder, BufferFolder)
+    setBufferProperty(platformConfig, AudioPlayerControllerActor.PropBufferFileSize, BufferFileSize.toString)
+    setBufferProperty(platformConfig, AudioPlayerControllerActor.PropBufferFullSources, "false")
+    val helper = new ControllerTestHelper(platformConfig)
+
+    helper.sendCommand(AudioPlayerCommands.SetPlaylist(playlist))
+      .expectAudioPlayerCreation()
+
+    val config = helper.fetchAudioPlayerConfig()
+    val streamConfig = mock[AudioStreamPlayerStage.AudioStreamPlayerConfig[PlaylistEntry, Any]]
+    val bufferConfig = config.optBufferFunc.value.apply(streamConfig)
+    bufferConfig.streamPlayerConfig should be(streamConfig)
+    bufferConfig.bufferFolder.toString should be(BufferFolder)
+    bufferConfig.bufferFileSize should be(BufferFileSize)
+    bufferConfig.bufferFullSources shouldBe false
+
+  it should "use default values in the buffer config for missing properties" in :
+    val platformConfig = new BaseHierarchicalConfiguration
+    setBufferProperty(platformConfig, AudioPlayerControllerActor.PropBufferFolder, "some/path")
+    val helper = new ControllerTestHelper(platformConfig)
+
+    helper.sendCommand(AudioPlayerCommands.SetPlaylist(createPlaylist(pending = 4, played = 0)))
+      .expectAudioPlayerCreation()
+
+    val config = helper.fetchAudioPlayerConfig()
+    val bufferConfig = config.optBufferFunc.value.apply(mock)
+    bufferConfig.bufferFileSize should be(AudioPlayerControllerActor.DefaultBufferFileSize)
+    bufferConfig.bufferFullSources shouldBe true
+
+  /**
     * A test helper class that manages a controller instance to be tested and
     * its dependencies.
+    *
+    * @param platformConfig an optional platform configuration
     */
-  private class ControllerTestHelper:
+  private class ControllerTestHelper(platformConfig: BaseHierarchicalConfiguration =
+                                     new BaseHierarchicalConfiguration):
     /** The message bus used by the test controller. */
     private val messageBus: MessageBusTestImpl = new MessageBusTestImpl
 
@@ -678,9 +729,6 @@ class AudioPlayerControllerActorSpec extends ScalaTestWithActorTestKit, AnyFlatS
 
     /** The audio stream factory passed to the controller. */
     private val audioStreamFactory = mock[AsyncAudioStreamFactory]
-
-    /** The simulated platform configuration. */
-    private val platformConfig = new BaseHierarchicalConfiguration
 
     /** Stores the state published by the controller when it starts up. */
     private var initialPlayerState: AudioPlayerState = uninitialized

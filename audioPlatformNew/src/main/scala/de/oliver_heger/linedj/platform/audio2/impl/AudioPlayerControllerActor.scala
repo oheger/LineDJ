@@ -22,12 +22,13 @@ import de.oliver_heger.linedj.platform.audio2.{AudioPlayerCommands, AudioPlayerS
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.startup.ConfigService
 import de.oliver_heger.linedj.player.engine.AsyncAudioStreamFactory
-import de.oliver_heger.linedj.player.engine.stream.{LineWriterStage, PausePlaybackStage}
+import de.oliver_heger.linedj.player.engine.stream.{BufferedPlaylistSource, LineWriterStage, PausePlaybackStage}
 import org.apache.pekko.actor as classics
-import org.apache.pekko.actor.typed.scaladsl.Behaviors
+import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors}
 import org.apache.pekko.actor.typed.{ActorRef, Behavior}
 import org.apache.pekko.stream.KillSwitch
 
+import java.nio.file.Paths
 import scala.concurrent.Promise
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 
@@ -40,6 +41,39 @@ import scala.concurrent.duration.{DurationInt, FiniteDuration}
   * Having this logic in an actor ensures thread-safety in a natural way.
   */
 object AudioPlayerControllerActor:
+  /**
+    * Constant for the section in the platform configuration that defines the
+    * settings for a buffered source to be used for audio playback.
+    */
+  final val BufferConfigSection = "platform.playbackBuffer"
+
+  /**
+    * The configuration property that defines the folder in which buffer files
+    * are to be created if a buffered source is used for audio playback. The
+    * presence or absence of this property determines whether buffering is
+    * active.
+    */
+  final val PropBufferFolder = "bufferFolder"
+
+  /**
+    * The configuration property that defines the maximum size of a buffer
+    * file. This is evaluated if buffered playback is enabled. The property is
+    * optional; a default file size is used if it is missing.
+    */
+  final val PropBufferFileSize = "bufferFileSize"
+
+  /**
+    * The configuration property that determines whether sources to be played
+    * should be fully downloaded and cached in the buffer folder. This is the
+    * default behavior. If the property is **false**, the buffer files are
+    * dynamically created during playback with the next portion from the source
+    * that is required to continue playback.
+    */
+  final val PropBufferFullSources = "bufferFullSources"
+
+  /** The default size of a buffer file (in bytes). */
+  final val DefaultBufferFileSize = 4 * 1024 * 1024
+
   /** The name of the managed audio player actor instance. */
   private val AudioPlayerActorName = "audioPlayerActor"
 
@@ -169,7 +203,8 @@ object AudioPlayerControllerActor:
         playlistCallback = event => context.self ! event,
         progressCallback = chunk => context.self ! chunk,
         audioStreamFactory = audioStreamFactory,
-        initPlaybackState = PausePlaybackStage.PlaybackState.PlaybackPaused
+        initPlaybackState = PausePlaybackStage.PlaybackState.PlaybackPaused,
+        optBufferFunc = createBufferFunc(context, configService)
       )
 
       /**
@@ -480,4 +515,40 @@ object AudioPlayerControllerActor:
       messageBus.publish(AudioPlayerState.Initial)
       handleControllerCommand(InitialControllerState)
     behavior.narrow[AudioPlayerControllerCommand]
+
+  /**
+    * Returns an [[Option]] with a function to create a buffer configuration
+    * when setting up the playlist stream. This function checks whether the
+    * platform configuration contains options that enable buffering. If so, a
+    * corresponding buffer function is returned.
+    *
+    * @param context       the actor context
+    * @param configService the service providing the platform config
+    * @return an [[Option]] with the buffer function
+    */
+  private def createBufferFunc(context: ActorContext[?],
+                               configService: ConfigService): Option[AudioPlayerActor.BufferFunc] =
+    if configService.config.containsKey(s"$BufferConfigSection.$PropBufferFolder") then
+      val bufferConfig = configService.config.immutableConfigurationAt(BufferConfigSection)
+      val bufferFolder = Paths.get(bufferConfig.getString(PropBufferFolder))
+      val bufferFileSize = bufferConfig.getInt(PropBufferFileSize, DefaultBufferFileSize)
+      val bufferFullSources = bufferConfig.getBoolean(PropBufferFullSources, true)
+      context.log.info(
+        "Buffered playback is enabled in path {}, file size {}, full sources: {}.",
+        bufferFolder,
+        bufferFileSize,
+        bufferFullSources
+      )
+
+      val bufferFunc: AudioPlayerActor.BufferFunc = streamConfig =>
+        BufferedPlaylistSource.BufferedPlaylistSourceConfig(
+          streamPlayerConfig = streamConfig,
+          bufferFolder = bufferFolder,
+          bufferFileSize = bufferFileSize,
+          bufferFullSources = bufferFullSources
+        )
+      Some(bufferFunc)
+    else
+      context.log.info("Buffered playback is disabled.")
+      None
 end AudioPlayerControllerActor
