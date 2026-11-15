@@ -77,6 +77,9 @@ object AudioPlayerControllerActor:
   /** The name of the managed audio player actor instance. */
   private val AudioPlayerActorName = "audioPlayerActor"
 
+  /** The name of the buffered source. */
+  private val BufferSourceName = AudioPlayerActorName + "Buffer"
+
   /**
     * A command that tells the audio player controller actor to stop itself.
     * This command is sent to the actor when the audio platform shuts down.
@@ -545,10 +548,24 @@ object AudioPlayerControllerActor:
           streamPlayerConfig = streamConfig,
           bufferFolder = bufferFolder,
           bufferFileSize = bufferFileSize,
-          bufferFullSources = bufferFullSources
+          bufferFullSources = bufferFullSources,
+          sourceName = bufferedSourceName()
         )
       Some(bufferFunc)
     else
       context.log.info("Buffered playback is disabled.")
       None
+
+  /**
+    * Generates a name for a buffered source. There is a race condition when
+    * creating another audio player actor (for instance, because the playlist
+    * changed or the user moved to a different song): The termination of the
+    * old actor is asynchronous, while the new one is already created. This can
+    * cause an error because of a non-unique actor name. To prevent this, a
+    * unique name for the buffered source is generated based on the current
+    * time.
+    *
+    * @return the name for the buffered source
+    */
+  private def bufferedSourceName(): String = s"${BufferSourceName}_${System.currentTimeMillis()}"
 end AudioPlayerControllerActor

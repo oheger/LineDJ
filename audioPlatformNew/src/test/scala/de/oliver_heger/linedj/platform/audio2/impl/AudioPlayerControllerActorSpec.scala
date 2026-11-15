@@ -690,6 +690,9 @@ class AudioPlayerControllerActorSpec extends ScalaTestWithActorTestKit, AnyFlatS
     bufferConfig.bufferFolder.toString should be(BufferFolder)
     bufferConfig.bufferFileSize should be(BufferFileSize)
     bufferConfig.bufferFullSources shouldBe false
+    val timestamp = bufferConfig.sourceName.substring(bufferConfig.sourceName.lastIndexOf('_') + 1).toLong
+    val deltaT = math.abs(System.currentTimeMillis() - timestamp)
+    deltaT should be <= 3000L
 
   it should "use default values in the buffer config for missing properties" in :
     val platformConfig = new BaseHierarchicalConfiguration
