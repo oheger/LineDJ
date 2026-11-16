@@ -17,6 +17,12 @@
 ## Scala 3 Conventions
 
 - **Indent-based syntax** (`-indent` flag). No braces for blocks; use indentation.
+  - Use Scala 3 quiet syntax for control structures, lambdas, and pattern
+    matches: `xs.foreach: x => ...`, `future.onComplete: result => ...`,
+    `match` / `try` / `if` with indented bodies.
+  - Do **not** write `{ ... }` block braces in new code.
+  - Import selectors (e.g. `import a.b.{C, D}`) and string-interpolation
+    braces (e.g. `s"${x.y}"`) are not block syntax and may still use braces.
 - **`-new-syntax`**: Use `if ... then ... else` (not `if (...) ... else ...`).
 - **`given`/`using`** instead of `implicit`. No `implicit` keyword in new code.
 - **`enum`** and **`extension`** methods are idiomatic here.
