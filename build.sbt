@@ -240,6 +240,7 @@ lazy val LineDJ = (project in file("."))
   playerEngine,
   playerEngineConfig,
   playerServer,
+  playerServerModel,
   playlistEditor,
   playlistEditorNew,
   protocolOneDrive,
@@ -1315,6 +1316,20 @@ lazy val serverDiscovery = (project in file("serverDiscovery"))
   ).dependsOn(shared % "compile->compile;test->test", serverCommon % "test->compile;test->test")
 
 /**
+  * The player server model project. It exposes data model classes representing
+  * the model of the player server API. It can be consumed by clients of the
+  * player server.
+  */
+lazy val playerServerModel = (project in file("playerServerModel"))
+  .enablePlugins(SbtOsgi)
+  .settings(defaultSettings)
+  .settings(OSGi.osgiSettings)
+  .settings(
+    name := "linedj-player-server-model",
+    OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.player.server.model"),
+  ).dependsOn(shared)
+
+/**
   * Project for the player server. This project exposes player functionality
   * via an HTTP server.
   */
@@ -1334,7 +1349,8 @@ lazy val playerServer = (project in file("playerServer"))
       "--verbose",
       "-march=compatibility"
     )
-  ).dependsOn(serverCommon, radioPlayerEngine, playerEngineConfig, radioPlayerEngineConfig, mp3PlaybackContextFactory)
+  ).dependsOn(serverCommon, radioPlayerEngine, playerEngineConfig, radioPlayerEngineConfig, mp3PlaybackContextFactory,
+      playerServerModel)
 
 /**
   * Project for a fragment bundle to make log4j-provider.properties available
