@@ -248,6 +248,7 @@ lazy val LineDJ = (project in file("."))
   radioPlayer,
   radioPlayerEngine,
   radioPlayerEngineConfig,
+  radioPlatform,
   reorderAlbum,
   reorderArtist,
   reorderMedium,
@@ -959,6 +960,31 @@ lazy val radioPlayerEngineConfig = (project in file("radioPlayerEngineConfig"))
     OsgiKeys.exportPackage := Seq(
       "de.oliver_heger.linedj.player.engine.radio.client.config.*")
   ).dependsOn(radioPlayerEngine, playerEngineConfig)
+
+/**
+  * Project for the radio platform. This project provides basic services for
+  * playing internet radio. It wraps the radio player engine and exposes it via
+  * commands that can be sent over the system message bus. It is going to
+  * replace the legacy radio player project.
+  */
+lazy val radioPlatform = (project in file("radioPlatform"))
+  .enablePlugins(SbtOsgi)
+  .settings(defaultSettings)
+  .settings(OSGi.osgiSettings)
+  .settings(
+    name := "linedj-radio-platform",
+    libraryDependencies ++= osgiDependencies,
+    OsgiKeys.exportPackage := Seq(
+      "!de.oliver_heger.linedj.platform.radio.impl.*",
+      "de.oliver_heger.linedj.platform.radio.*"
+    ),
+    OsgiKeys.privatePackage := Seq(
+      "de.oliver_heger.linedj.platform.radio.impl.*"
+    ),
+    OsgiKeys.additionalHeaders :=
+      Map("Service-Component" -> "OSGI-INF/*.xml")
+  ).dependsOn(shared % "compile->compile;test->test", platform % "compile->compile;test->test", radioPlayerEngine,
+    radioPlayerEngineConfig, playerServerModel)
 
 /**
   * Project for the mp3 playback context factory. This is a separate OSGi
