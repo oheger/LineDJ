@@ -47,6 +47,9 @@ object PlayerService:
 
   /** The path to stop playback. */
   final val PlaybackStopPath = s"$PlaybackPath/stop"
+
+  /** The path of the WebSocket endpoint that publishes radio events. */
+  final val EventsPath = s"$ApiPrefix/events"
 end PlayerService
 
 /**
