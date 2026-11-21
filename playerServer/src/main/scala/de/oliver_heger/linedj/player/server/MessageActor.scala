@@ -27,7 +27,7 @@ import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors}
 import org.apache.pekko.actor.typed.{ActorRef, ActorSystem, Behavior}
 import org.apache.pekko.http.scaladsl.model.ws.{Message, TextMessage}
 import org.apache.pekko.stream.OverflowStrategy
-import org.apache.pekko.stream.scaladsl.{Flow, Keep, Sink, Source}
+import org.apache.pekko.stream.scaladsl.{Flow, Keep, Sink, Source, SourceQueueWithComplete}
 import org.apache.pekko.util.Timeout
 import spray.json.*
 
@@ -122,8 +122,9 @@ object MessageActor extends RadioModel.RadioJsonSupport:
       val eventListener = context.messageAdapter[RadioEvent] { event =>
         HandleEvent(event)
       }
-      val (flow, eventSource) = createFlow(context)
-      stateMessages(playbackState, sourceMap).foreach(message => eventSource ! message)
+      val (flow, messageQueue) = createFlow(context)
+
+      stateMessages(playbackState, sourceMap).foreach(messageQueue.offer)
 
       def handle(): Behavior[MessageActorCommand] = Behaviors.receiveMessage {
         case GetMessageFlow(replyTo) =>
@@ -134,7 +135,7 @@ object MessageActor extends RadioModel.RadioJsonSupport:
           val optMessage = eventToMessage(event, sourceMap)
           optMessage foreach { message =>
             context.log.debug("Sending radio message '{}' for radio event '{}'.", message, event)
-            eventSource ! message
+            messageQueue.offer(message)
           }
           Behaviors.same
       }
@@ -209,24 +210,22 @@ object MessageActor extends RadioModel.RadioJsonSupport:
     List(selectedMessage, replacementMessage, titleMessage, stoppedMessage).flatten
 
   /**
-    * Creates the ''Flow'' for sending WebSocket messages. The function
-    * returns a tuple with the actual flow and the actor reference that is
-    * used for sending events to the flow.
+    * Creates the [[Flow]] for sending WebSocket messages. The function
+    * returns a tuple with the actual flow and the queue that is used for
+    * sending messages to the flow.
     *
     * @param context the actor context
-    * @return the flow and the actor for sending events
+    * @return the flow and the queue for sending messages
     */
-  private def createFlow(context: ActorContext[MessageActorCommand]): (Flow[Message, Message, Any], classic.ActorRef) =
+  private def createFlow(context: ActorContext[MessageActorCommand]): (Flow[Message, Message, Any], SourceQueueWithComplete[RadioModel.RadioMessage]) =
     implicit val classicActorSystem: classic.ActorSystem = context.system.classicSystem
     val sink = Sink.ignore
-    val actorRefSource = Source.actorRef[RadioModel.RadioMessage](completionMatcher = PartialFunction.empty,
-      failureMatcher = PartialFunction.empty,
-      bufferSize = 16,
+    val messageSource = Source.queue[RadioModel.RadioMessage](bufferSize = 16,
       overflowStrategy = OverflowStrategy.dropTail)
-    val (actorRef, publisher) = actorRefSource.map(toWebSocketMessage)
+    val (queue, publisher) = messageSource.map(toWebSocketMessage)
       .toMat(Sink.asPublisher(fanout = false))(Keep.both).run()
     val flow = Flow.fromSinkAndSource(sink, Source.fromPublisher(publisher))
-    (flow, actorRef)
+    (flow, queue)
 
   /**
     * Converts the given radio message to a WebSocket message. The radio
