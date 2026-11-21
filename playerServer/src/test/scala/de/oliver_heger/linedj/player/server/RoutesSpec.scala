@@ -378,6 +378,16 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers with S
       factory = ServerConfigTestHelper.actorFactory(system, Some(testKit)))
     val radioPlayer = mock[RadioPlayer]
     when(radioPlayer.config).thenReturn(serverConfig.radioPlayerConfig)
+    when(radioPlayer.currentPlaybackState).thenReturn(
+      Future.successful(
+        RadioControlActor.CurrentPlaybackState(
+          currentSource = Some(radioSource1.toRadioSource),
+          selectedSource = Some(radioSource1.toRadioSource),
+          playbackActive = true,
+          titleInfo = None
+        )
+      )
+    )
     when(radioPlayer.addEventListener(any())).thenAnswer((invocation: InvocationOnMock) =>
       val listener = invocation.getArgument(0, classOf[ActorRef[RadioEvent]])
       eventActor ! EventManagerActor.RegisterListener(listener))
@@ -393,6 +403,9 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers with S
 
     WS("/api/radio/events", wsClient.flow) ~> testRoute(serverConfig, radioPlayer) ~> check:
       isWebSocketUpgrade shouldBe true
+
+      // Initial message to represent the current radio state.
+      nextMessage should be(RadioModel.RadioMessage(RadioModel.MessageTypeSourceChanged, radioSource1ID))
 
       sendEvent(RadioSourceChangedEvent(radioSource1.toRadioSource))
       nextMessage should be(RadioModel.RadioMessage(RadioModel.MessageTypeSourceChanged, radioSource1ID))

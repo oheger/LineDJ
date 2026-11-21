@@ -177,7 +177,9 @@ object Routes extends RadioModel.RadioJsonSupport:
           )
         },
         path("events") {
-          val futFlow = MessageActor.newMessageFlow(radioPlayer, sourceToID)
+          val futFlow = radioPlayer.currentPlaybackState.flatMap { state =>
+            MessageActor.newMessageFlow(radioPlayer, sourceToID, state)
+          }
           onSuccess(futFlow) { flow =>
             handleWebSocketMessages(flow)
           }

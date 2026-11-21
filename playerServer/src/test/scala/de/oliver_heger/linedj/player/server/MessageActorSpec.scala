@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.player.server
 
 import de.oliver_heger.linedj.player.engine.actors.EventManagerActor
+import de.oliver_heger.linedj.player.engine.radio.control.RadioControlActor
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import de.oliver_heger.linedj.player.engine.radio.*
 import de.oliver_heger.linedj.player.server.model.RadioModel
@@ -55,6 +56,26 @@ object MessageActorSpec:
 
   /** The ID mapping for test sources. */
   private val TestSourceMapping = Map(TestSource1 -> TestSourceID1, TestSource2 -> TestSourceID2)
+
+  /**
+    * Creates a playback state for tests.
+    *
+    * @param selectedSource the selected source
+    * @param currentSource  the currently played source
+    * @param playbackActive flag whether playback is active
+    * @param title          the current title if available
+    * @return the playback state
+    */
+  private def createPlaybackState(selectedSource: Option[RadioSource] = None,
+                                  currentSource: Option[RadioSource] = None,
+                                  playbackActive: Boolean = false,
+                                  title: Option[String] = None): RadioControlActor.CurrentPlaybackState =
+    RadioControlActor.CurrentPlaybackState(
+      currentSource,
+      selectedSource,
+      playbackActive,
+      title.map(t => CurrentMetadata(s"StreamTitle='$t';"))
+    )
 end MessageActorSpec
 
 /**
@@ -144,6 +165,56 @@ class MessageActorSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers 
       .expectMessage(message)
   }
 
+  it should "send a state snapshot for active playback" in {
+    val state = createPlaybackState(selectedSource = Some(TestSource1), currentSource = Some(TestSource1),
+      playbackActive = true)
+    val helper = new MessageActorTestHelper(state)
+
+    helper.expectMessages(
+      RadioModel.RadioMessage(RadioModel.MessageTypeSourceChanged, TestSourceID1)
+    ).expectNoMessage()
+  }
+
+  it should "send a state snapshot with a replacement source and title info" in {
+    val title = "Artist - Title"
+    val state = createPlaybackState(selectedSource = Some(TestSource1), currentSource = Some(TestSource2),
+      playbackActive = true, title = Some(title))
+    val helper = new MessageActorTestHelper(state)
+
+    helper.expectMessages(
+      RadioModel.RadioMessage(RadioModel.MessageTypeSourceChanged, TestSourceID1),
+      RadioModel.RadioMessage(RadioModel.MessageTypeReplacementStart, TestSourceID2),
+      RadioModel.RadioMessage(RadioModel.MessageTypeTitleInfo, title)
+    ).expectNoMessage()
+  }
+
+  it should "send a playback stopped message for inactive playback" in {
+    val state = createPlaybackState(selectedSource = Some(TestSource1), currentSource = Some(TestSource1))
+    val helper = new MessageActorTestHelper(state)
+
+    helper.expectMessages(
+      RadioModel.RadioMessage(RadioModel.MessageTypeSourceChanged, TestSourceID1),
+      RadioModel.RadioMessage(RadioModel.MessageTypePlaybackStopped, TestSourceID1)
+    ).expectNoMessage()
+  }
+
+  it should "send a playback stopped message for an inactive replacement source" in {
+    val state = createPlaybackState(selectedSource = Some(TestSource1), currentSource = Some(TestSource2))
+    val helper = new MessageActorTestHelper(state)
+
+    helper.expectMessages(
+      RadioModel.RadioMessage(RadioModel.MessageTypeSourceChanged, TestSourceID1),
+      RadioModel.RadioMessage(RadioModel.MessageTypeReplacementStart, TestSourceID2),
+      RadioModel.RadioMessage(RadioModel.MessageTypePlaybackStopped, TestSourceID2)
+    ).expectNoMessage()
+  }
+
+  it should "not send a state snapshot for an empty state" in {
+    val helper = new MessageActorTestHelper()
+
+    helper.expectNoMessage()
+  }
+
   it should "ignore other events" in {
     val helper = new MessageActorTestHelper
 
@@ -156,7 +227,9 @@ class MessageActorSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers 
   /**
     * A test helper class managing the dependencies of a test instance.
     */
-  private class MessageActorTestHelper extends RadioModel.RadioJsonSupport:
+  private class MessageActorTestHelper(
+                                        playbackState: RadioControlActor.CurrentPlaybackState = createPlaybackState()
+                                      ) extends RadioModel.RadioJsonSupport:
     /** The actor for sending radio events. */
     private val eventActor = testKit.spawn(EventManagerActor[RadioEvent]())
 
@@ -197,6 +270,17 @@ class MessageActorSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers 
       */
     def expectMessage(expMessage: RadioModel.RadioMessage): MessageActorTestHelper =
       nextMessage should be(expMessage)
+      this
+
+    /**
+      * Obtains the next messages from the message actor and compares them with
+      * the given expected messages.
+      *
+      * @param expMessages the expected messages in the expected order
+      * @return this test helper
+      */
+    def expectMessages(expMessages: RadioModel.RadioMessage*): MessageActorTestHelper =
+      expMessages.foreach(expectMessage)
       this
 
     /**
@@ -242,7 +326,7 @@ class MessageActorSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers 
       val player = createRadioPlayerMock()
       val source = Source.empty[Message]
       val sink = Sink.foreach[Message](messageQueue.offer)
-      MessageActor.newMessageFlow(player, TestSourceMapping) foreach { flow =>
+      MessageActor.newMessageFlow(player, TestSourceMapping, playbackState) foreach { flow =>
         source.via(flow).to(sink).run()
       }
       verify(player, timeout(3000)).addEventListener(any())

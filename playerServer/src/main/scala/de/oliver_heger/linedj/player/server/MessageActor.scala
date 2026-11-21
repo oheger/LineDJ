@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.player.server
 
+import de.oliver_heger.linedj.player.engine.radio.control.RadioControlActor
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import de.oliver_heger.linedj.player.engine.radio.*
 import de.oliver_heger.linedj.player.server.model.RadioModel
@@ -36,11 +37,11 @@ import scala.concurrent.{ExecutionContext, Future}
 
 /**
   * An actor implementation that receives events from the player and forwards
-  * them via web sockets to clients of the player server.
+  * them via WebSockets to clients of the player server.
   *
   * A subset of radio events is supported. They are transformed into
   * [[RadioModel.RadioMessage]] objects and propagated via the flow that is
-  * needed for the implementation of web sockets.
+  * needed for the implementation of WebSockets.
   */
 object MessageActor extends RadioModel.RadioJsonSupport:
   /**
@@ -69,7 +70,7 @@ object MessageActor extends RadioModel.RadioJsonSupport:
     * message flow.
     *
     * @param eventListener the event listener reference
-    * @param flow          the flow to generate web socket messages
+    * @param flow          the flow to generate WebSocket messages
     */
   private case class MessageFlowData(eventListener: ActorRef[RadioEvent],
                                      flow: Flow[Message, Message, Any])
@@ -79,22 +80,24 @@ object MessageActor extends RadioModel.RadioJsonSupport:
 
   /**
     * Creates a new actor instance that is registered as event listener at the
-    * given radio player. This actor manages a [[Flow]] of web socket messages.
+    * given radio player. This actor manages a [[Flow]] of WebSocket messages.
     * It transforms incoming events and passes them to the message flow.
     *
-    * @param player    the radio player
-    * @param sourceMap a map from radio sources to their IDs
-    * @param system    the actor system
-    * @return a ''Future'' with the flow for web socket messages
+    * @param player        the radio player
+    * @param sourceMap     a map from radio sources to their IDs
+    * @param playbackState the current state of the radio player
+    * @param system        the actor system
+    * @return a ''Future'' with the flow for WebSocket messages
     */
   def newMessageFlow(player: RadioPlayer,
-                     sourceMap: Map[RadioSource, String])
+                     sourceMap: Map[RadioSource, String],
+                     playbackState: RadioControlActor.CurrentPlaybackState)
                     (implicit system: classic.ActorSystem): Future[Flow[Message, Message, Any]] =
     implicit val typedSystem: ActorSystem[_] = system.toTyped
     implicit val ec: ExecutionContext = typedSystem.executionContext
     implicit val timeout: Timeout = Timeout(5.seconds)
     val messageActor = player.config.playerConfig.actorFactory.createTypedActor(
-      messageBehavior(sourceMap),
+      messageBehavior(sourceMap, playbackState),
       s"messageActor${instanceCounter.incrementAndGet()}"
     )
     val futFlowData: Future[MessageFlowData] = messageActor.ask(ref => GetMessageFlow(ref))
@@ -105,12 +108,14 @@ object MessageActor extends RadioModel.RadioJsonSupport:
 
   /**
     * Creates the behavior for a new actor instance that can propagate events
-    * as messages to a web socket message flow.
+    * as messages to a WebSocket message flow.
     *
-    * @param sourceMap a map from radio sources to their IDs
+    * @param sourceMap     a map from radio sources to their IDs
+    * @param playbackState the current state of the radio player
     * @return the behavior for the new actor instance
     */
-  private def messageBehavior(sourceMap: Map[RadioSource, String]): Behavior[MessageActorCommand] =
+  private def messageBehavior(sourceMap: Map[RadioSource, String],
+                              playbackState: RadioControlActor.CurrentPlaybackState): Behavior[MessageActorCommand] =
     Behaviors.setup { context =>
       context.log.info("Created new instance of MessageActor.")
 
@@ -118,6 +123,7 @@ object MessageActor extends RadioModel.RadioJsonSupport:
         HandleEvent(event)
       }
       val (flow, eventSource) = createFlow(context)
+      stateMessages(playbackState, sourceMap).foreach(message => eventSource ! message)
 
       def handle(): Behavior[MessageActorCommand] = Behaviors.receiveMessage {
         case GetMessageFlow(replyTo) =>
@@ -137,6 +143,20 @@ object MessageActor extends RadioModel.RadioJsonSupport:
     }
 
   /**
+    * Tries to generate a message whose payload is the ID of the given radio
+    * source. Returns _None_ if the ID cannot be resolved.
+    *
+    * @param source      the radio source
+    * @param messageType the type of the message to generate
+    * @param sourceMap   a map from radio sources to their IDs
+    * @return an [[Option]] with the generated message
+    */
+  private def idMessage(source: RadioSource,
+                        messageType: String,
+                        sourceMap: Map[RadioSource, String]): Option[RadioModel.RadioMessage] =
+    sourceMap.get(source).map(id => RadioModel.RadioMessage(messageType, id))
+
+  /**
     * Converts the given radio event to a radio message if possible. Supported
     * event types are mapped to messages; for other events, result is ''None''.
     *
@@ -146,22 +166,17 @@ object MessageActor extends RadioModel.RadioJsonSupport:
     */
   private def eventToMessage(event: RadioEvent,
                              sourceMap: Map[RadioSource, String]): Option[RadioModel.RadioMessage] =
-    // Tries to generate a message whose payload is the ID of a radio source.
-    // Returns None if the ID cannot be resolved.
-    def idMessage(source: RadioSource, messageType: String): Option[RadioModel.RadioMessage] =
-      sourceMap.get(source).map(id => RadioModel.RadioMessage(messageType, id))
-
     event match
       case RadioSourceChangedEvent(source, _) =>
-        idMessage(source, RadioModel.MessageTypeSourceChanged)
+        idMessage(source, RadioModel.MessageTypeSourceChanged, sourceMap)
       case RadioSourceSelectedEvent(source, _) =>
-        idMessage(source, RadioModel.MessageTypeSourceSelected)
+        idMessage(source, RadioModel.MessageTypeSourceSelected, sourceMap)
       case RadioSourceReplacementStartEvent(_, replacementSource, _) =>
-        idMessage(replacementSource, RadioModel.MessageTypeReplacementStart)
+        idMessage(replacementSource, RadioModel.MessageTypeReplacementStart, sourceMap)
       case RadioSourceReplacementEndEvent(source, _) =>
-        idMessage(source, RadioModel.MessageTypeReplacementEnd)
+        idMessage(source, RadioModel.MessageTypeReplacementEnd, sourceMap)
       case RadioPlaybackStoppedEvent(source, _) =>
-        idMessage(source, RadioModel.MessageTypePlaybackStopped)
+        idMessage(source, RadioModel.MessageTypePlaybackStopped, sourceMap)
       case RadioMetadataEvent(_, metadata, _) =>
         val title = metadata match
           case MetadataNotSupported => ""
@@ -170,7 +185,31 @@ object MessageActor extends RadioModel.RadioJsonSupport:
       case _ => None
 
   /**
-    * Creates the ''Flow'' for sending web socket messages. The function
+    * Generates the messages that describe the current state of the radio
+    * player. They are sent to a new client before any events are forwarded,
+    * so that the client can initialize its state representation.
+    *
+    * @param state     the current state of the radio player
+    * @param sourceMap a map from radio sources to their IDs
+    * @return the messages describing the current player state
+    */
+  private def stateMessages(state: RadioControlActor.CurrentPlaybackState,
+                            sourceMap: Map[RadioSource, String]): List[RadioModel.RadioMessage] =
+    val selectedMessage = state.selectedSource.flatMap(idMessage(_, RadioModel.MessageTypeSourceChanged, sourceMap))
+    val replacementMessage =
+      if state.currentSource == state.selectedSource then None
+      else state.currentSource.flatMap(idMessage(_, RadioModel.MessageTypeReplacementStart, sourceMap))
+    val titleMessage = state.titleInfo.map(info =>
+      RadioModel.RadioMessage(RadioModel.MessageTypeTitleInfo, info.title))
+    val stoppedMessage =
+      if state.playbackActive then None
+      else state.currentSource.orElse(state.selectedSource)
+        .flatMap(idMessage(_, RadioModel.MessageTypePlaybackStopped, sourceMap))
+
+    List(selectedMessage, replacementMessage, titleMessage, stoppedMessage).flatten
+
+  /**
+    * Creates the ''Flow'' for sending WebSocket messages. The function
     * returns a tuple with the actual flow and the actor reference that is
     * used for sending events to the flow.
     *
@@ -190,11 +229,11 @@ object MessageActor extends RadioModel.RadioJsonSupport:
     (flow, actorRef)
 
   /**
-    * Converts the given radio message to a web socket message. The radio
+    * Converts the given radio message to a WebSocket message. The radio
     * message is converted to JSON and transformed to a text message.
     *
     * @param message the radio message to be converted
-    * @return the web socket message
+    * @return the WebSocket message
     */
   private def toWebSocketMessage(message: RadioModel.RadioMessage): Message =
     val messageJson = message.toJson.compactPrint
