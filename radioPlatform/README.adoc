@@ -1,0 +1,96 @@
+= LineDJ Radio Platform
+
+This project provides specific functionality related to playing Internet radio on top of the basic link:../platform/README.adoc[LineDJ Platform] project.
+
+== Functionality
+This module is conceptually similar to the link:../audioPlatformNew/README.adoc[Audio Platform] module, but instead of providing a central audio player for media files, it exposes an engine for Internet radio playback. Actually, the module does not implement radio player functionality itself, but connects to a link:../playerServer/README.adoc[Player Server] instance. It transforms commands to change the radio playback to REST API calls to the player server. The URL of the server is obtained dynamically using the service discovery mechanism.
+
+The _Radio Platform_ module offers the following functionality:
+
+* An integration of the radio player engine (from the link:../radioPlayerEngine/[Radio player engine] module). There is a central radio player component which can be controlled by sending commands on the system message bus.
+* Event notifications for changes in the playback state of the central radio player. They can be evaluated for instance by applications implementing a UI for the radio player.
+
+In the following sections, this functionality is described in more details.
+
+=== Command-based interface of the radio player
+The managed radio player engine registers a special listener on the system message bus that reacts on specific radio player commands. This is analogous to the programming model of the _Audio Platform_ module. The available commands are rather limited, which fits to the philosophy of the radio player engine: The radio player is told the radio source to play, then it works transparently in background. The set of radio player commands is defined by the link:src/main/scala/de/oliver_heger/linedj/platform/radio/RadioPlayerCommands.scala[RadioPlayerCommands] enumeration class.
+
+=== Radio playback state notifications
+The radio player engine can decide based on its configuration to temporary switch to another radio source, for instance when it spots an exclusion. It communicates this change via events to registered listeners. The _Radio Platform_ module receives such events and aggregates a link:src/main/scala/de/oliver_heger/linedj/platform/radio/RadioPlayerState.scala[RadioPlayerState] object out of the received notifications. This object represents the current playback state of the radio engine and contains information like the currently played radio source, whether playback is active or paused, the radio sources available, etc. When a property of this object changes, an updated instance is published on the system message bus. Applications can consume such messages and updates their internal state or their UI accordingly.
+
+== Service dependencies
+Clients of the _Radio Platform_ module need a way to figure out when the component is fully initialized and can process commands for the radio player. Like this is done by _Audio Platform_, the module registers a `ServiceDependency` when it is ready. Thus, clients can use standard OSGi functionality to defer their activation until the functionality they depend on is available.
+
+The following listing shows a fragment from a declarative services component definition file that declares a dependency to the radio platform:
+
+[source,xml]
+----
+<component xmlns="http://www.eclipse.org/ns/bloc">
+  <reference
+  interface="de.oliver_heger.linedj.platform.comm.ServiceDependencies$ServiceDependency"
+    name="playerController"
+    target="(serviceName=lineDJ.radioPlayerController)"/>
+</component>
+----
+
+== Configuration
+The _Radio Platform_ module obtains its configuration from a section named _platform.radio_ of the central platform configuration file managed by the xref:../platformStartup/README.adoc[Platform Startup] module. The following fragment shows an XML configuration with the supported properties:
+
+.Configuration example for radio platform
+[source,xml]
+----
+<platform>
+  <radio>
+    <requestTimeout>20sec</requestTimeout>
+    <discovery>
+      <multicastAddress>231.1.2.3</multicastAddress>
+      <port>9090</port>
+      <requestCode>playerServer?</requestCode>
+      <timeout>10sec</timeout>
+      <minBackoff>500ms</minBackoff>
+      <maxBackoff>5min</maxBackoff>
+    </discovery>
+  </radio>
+</platform>
+----
+
+Table <<tab_radio_platform_config>> describes the properties and their default values.
+
+[#tab_radio_platform_config]
+.Configuration properties supported by the Radio Platform
+[cols="1,3,1",options="header"]
+|====
+| Setting
+| Description
+| Default value
+
+| requestTimeout
+| A timeout (a value with a unit) for a request to the player server.
+| 30 sec
+
+| discovery / multicastAddress
+| Defines the multicast address for the discovery operation to find the player server in the network.
+| - (mandatory)
+
+| discovery / port
+| The port to be used for the discovery operation.
+| - (mandatory)
+
+| discovery / requestCode
+| The code to be sent to the player server during the discovery operation.
+| - (mandatory)
+
+| discovery / timeout
+| The timeout (a number with a unit) for a single discovery request. If no response is received from the server within this time span, the discovery request is repeated after a configurable delay (using an exponential backoff).
+| 10 sec
+
+| discovery / minBackoff
+| The minimum delay (a number with a unit) before a discovery request is retried.
+| 5 sec
+
+| discovery / maxBackoff
+| The maximum delay (a number with a unit) before retrying a discovery request. The delay is increased after each failed request, but not beyond this value.
+| 2 min
+|====
+
+The properties marked as _mandatory_ must be present. Otherwise, the _Radio Platform_ does not register any services at startup and remains inactive.
